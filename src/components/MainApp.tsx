@@ -71,7 +71,7 @@ const MainApp = () => {
     }
   };
 
-  // Показываем загрузку
+  // Показываем загрузку только когда действительно идет процесс авторизации
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center">
@@ -83,7 +83,7 @@ const MainApp = () => {
     );
   }
 
-  // Показываем экран авторизации
+  // Показываем экран авторизации только если пользователь не авторизован
   if (!isAuthenticated || !user) {
     return <AuthScreen onAuthSuccess={() => {}} />;
   }

@@ -69,12 +69,7 @@ export const useAuth = () => {
           handleUserSignOut();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('Token refreshed for user:', session.user.id);
-        } else if (event === 'INITIAL_SESSION') {
-          if (session?.user) {
-            await handleUserSignIn(session.user);
-          } else {
-            setIsLoading(false);
-          }
+          // Не нужно пересоздавать пользователя при обновлении токена
         }
       }
     );
