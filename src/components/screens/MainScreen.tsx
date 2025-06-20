@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,23 +59,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
     }
   });
 
-  const handleBannerAction = (action: string) => {
-    switch (action) {
-      case 'shop':
-        onScreenChange('skins');
-        break;
-      case 'cases':
-        onScreenChange('skins');
-        break;
-      case 'tasks':
-        onScreenChange('tasks');
-        break;
-      case 'quiz':
-        onScreenChange('quiz');
-        break;
-      default:
-        onScreenChange('skins');
-    }
+  const handleBannerAction = (action: Screen) => {
+    onScreenChange(action);
   };
 
   const handleTaskClick = async (task: any) => {
