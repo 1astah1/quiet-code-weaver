@@ -6,6 +6,7 @@ import { generateUUID, isValidUUID } from "@/utils/uuid";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
+import ShopPagination from "./ShopPagination";
 import PurchaseSuccessModal from "./PurchaseSuccessModal";
 
 interface ShopTabProps {
@@ -27,11 +28,14 @@ interface Skin {
   image_url: string | null;
 }
 
+const ITEMS_PER_PAGE = 20;
+
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
   const [selectedWeapon, setSelectedWeapon] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 999999 });
   const [sortBy, setSortBy] = useState<string>("price-asc");
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [purchaseSuccessModal, setPurchaseSuccessModal] = useState<{
     isOpen: boolean;
     item: Skin | null;
@@ -143,7 +147,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       onCoinsUpdate(data.newCoins);
       queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
       
-      // Показываем модал успешной покупки
       setPurchaseSuccessModal({
         isOpen: true,
         item: data.purchasedSkin
@@ -186,6 +189,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     }
   }) || [];
 
+  // Пагинация
+  const totalPages = Math.ceil(filteredAndSortedSkins.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentSkins = filteredAndSortedSkins.slice(startIndex, endIndex);
+
   const handlePurchase = (skin: Skin) => {
     console.log('Handle purchase clicked for:', skin.name);
     if (purchaseMutation.isPending) {
@@ -197,16 +206,35 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   const handlePriceRangeChange = (min: number, max: number) => {
     setPriceRange({ min, max });
+    setCurrentPage(1); // Сбрасываем на первую страницу при изменении фильтров
   };
 
   const handleSortChange = (sort: string) => {
     setSortBy(sort);
+    setCurrentPage(1); // Сбрасываем на первую страницу при изменении сортировки
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Прокручиваем страницу вверх при смене страницы
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleViewInventory = () => {
     if (onTabChange) {
       onTabChange('inventory');
     }
+  };
+
+  // Сбрасываем страницу при изменении фильтров
+  const handleRarityChange = (rarity: string) => {
+    setSelectedRarity(rarity);
+    setCurrentPage(1);
+  };
+
+  const handleWeaponChange = (weapon: string) => {
+    setSelectedWeapon(weapon);
+    setCurrentPage(1);
   };
 
   if (isLoading) {
@@ -229,14 +257,26 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         selectedWeapon={selectedWeapon}
         rarities={rarities}
         weaponTypes={weaponTypes}
-        onRarityChange={setSelectedRarity}
-        onWeaponChange={setSelectedWeapon}
+        onRarityChange={handleRarityChange}
+        onWeaponChange={handleWeaponChange}
         onPriceRangeChange={handlePriceRangeChange}
         onSortChange={handleSortChange}
       />
 
+      {/* Информация о результатах */}
+      <div className="flex justify-between items-center text-sm text-slate-400">
+        <span>
+          Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
+        </span>
+        {totalPages > 1 && (
+          <span>
+            Страница {currentPage} из {totalPages}
+          </span>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredAndSortedSkins.map((skin) => (
+        {currentSkins.map((skin) => (
           <ShopSkinCard
             key={skin.id}
             skin={skin}
@@ -248,6 +288,13 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       </div>
 
       {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
+
+      {/* Пагинация */}
+      <ShopPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+      />
 
       {/* Purchase Success Modal */}
       <PurchaseSuccessModal
