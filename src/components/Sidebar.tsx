@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { X, Settings, LogOut, Crown, Shield, Coins } from "lucide-react";
+import { Screen } from "@/components/MainApp";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface SidebarProps {
     isAdmin: boolean;
     avatar_url?: string;
   };
-  onScreenChange: (screen: string) => void;
+  onScreenChange: (screen: Screen) => void;
   onSignOut: () => void;
 }
 
