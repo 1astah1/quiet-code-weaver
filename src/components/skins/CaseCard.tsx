@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Coins, Eye, Package } from "lucide-react";
+import { Package, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
@@ -46,16 +46,23 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setShowPreview(true);
   };
 
+  // Используем cover_image_url если есть, иначе image_url
+  const imageUrl = caseItem.cover_image_url || caseItem.image_url;
+
   return (
     <>
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-600/50 overflow-hidden hover:border-orange-500/50 transition-all duration-300 group">
         {/* Case Image */}
         <div className="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-800 overflow-hidden">
-          {caseItem.image_url ? (
+          {imageUrl ? (
             <img
-              src={caseItem.image_url}
+              src={imageUrl}
               alt={caseItem.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                console.error('Error loading case image:', imageUrl);
+                e.currentTarget.style.display = 'none';
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

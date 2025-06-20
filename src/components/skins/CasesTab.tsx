@@ -111,19 +111,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retry: 2
   });
 
-  const updateLastFreeCase = async () => {
-    if (!currentUser?.id) return;
-    
-    try {
-      await supabase
-        .from('users')
-        .update({ last_free_case_notification: new Date().toISOString() })
-        .eq('id', currentUser.id);
-    } catch (error) {
-      console.error('Error updating last free case:', error);
-    }
-  };
-
   const handleCaseOpen = (caseData: any) => {
     if (!caseData || !currentUser) {
       console.error('Invalid case data or user for opening');
@@ -131,15 +118,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     }
     console.log('Opening case:', caseData.name);
     setOpeningCase(caseData);
-  };
-
-  const handleCasePreview = (caseData: any) => {
-    if (!caseData) {
-      console.error('Invalid case data for preview');
-      return;
-    }
-    console.log('Selecting case for preview:', caseData.name);
-    setSelectedCaseForPreview(caseData);
   };
 
   if (error) {

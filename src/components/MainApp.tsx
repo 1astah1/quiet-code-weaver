@@ -204,11 +204,66 @@ const MainApp = () => {
         />
         
         <div className="flex-1 overflow-hidden">
-          <main className="h-full w-full overflow-y-auto px-4 pb-4 sm:px-6 md:px-8 lg:px-10">
+          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10">
             <div className="max-w-7xl mx-auto">
               {renderScreen()}
             </div>
           </main>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-40">
+          <div className="grid grid-cols-5 max-w-md mx-auto">
+            <button
+              onClick={() => setCurrentScreen('main')}
+              className={`flex flex-col items-center py-2 px-1 text-xs ${
+                currentScreen === 'main' ? 'text-orange-500' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-lg mb-1">🏠</span>
+              <span>Главная</span>
+            </button>
+            
+            <button
+              onClick={() => setCurrentScreen('skins')}
+              className={`flex flex-col items-center py-2 px-1 text-xs ${
+                currentScreen === 'skins' ? 'text-orange-500' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-lg mb-1">🎁</span>
+              <span>Кейсы</span>
+            </button>
+            
+            <button
+              onClick={() => setCurrentScreen('quiz')}
+              className={`flex flex-col items-center py-2 px-1 text-xs ${
+                currentScreen === 'quiz' ? 'text-orange-500' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-lg mb-1">🧠</span>
+              <span>Викторина</span>
+            </button>
+            
+            <button
+              onClick={() => setCurrentScreen('tasks')}
+              className={`flex flex-col items-center py-2 px-1 text-xs ${
+                currentScreen === 'tasks' ? 'text-orange-500' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-lg mb-1">📋</span>
+              <span>Задания</span>
+            </button>
+            
+            <button
+              onClick={() => setCurrentScreen('inventory')}
+              className={`flex flex-col items-center py-2 px-1 text-xs ${
+                currentScreen === 'inventory' ? 'text-orange-500' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-lg mb-1">🎯</span>
+              <span>Инвентарь</span>
+            </button>
+          </div>
         </div>
 
         <Sidebar
