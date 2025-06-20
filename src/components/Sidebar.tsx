@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { X, Settings, LogOut, Crown, Shield, Coins, Home, Package, Package2, Trophy, Brain, CheckSquare, Users } from "lucide-react";
+import { X, Settings, LogOut, Crown, Shield, Coins } from "lucide-react";
 import { Screen } from "@/components/MainApp";
 
 interface SidebarProps {
@@ -15,25 +15,16 @@ interface SidebarProps {
   };
   onScreenChange: (screen: Screen) => void;
   onSignOut: () => void;
-  currentScreen: Screen;
-  onShowSettings: () => void;
-  onShowReferral: () => void;
 }
 
-const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut, currentScreen, onShowSettings, onShowReferral }: SidebarProps) => {
+const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: SidebarProps) => {
+  const [showSettings, setShowSettings] = useState(false);
+
   const handleSettingsClick = () => {
-    onShowSettings();
+    setShowSettings(true);
+    onScreenChange('settings');
     onClose();
   };
-
-  const menuItems = [
-    { id: 'main' as Screen, label: 'Главная', icon: Home },
-    { id: 'skins' as Screen, label: 'Скины', icon: Package },
-    { id: 'inventory' as Screen, label: 'Инвентарь', icon: Package2 },
-    { id: 'rankings' as Screen, label: 'Рейтинги', icon: Trophy },
-    { id: 'quiz' as Screen, label: 'Викторина', icon: Brain },
-    { id: 'tasks' as Screen, label: 'Задания', icon: CheckSquare },
-  ];
 
   return (
     <>
@@ -97,22 +88,6 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut, curr
 
           {/* Menu Items */}
           <div className="space-y-2">
-            {menuItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => onScreenChange(item.id)}
-                className={`w-full flex items-center space-x-3 p-4 rounded-xl transition-all ${
-                  currentScreen === item.id 
-                    ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
-                    : 'hover:bg-gray-800/50 text-gray-300 hover:text-white'
-                }`}
-              >
-                {item.icon && <item.icon className="w-5 h-5" />}
-                <span className="font-medium">{item.label}</span>
-              </button>
-            ))}
-            
-            {/* Settings Button */}
             <button
               onClick={handleSettingsClick}
               className="w-full flex items-center space-x-3 p-4 rounded-xl hover:bg-gray-800/50 text-gray-300 hover:text-white transition-all"
@@ -120,6 +95,19 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut, curr
               <Settings className="w-5 h-5" />
               <span className="font-medium">Настройки</span>
             </button>
+
+            {currentUser.isAdmin && (
+              <button
+                onClick={() => {
+                  onScreenChange('admin');
+                  onClose();
+                }}
+                className="w-full flex items-center space-x-3 p-4 rounded-xl hover:bg-gray-800/50 text-gray-300 hover:text-white transition-all"
+              >
+                <Shield className="w-5 h-5" />
+                <span className="font-medium">Админ панель</span>
+              </button>
+            )}
           </div>
 
           {/* Sign Out */}
