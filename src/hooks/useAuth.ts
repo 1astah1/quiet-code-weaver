@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { generateUUID } from "@/utils/uuid";
 import type { User } from "@supabase/supabase-js";
 
 interface AuthUser {
@@ -22,45 +22,71 @@ export const useAuth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Проверяем текущую сессию
-    checkSession();
+    let mounted = true;
 
-    // Слушаем изменения авторизации
+    const initializeAuth = async () => {
+      try {
+        console.log('Initializing auth...');
+        
+        // Получаем текущую сессию
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          if (mounted) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user && mounted) {
+          console.log('Found existing session for user:', session.user.id);
+          await handleUserSignIn(session.user);
+        } else {
+          console.log('No existing session found');
+          if (mounted) {
+            setIsLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Настраиваем слушатель изменений авторизации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
         
+        if (!mounted) return;
+
         if (event === 'SIGNED_IN' && session?.user) {
           await handleUserSignIn(session.user);
         } else if (event === 'SIGNED_OUT') {
           handleUserSignOut();
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('Token refreshed for user:', session.user.id);
+        } else if (event === 'INITIAL_SESSION') {
+          if (session?.user) {
+            await handleUserSignIn(session.user);
+          } else {
+            setIsLoading(false);
+          }
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Инициализируем авторизацию
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
-
-  const checkSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session check error:', error);
-        setIsLoading(false);
-        return;
-      }
-
-      if (session?.user) {
-        await handleUserSignIn(session.user);
-      } else {
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      setIsLoading(false);
-    }
-  };
 
   const handleUserSignIn = async (authUser: User) => {
     try {
@@ -71,11 +97,16 @@ export const useAuth = () => {
         .from('users')
         .select('*')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching user:', fetchError);
+        throw fetchError;
+      }
 
       let userData: AuthUser;
 
-      if (fetchError && fetchError.code === 'PGRST116') {
+      if (!existingUser) {
         // Пользователь не существует, создаем нового
         console.log('Creating new user in database');
         
@@ -86,7 +117,7 @@ export const useAuth = () => {
                    authUser.email?.split('@')[0] || 
                    'User',
           email: authUser.email || '',
-          coins: 1000, // Стартовые монеты для новых пользователей
+          coins: 1000,
           is_admin: false,
           referral_code: null
         };
@@ -117,11 +148,8 @@ export const useAuth = () => {
           title: "Добро пожаловать!",
           description: `Вы получили 1000 стартовых монет!`,
         });
-      } else if (fetchError) {
-        console.error('Error fetching user:', fetchError);
-        throw fetchError;
       } else {
-        // Пользователь существует, используем данные из базы
+        // Пользователь существует
         userData = {
           id: existingUser.id,
           username: existingUser.username,
@@ -159,6 +187,7 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Sign out error:', error);
@@ -170,6 +199,8 @@ export const useAuth = () => {
       }
     } catch (error) {
       console.error('Sign out error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
