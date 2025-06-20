@@ -13,6 +13,8 @@ interface AuthUser {
   isAdmin: boolean;
   referralCode: string | null;
   avatar_url?: string;
+  quiz_lives: number;
+  quiz_streak: number;
 }
 
 export const useAuth = () => {
@@ -140,6 +142,8 @@ export const useAuth = () => {
           coins: 1000,
           is_admin: false,
           referral_code: null,
+          quiz_lives: 3,
+          quiz_streak: 0,
           created_at: new Date().toISOString()
         };
 
@@ -162,7 +166,9 @@ export const useAuth = () => {
           isPremium: createdUser.premium_until ? new Date(createdUser.premium_until) > new Date() : false,
           isAdmin: createdUser.is_admin || false,
           referralCode: createdUser.referral_code,
-          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+          quiz_lives: createdUser.quiz_lives || 3,
+          quiz_streak: createdUser.quiz_streak || 0
         };
 
         toast({
@@ -179,7 +185,9 @@ export const useAuth = () => {
           isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
           isAdmin: existingUser.is_admin || false,
           referralCode: existingUser.referral_code,
-          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+          quiz_lives: existingUser.quiz_lives || 3,
+          quiz_streak: existingUser.quiz_streak || 0
         };
       }
 

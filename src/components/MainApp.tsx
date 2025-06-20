@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
@@ -86,6 +85,40 @@ const MainApp = () => {
     }
   };
 
+  // Обновляем жизни пользователя
+  const handleLivesUpdate = async (newLives: number) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ quiz_lives: newLives })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      // Обновляем локальное состояние пользователя (если нужно)
+    } catch (error) {
+      console.error('❌ Error updating lives:', error);
+    }
+  };
+
+  // Обновляем серию викторины
+  const handleStreakUpdate = async (newStreak: number) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ quiz_streak: newStreak })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      // Обновляем локальное состояние пользователя (если нужно)
+    } catch (error) {
+      console.error('❌ Error updating streak:', error);
+    }
+  };
+
   const renderScreen = () => {
     if (!user) return null;
 
@@ -97,7 +130,15 @@ const MainApp = () => {
       case "tasks":
         return <TasksScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "quiz":
-        return <QuizScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
+        return (
+          <QuizScreen 
+            currentUser={user} 
+            onBack={() => setCurrentScreen("main")}
+            onCoinsUpdate={handleCoinsUpdate}
+            onLivesUpdate={handleLivesUpdate}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        );
       case "settings":
         return <SettingsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "admin":

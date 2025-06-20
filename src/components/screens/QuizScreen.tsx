@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,7 +168,7 @@ const QuizScreen = ({
         })
         .eq('id', currentUser.id);
 
-      if (userError) throw error;
+      if (userError) throw userError;
 
       return { newLives, newStreak, coinsReward, newCorrectAnswers };
     },
