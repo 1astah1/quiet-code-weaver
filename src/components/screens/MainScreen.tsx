@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Star, TrendingUp, Users, Play, Gift, ArrowRight } from "lucide-react";
+import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-react";
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
 import BannerCarousel from "@/components/BannerCarousel";
@@ -64,7 +64,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
     switch (action) {
       case 'shop':
         onScreenChange('skins');
-        // Можно добавить дополнительную логику для переключения на вкладку магазина
         break;
       case 'cases':
         onScreenChange('skins');
@@ -116,10 +115,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
 
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
-      {/* Banner Carousel - removing navigation arrows */}
+      {/* Banner Carousel - now with swipe only */}
       <BannerCarousel onBannerAction={handleBannerAction} />
 
-      {/* Goals Section - Fixed favorites display */}
+      {/* Goals Section */}
       <div className="mb-6">
         <h3 className="text-xl font-bold text-white mb-3">Твои цели</h3>
         <div className="bg-gray-800/50 rounded-lg p-4 border border-orange-500/30">
@@ -150,7 +149,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                       </div>
                     )}
                     <p className="text-white text-xs font-medium truncate">{skin.name}</p>
-                    <p className="text-orange-400 text-xs font-bold">{skin.price} монет</p>
+                    <div className="flex items-center justify-center space-x-1 text-orange-400 text-xs font-bold">
+                      <Coins className="w-3 h-3" />
+                      <span>{skin.price}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -189,7 +191,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
               🧠
             </div>
             <h4 className="text-white font-semibold text-sm mb-1">Викторина</h4>
-            <p className="text-blue-200 text-xs">+9 монет</p>
+            <div className="flex items-center justify-center space-x-1 text-blue-200 text-xs">
+              <span>+9</span>
+              <Coins className="w-3 h-3" />
+            </div>
           </div>
 
           {/* Watch Ad */}
@@ -201,7 +206,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
               <Play className="w-6 h-6 text-white" />
             </div>
             <h4 className="text-white font-semibold text-sm mb-1">Реклама</h4>
-            <p className="text-green-200 text-xs">+3 монеты</p>
+            <div className="flex items-center justify-center space-x-1 text-green-200 text-xs">
+              <span>+3</span>
+              <Coins className="w-3 h-3" />
+            </div>
           </div>
 
           {/* Invite Friends */}
@@ -213,7 +221,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
               <Users className="w-6 h-6 text-white" />
             </div>
             <h4 className="text-white font-semibold text-sm mb-1">Пригласи</h4>
-            <p className="text-purple-200 text-xs">+50 монет</p>
+            <div className="flex items-center justify-center space-x-1 text-purple-200 text-xs">
+              <span>+50</span>
+              <Coins className="w-3 h-3" />
+            </div>
           </div>
         </div>
       </div>
@@ -243,7 +254,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                   <p className="text-gray-400 text-sm">{task.description}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-orange-400 font-bold">+{task.reward_coins}</p>
+                  <div className="flex items-center space-x-1 text-orange-400 font-bold">
+                    <span>+{task.reward_coins}</span>
+                    <Coins className="w-4 h-4" />
+                  </div>
                   <p className="text-gray-400 text-xs">монет</p>
                 </div>
               </div>
@@ -265,7 +279,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                 <Play className="w-8 h-8 text-white" />
               </div>
               <p className="text-gray-300 mb-2">Посмотрите рекламу и получите</p>
-              <p className="text-yellow-400 font-bold text-xl">+3 монеты</p>
+              <div className="flex items-center justify-center space-x-2 text-yellow-400 font-bold text-xl">
+                <span>+3</span>
+                <Coins className="w-6 h-6" />
+              </div>
             </div>
             <div className="flex space-x-3">
               <button

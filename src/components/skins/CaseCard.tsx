@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Heart, Eye, Play, Gift } from "lucide-react";
+import { Heart, Eye, Play, Gift, Coins } from "lucide-react";
 import { Case } from "@/hooks/useCases";
 
 interface CaseCardProps {
@@ -68,10 +68,18 @@ const CaseCard = ({
       {/* Case Visual */}
       <div className="relative px-6 pb-6">
         <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl h-48 flex items-center justify-center overflow-hidden">
-          {/* Animated background */}
-          <div className="absolute inset-0 opacity-20">
-            <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-orange-500/20 to-transparent transform -skew-x-12 transition-transform duration-1000 ${isHovered ? 'translate-x-full' : '-translate-x-full'}`} />
-          </div>
+          {/* Cover Image or Animated background */}
+          {caseItem.cover_image_url ? (
+            <img 
+              src={caseItem.cover_image_url} 
+              alt={caseItem.name}
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
+            />
+          ) : (
+            <div className="absolute inset-0 opacity-20">
+              <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-orange-500/20 to-transparent transform -skew-x-12 transition-transform duration-1000 ${isHovered ? 'translate-x-full' : '-translate-x-full'}`} />
+            </div>
+          )}
           
           {/* Case Icon */}
           <div className="relative z-10 text-center">
@@ -103,7 +111,7 @@ const CaseCard = ({
               </>
             ) : (
               <>
-                <span className="text-2xl">💰</span>
+                <Coins className="w-5 h-5" />
                 {caseItem.price}
               </>
             )}
