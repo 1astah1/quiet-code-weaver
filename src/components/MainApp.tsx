@@ -121,6 +121,18 @@ const MainApp = () => {
     }
   };
 
+  const handleLivesUpdate = (newLives: number) => {
+    if (currentUser && typeof newLives === 'number' && newLives >= 0) {
+      setCurrentUser({ ...currentUser, quiz_lives: newLives });
+    }
+  };
+
+  const handleStreakUpdate = (newStreak: number) => {
+    if (currentUser && typeof newStreak === 'number' && newStreak >= 0) {
+      setCurrentUser({ ...currentUser, quiz_streak: newStreak });
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -137,7 +149,15 @@ const MainApp = () => {
       case 'inventory':
         return <InventoryScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'quiz':
-        return <QuizScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return (
+          <QuizScreen 
+            currentUser={currentUser} 
+            onBack={() => setCurrentScreen('main')}
+            onCoinsUpdate={handleCoinsUpdate}
+            onLivesUpdate={handleLivesUpdate}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        );
       case 'tasks':
         return <TasksScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'rankings':
