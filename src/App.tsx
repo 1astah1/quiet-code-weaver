@@ -7,7 +7,14 @@ import { Toaster } from "@/components/ui/toaster";
 import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -15,7 +22,7 @@ const App = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 3000);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -24,7 +31,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
-          <div className="min-h-screen bg-black overflow-hidden">
+          <div className="min-h-screen bg-slate-900 overflow-hidden">
             {isLoading ? <LoadingScreen /> : <MainApp />}
             <Toaster />
           </div>

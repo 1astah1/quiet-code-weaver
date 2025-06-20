@@ -34,33 +34,42 @@ const MainApp = () => {
 
   const [isAuth, setIsAuth] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { toast } = useToast();
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication...');
         const { data: { session } } = await supabase.auth.getSession();
 
         setIsAuth(!!session);
 
         if (session?.user) {
+          console.log('User found, loading data...');
           await loadUserData(session.user.id);
+        } else {
+          console.log('No user session found');
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        setIsLoading(false);
       }
     };
 
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       setIsAuth(!!session);
 
       if (session?.user) {
         await loadUserData(session.user.id);
       } else {
         setCurrentUser(null);
+        setIsLoading(false);
       }
     });
 
@@ -71,10 +80,12 @@ const MainApp = () => {
     try {
       if (!userId) {
         console.error("Invalid user ID");
+        setIsLoading(false);
         return;
       }
 
-      // Query only existing columns based on the schema
+      console.log('Loading user data for:', userId);
+
       const { data: user, error } = await supabase
         .from('users')
         .select('id, username, coins, quiz_lives, quiz_streak, is_admin, referral_code, premium_until')
@@ -88,10 +99,12 @@ const MainApp = () => {
           title: "Ошибка",
           description: "Не удалось загрузить данные пользователя.",
         });
+        setIsLoading(false);
         return;
       }
 
       if (user) {
+        console.log('User data loaded:', user);
         const isPremium = user.premium_until ? new Date(user.premium_until) > new Date() : false;
         
         setCurrentUser({
@@ -105,6 +118,7 @@ const MainApp = () => {
           referralCode: user.referral_code,
         });
       }
+      setIsLoading(false);
     } catch (error) {
       console.error("Error loading user data:", error);
       toast({
@@ -112,6 +126,7 @@ const MainApp = () => {
         title: "Ошибка",
         description: "Не удалось загрузить данные пользователя.",
       });
+      setIsLoading(false);
     }
   };
 
@@ -134,10 +149,14 @@ const MainApp = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
-    setCurrentScreen('main');
-    setSidebarOpen(false);
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setCurrentScreen('main');
+      setSidebarOpen(false);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const renderCurrentScreen = () => {
@@ -167,19 +186,37 @@ const MainApp = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="grid h-screen place-items-center bg-slate-900">
+        <div className="text-white text-2xl">Загрузка...</div>
+      </div>
+    );
+  }
+
   if (!isAuth) {
-    return <div className="grid h-screen place-items-center">
-      <div className="text-white text-2xl">Loading...</div>
-    </div>;
+    return (
+      <div className="grid h-screen place-items-center bg-slate-900">
+        <div className="text-white text-2xl">Требуется авторизация...</div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="grid h-screen place-items-center bg-slate-900">
+        <div className="text-white text-2xl">Загрузка данных пользователя...</div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <Header
         currentUser={{
-          username: currentUser?.username || 'Пользователь',
-          coins: currentUser?.coins || 0,
-          isPremium: currentUser?.isPremium || false
+          username: currentUser.username,
+          coins: currentUser.coins,
+          isPremium: currentUser.isPremium
         }}
         onMenuClick={() => setSidebarOpen(true)}
       />
@@ -188,10 +225,10 @@ const MainApp = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={{
-          username: currentUser?.username || 'Пользователь',
-          coins: currentUser?.coins || 0,
-          isPremium: currentUser?.isPremium || false,
-          isAdmin: currentUser?.isAdmin || false
+          username: currentUser.username,
+          coins: currentUser.coins,
+          isPremium: currentUser.isPremium,
+          isAdmin: currentUser.isAdmin
         }}
         onScreenChange={(screen: Screen) => {
           setCurrentScreen(screen);
