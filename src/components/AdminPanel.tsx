@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,7 @@ const AdminPanel = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<any>({});
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -25,22 +27,36 @@ const AdminPanel = () => {
     }
   });
 
+  // Fetch all skins for case management
+  const { data: allSkins } = useQuery({
+    queryKey: ['all_skins'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('skins')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
+
   // Fetch case skins for probability management
   const { data: caseSkins } = useQuery({
-    queryKey: ['case_skins', activeTable],
+    queryKey: ['case_skins', selectedCase],
     queryFn: async () => {
-      if (activeTable !== 'cases') return [];
+      if (!selectedCase) return [];
       const { data, error } = await supabase
         .from('case_skins')
         .select(`
           *,
-          skins!inner(name, weapon_type, rarity),
+          skins!inner(id, name, weapon_type, rarity, image_url),
           cases!inner(name)
-        `);
+        `)
+        .eq('case_id', selectedCase);
       if (error) throw error;
       return data;
     },
-    enabled: activeTable === 'cases'
+    enabled: !!selectedCase
   });
 
   const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
@@ -80,6 +96,97 @@ const AdminPanel = () => {
       toast({ title: "Ошибка загрузки", variant: "destructive" });
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleSkinImageUpload = async (file: File, skinId: string) => {
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `skin_${skinId}_${Date.now()}.${fileExt}`;
+      const filePath = `skin-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('case-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('case-images')
+        .getPublicUrl(filePath);
+
+      const { error } = await supabase
+        .from('skins')
+        .update({ image_url: publicUrl })
+        .eq('id', skinId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+      toast({ title: "Изображение скина обновлено" });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: "Ошибка загрузки", variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const addSkinToCase = async (skinId: string) => {
+    if (!selectedCase) return;
+    
+    try {
+      const { error } = await supabase
+        .from('case_skins')
+        .insert({
+          case_id: selectedCase,
+          skin_id: skinId,
+          probability: 0.01,
+          never_drop: false
+        });
+
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      toast({ title: "Скин добавлен в кейс" });
+    } catch (error) {
+      console.error('Add skin error:', error);
+      toast({ title: "Ошибка добавления скина", variant: "destructive" });
+    }
+  };
+
+  const removeSkinFromCase = async (caseSkinId: string) => {
+    try {
+      const { error } = await supabase
+        .from('case_skins')
+        .delete()
+        .eq('id', caseSkinId);
+
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      toast({ title: "Скин удален из кейса" });
+    } catch (error) {
+      console.error('Remove skin error:', error);
+      toast({ title: "Ошибка удаления скина", variant: "destructive" });
+    }
+  };
+
+  const updateCaseSkinProbability = async (caseSkinId: string, probability: number) => {
+    try {
+      const { error } = await supabase
+        .from('case_skins')
+        .update({ custom_probability: probability })
+        .eq('id', caseSkinId);
+
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+    } catch (error) {
+      console.error('Update probability error:', error);
+      toast({ title: "Ошибка обновления вероятности", variant: "destructive" });
     }
   };
 
@@ -152,64 +259,163 @@ const AdminPanel = () => {
     }
   };
 
-  const renderCaseProbabilityManager = () => {
+  const renderCaseManagement = () => {
     if (activeTable !== 'cases') return null;
 
     return (
       <div className="bg-gray-800 p-4 rounded-lg mb-4">
-        <h3 className="text-white font-semibold mb-4">Управление вероятностями кейсов</h3>
-        <div className="space-y-3">
-          {caseSkins?.map((caseSkin: any) => (
-            <div key={caseSkin.id} className="bg-gray-700 p-3 rounded flex items-center justify-between">
-              <div className="flex-1">
-                <span className="text-white font-medium">
-                  {caseSkin.cases.name} - {caseSkin.skins.name}
-                </span>
-                <span className="text-gray-400 text-sm ml-2">
-                  ({caseSkin.skins.weapon_type} - {caseSkin.skins.rarity})
-                </span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1"
-                  value={caseSkin.custom_probability || caseSkin.probability}
-                  onChange={async (e) => {
-                    const newProb = parseFloat(e.target.value);
-                    const { error } = await supabase
-                      .from('case_skins')
-                      .update({ custom_probability: newProb })
-                      .eq('id', caseSkin.id);
-                    if (!error) {
-                      queryClient.invalidateQueries({ queryKey: ['case_skins'] });
-                    }
-                  }}
-                  className="w-20 bg-gray-600 text-white px-2 py-1 rounded text-sm"
-                  placeholder="0.01"
-                />
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={caseSkin.never_drop}
-                    onChange={async (e) => {
-                      const { error } = await supabase
-                        .from('case_skins')
-                        .update({ never_drop: e.target.checked })
-                        .eq('id', caseSkin.id);
-                      if (!error) {
-                        queryClient.invalidateQueries({ queryKey: ['case_skins'] });
-                      }
-                    }}
-                    className="text-orange-500"
-                  />
-                  <span className="text-gray-300 text-sm">Никогда не выпадает</span>
-                </label>
+        <h3 className="text-white font-semibold mb-4">Управление содержимым кейсов</h3>
+        
+        {/* Case selector */}
+        <div className="mb-4">
+          <label className="block text-gray-300 text-sm mb-2">Выберите кейс для редактирования:</label>
+          <select
+            value={selectedCase || ''}
+            onChange={(e) => setSelectedCase(e.target.value || null)}
+            className="w-full bg-gray-700 text-white px-3 py-2 rounded"
+          >
+            <option value="">Выберите кейс</option>
+            {tableData?.map((caseItem: any) => (
+              <option key={caseItem.id} value={caseItem.id}>
+                {caseItem.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedCase && (
+          <>
+            {/* Current case skins */}
+            <div className="mb-6">
+              <h4 className="text-white font-medium mb-3">Скины в кейсе (вероятности выпадения):</h4>
+              <div className="space-y-3">
+                {caseSkins?.map((caseSkin: any) => (
+                  <div key={caseSkin.id} className="bg-gray-700 p-3 rounded flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="w-12 h-12 bg-gray-600 rounded overflow-hidden">
+                        {caseSkin.skins.image_url ? (
+                          <img 
+                            src={caseSkin.skins.image_url} 
+                            alt={caseSkin.skins.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            Нет фото
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-white font-medium block">
+                          {caseSkin.skins.name}
+                        </span>
+                        <span className="text-gray-400 text-sm">
+                          {caseSkin.skins.weapon_type} - {caseSkin.skins.rarity}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex flex-col items-center space-y-1">
+                        <label className="text-gray-300 text-xs">Вероятность (0-1)</label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          max="1"
+                          value={caseSkin.custom_probability || caseSkin.probability}
+                          onChange={(e) => {
+                            const newProb = parseFloat(e.target.value);
+                            updateCaseSkinProbability(caseSkin.id, newProb);
+                          }}
+                          className="w-20 bg-gray-600 text-white px-2 py-1 rounded text-sm"
+                          placeholder="0.001"
+                        />
+                      </div>
+                      <div className="flex flex-col items-center space-y-1">
+                        <label className="text-gray-300 text-xs">Изображение</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleSkinImageUpload(file, caseSkin.skins.id);
+                          }}
+                          className="bg-gray-600 text-white px-2 py-1 rounded text-xs"
+                          disabled={uploadingImage}
+                        />
+                      </div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={caseSkin.never_drop}
+                          onChange={async (e) => {
+                            const { error } = await supabase
+                              .from('case_skins')
+                              .update({ never_drop: e.target.checked })
+                              .eq('id', caseSkin.id);
+                            if (!error) {
+                              queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+                            }
+                          }}
+                          className="text-orange-500"
+                        />
+                        <span className="text-gray-300 text-sm">Никогда не выпадает</span>
+                      </label>
+                      <button
+                        onClick={() => removeSkinFromCase(caseSkin.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white p-2 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Add skins to case */}
+            <div>
+              <h4 className="text-white font-medium mb-3">Добавить скины в кейс:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                {allSkins?.filter(skin => 
+                  !caseSkins?.some(cs => cs.skins.id === skin.id)
+                ).map((skin: any) => (
+                  <div key={skin.id} className="bg-gray-700 p-3 rounded flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="w-10 h-10 bg-gray-600 rounded overflow-hidden">
+                        {skin.image_url ? (
+                          <img 
+                            src={skin.image_url} 
+                            alt={skin.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            Нет
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-white text-sm font-medium block truncate">
+                          {skin.name}
+                        </span>
+                        <span className="text-gray-400 text-xs truncate">
+                          {skin.weapon_type} - {skin.rarity}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => addSkinToCase(skin.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white p-1 rounded ml-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   };
@@ -223,8 +429,8 @@ const AdminPanel = () => {
 
     return (
       <div className="space-y-4">
-        {/* Case Probability Manager */}
-        {renderCaseProbabilityManager()}
+        {/* Case Management */}
+        {renderCaseManagement()}
 
         {/* Add new item form */}
         <div className="bg-gray-800 p-4 rounded-lg">
