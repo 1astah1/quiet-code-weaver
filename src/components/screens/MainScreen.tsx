@@ -38,14 +38,14 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
     }
   });
 
-  // Fetch favorite skins
+  // Fetch user's favorite skins (updated query)
   const { data: favoriteSkins } = useQuery({
-    queryKey: ['favorite-skins', currentUser.id],
+    queryKey: ['user-favorites', currentUser.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_favorites')
         .select(`
-          skins (
+          skins!inner(
             id,
             name,
             price,
@@ -116,10 +116,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
 
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
-      {/* Banner Carousel */}
+      {/* Banner Carousel - removing navigation arrows */}
       <BannerCarousel onBannerAction={handleBannerAction} />
 
-      {/* Goals Section */}
+      {/* Goals Section - Fixed favorites display */}
       <div className="mb-6">
         <h3 className="text-xl font-bold text-white mb-3">Твои цели</h3>
         <div className="bg-gray-800/50 rounded-lg p-4 border border-orange-500/30">
@@ -135,12 +135,22 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {favoriteSkins.slice(0, 3).map((skin: any) => (
-                  <div key={skin.id} className="bg-gray-700/50 rounded-lg p-2 text-center">
-                    <div className="text-2xl mb-1">🎯</div>
+                  <div key={skin.id} className="bg-gray-700/50 rounded-lg p-3 text-center border border-gray-600/30">
+                    {skin.image_url ? (
+                      <img 
+                        src={skin.image_url} 
+                        alt={skin.name}
+                        className="w-12 h-12 mx-auto mb-2 object-contain"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-600 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                        <span className="text-2xl">🎯</span>
+                      </div>
+                    )}
                     <p className="text-white text-xs font-medium truncate">{skin.name}</p>
-                    <p className="text-orange-400 text-xs">{skin.price} монет</p>
+                    <p className="text-orange-400 text-xs font-bold">{skin.price} монет</p>
                   </div>
                 ))}
               </div>
@@ -149,11 +159,14 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Star className="w-6 h-6 text-yellow-400" />
-                <span className="text-white">Выбери свою цель</span>
+                <div>
+                  <span className="text-white font-medium">Выбери свою цель</span>
+                  <p className="text-slate-400 text-sm">Добавьте скины в избранное</p>
+                </div>
               </div>
               <button 
                 onClick={() => onScreenChange('skins')}
-                className="text-orange-400 text-sm font-medium flex items-center space-x-1"
+                className="text-orange-400 text-sm font-medium flex items-center space-x-1 bg-orange-500/10 px-3 py-2 rounded-lg"
               >
                 <span>Магазин</span>
                 <ArrowRight className="w-4 h-4" />

@@ -1,15 +1,24 @@
 
 import { useState } from "react";
-import { Crown, Link, HelpCircle, Gift, Settings, User } from "lucide-react";
+import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
 import FAQModal from "./FAQModal";
-import SteamConnectionModal from "./SteamConnectionModal";
+import PremiumModal from "./PremiumModal";
+import ImprovedSteamConnectionModal from "./ImprovedSteamConnectionModal";
+import LanguageSelector from "./LanguageSelector";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SettingsScreenProps {
   currentUser: {
     id: string;
     username: string;
     coins: number;
+    language_code?: string;
+    sound_enabled?: boolean;
+    vibration_enabled?: boolean;
+    profile_private?: boolean;
   };
   onCoinsUpdate: (newCoins: number) => void;
 }
@@ -17,81 +26,244 @@ interface SettingsScreenProps {
 const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => {
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(currentUser.sound_enabled ?? true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(currentUser.vibration_enabled ?? true);
+  const [profilePrivate, setProfilePrivate] = useState(currentUser.profile_private ?? false);
+  const { toast } = useToast();
 
-  const settingsItems = [
-    {
-      icon: Crown,
-      title: "Премиум подписка",
-      description: "Получите дополнительные привилегии",
-      action: () => console.log("Open premium"),
-      color: "from-yellow-500 to-orange-500"
-    },
-    {
-      icon: Link,
-      title: "Подключить Steam",
-      description: "Свяжите аккаунт для вывода скинов",
-      action: () => setShowSteamModal(true),
-      color: "from-blue-500 to-purple-500"
-    },
-    {
-      icon: HelpCircle,
-      title: "Поддержка",
-      description: "Часто задаваемые вопросы",
-      action: () => setShowFAQModal(true),
-      color: "from-green-500 to-teal-500"
-    },
-    {
-      icon: Gift,
-      title: "Промокоды",
-      description: "Активируйте промокод для получения бонусов",
-      action: () => setShowPromoModal(true),
-      color: "from-pink-500 to-red-500"
-    },
-    {
-      icon: Settings,
-      title: "Настройки",
-      description: "Общие настройки приложения",
-      action: () => console.log("Open settings"),
-      color: "from-gray-500 to-gray-600"
-    },
-    {
-      icon: User,
-      title: "Профиль",
-      description: "Управление профилем пользователя",
-      action: () => console.log("Open profile"),
-      color: "from-indigo-500 to-purple-500"
+  const handleLanguageChange = async (languageCode: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ language_code: languageCode })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Язык изменен",
+        description: "Настройки языка успешно сохранены",
+      });
+    } catch (error) {
+      console.error('Error updating language:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось изменить язык",
+        variant: "destructive",
+      });
     }
-  ];
+  };
+
+  const handleToggleSetting = async (setting: string, value: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ [setting]: value })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      switch (setting) {
+        case 'sound_enabled':
+          setSoundEnabled(value);
+          break;
+        case 'vibration_enabled':
+          setVibrationEnabled(value);
+          break;
+        case 'profile_private':
+          setProfilePrivate(value);
+          break;
+      }
+
+      toast({
+        title: "Настройки сохранены",
+        description: "Изменения успешно применены",
+      });
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить настройки",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Настройки</h1>
-        <p className="text-slate-400">Управление аккаунтом и настройками</p>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">Настройки</h1>
+        <p className="text-slate-400">Управление аккаунтом и предпочтениями</p>
       </div>
 
-      <div className="space-y-4">
-        {settingsItems.map((item, index) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={index}
-              onClick={item.action}
-              className={`bg-gradient-to-r ${item.color}/10 border border-slate-700/50 hover:border-slate-600/50 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group`}
-            >
-              <div className="flex items-center space-x-4">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-white font-semibold text-lg">{item.title}</h3>
-                  <p className="text-slate-400 text-sm">{item.description}</p>
-                </div>
+      <div className="space-y-6">
+        {/* Premium Section */}
+        <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-2 border-yellow-500/30 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <Crown className="w-8 h-8 text-yellow-400" />
+              <div>
+                <h3 className="text-xl font-bold text-white">Премиум подписка</h3>
+                <p className="text-yellow-300 text-sm">Откройте все возможности</p>
               </div>
             </div>
-          );
-        })}
+            <div className="text-right">
+              <div className="text-yellow-400 font-bold text-lg">$5/мес</div>
+              <div className="text-yellow-300 text-xs">3 дня бесплатно</div>
+            </div>
+          </div>
+          <Button 
+            onClick={() => setShowPremiumModal(true)}
+            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl"
+          >
+            Получить премиум
+          </Button>
+        </div>
+
+        {/* Account Settings */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <User className="w-5 h-5 mr-2 text-orange-400" />
+            Аккаунт
+          </h3>
+          <div className="space-y-4">
+            <div 
+              onClick={() => setShowSteamModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <Link className="w-6 h-6 text-blue-400" />
+                <div>
+                  <h4 className="text-white font-medium">Подключить Steam</h4>
+                  <p className="text-slate-400 text-sm">Настройте вывод скинов</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+
+            <div 
+              onClick={() => setShowPromoModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <Gift className="w-6 h-6 text-pink-400" />
+                <div>
+                  <h4 className="text-white font-medium">Промокоды</h4>
+                  <p className="text-slate-400 text-sm">Активировать бонусы</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* App Settings */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <Settings className="w-5 h-5 mr-2 text-orange-400" />
+            Приложение
+          </h3>
+          <div className="space-y-4">
+            {/* Language */}
+            <div>
+              <label className="block text-white font-medium mb-2 flex items-center">
+                <Globe className="w-4 h-4 mr-2 text-blue-400" />
+                Язык приложения
+              </label>
+              <LanguageSelector 
+                currentLanguage={currentUser.language_code || 'ru'}
+                onLanguageChange={handleLanguageChange}
+              />
+            </div>
+
+            {/* Sound */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Volume2 className="w-6 h-6 text-green-400" />
+                <div>
+                  <h4 className="text-white font-medium">Звуки</h4>
+                  <p className="text-slate-400 text-sm">Звуковые эффекты</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('sound_enabled', !soundEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  soundEnabled ? 'bg-green-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  soundEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Vibration */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Vibrate className="w-6 h-6 text-purple-400" />
+                <div>
+                  <h4 className="text-white font-medium">Вибрация</h4>
+                  <p className="text-slate-400 text-sm">Тактильные отклики</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('vibration_enabled', !vibrationEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  vibrationEnabled ? 'bg-purple-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  vibrationEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Privacy */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Lock className="w-6 h-6 text-red-400" />
+                <div>
+                  <h4 className="text-white font-medium">Приватный профиль</h4>
+                  <p className="text-slate-400 text-sm">Скрыть статистику</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('profile_private', !profilePrivate)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  profilePrivate ? 'bg-red-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  profilePrivate ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Support */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <HelpCircle className="w-5 h-5 mr-2 text-orange-400" />
+            Поддержка
+          </h3>
+          <div 
+            onClick={() => setShowFAQModal(true)}
+            className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+          >
+            <div className="flex items-center space-x-3">
+              <HelpCircle className="w-6 h-6 text-green-400" />
+              <div>
+                <h4 className="text-white font-medium">Часто задаваемые вопросы</h4>
+                <p className="text-slate-400 text-sm">Найдите ответы на вопросы</p>
+              </div>
+            </div>
+            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+          </div>
+        </div>
       </div>
 
       {/* Modals */}
@@ -107,7 +279,12 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         onClose={() => setShowFAQModal(false)}
       />
       
-      <SteamConnectionModal 
+      <PremiumModal 
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+      />
+      
+      <ImprovedSteamConnectionModal 
         isOpen={showSteamModal}
         onClose={() => setShowSteamModal(false)}
         currentUser={currentUser}
