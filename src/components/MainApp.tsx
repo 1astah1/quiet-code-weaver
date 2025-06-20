@@ -44,17 +44,12 @@ const MainApp = () => {
     }
   };
 
-  // Helper function to handle screen changes with proper typing
-  const handleScreenChange = (screen: string) => {
-    setCurrentScreen(screen as Screen);
-  };
-
   const renderScreen = () => {
     if (!user) return null;
 
     switch (currentScreen) {
       case "main":
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
       case "skins":
         return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "tasks":
@@ -64,9 +59,9 @@ const MainApp = () => {
       case "settings":
         return <SettingsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "admin":
-        return user.isAdmin ? <AdminPanel /> : <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
+        return user.isAdmin ? <AdminPanel /> : <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
       default:
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
     }
   };
 
@@ -103,7 +98,7 @@ const MainApp = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={user}
-        onScreenChange={handleScreenChange}
+        onScreenChange={setCurrentScreen}
         onSignOut={signOut}
       />
 
@@ -111,22 +106,22 @@ const MainApp = () => {
         {renderScreen()}
       </main>
 
-      {/* Modern Bottom Navigation */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-orange-500/30 z-40">
-        <div className="flex justify-around items-center py-3 px-2">
+        <div className="flex justify-around items-center py-3">
           {[
-            { id: "main", label: "Главная", icon: "🏠", gradient: "from-blue-500 to-blue-600" },
-            { id: "skins", label: "Скины", icon: "🎯", gradient: "from-orange-500 to-red-500" },
-            { id: "tasks", label: "Задания", icon: "📋", gradient: "from-green-500 to-green-600" },
-            { id: "quiz", label: "Викторина", icon: "🧠", gradient: "from-purple-500 to-purple-600" }
+            { id: "main", label: "Главная", icon: "🏠" },
+            { id: "skins", label: "Скины", icon: "🎯" },
+            { id: "tasks", label: "Задания", icon: "📋" },
+            { id: "quiz", label: "Викторина", icon: "🧠" }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => handleScreenChange(tab.id)}
-              className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-xl transition-all transform ${
+              onClick={() => setCurrentScreen(tab.id as Screen)}
+              className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-lg transition-all ${
                 currentScreen === tab.id
-                  ? `bg-gradient-to-r ${tab.gradient} text-white scale-105 shadow-lg`
-                  : "text-gray-400 hover:text-orange-400 hover:scale-105"
+                  ? "bg-orange-500 text-white"
+                  : "text-gray-400 hover:text-orange-400"
               }`}
             >
               <span className="text-xl">{tab.icon}</span>
