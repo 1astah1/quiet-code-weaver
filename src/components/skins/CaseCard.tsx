@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Coins, Heart, Play, Lock, Star } from "lucide-react";
+import { Coins, Heart, Play, Lock, Star, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CaseCardProps {
@@ -20,6 +20,7 @@ interface CaseCardProps {
   };
   onCaseSelect: (caseData: any) => void;
   onCoinsUpdate: (newCoins: number) => void;
+  onPreview?: (caseData: any) => void;
   disabled?: boolean;
   onFreeOpen?: () => void;
 }
@@ -29,6 +30,7 @@ const CaseCard = ({
   currentUser, 
   onCaseSelect, 
   onCoinsUpdate,
+  onPreview,
   disabled = false,
   onFreeOpen
 }: CaseCardProps) => {
@@ -50,6 +52,13 @@ const CaseCard = ({
     }
     
     onCaseSelect(caseData);
+  };
+
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPreview) {
+      onPreview(caseData);
+    }
   };
 
   const handleLike = (e: React.MouseEvent) => {
@@ -98,13 +107,24 @@ const CaseCard = ({
           )}
         </div>
 
-        {/* Like button */}
-        <button
-          onClick={handleLike}
-          className="absolute top-2 left-2 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white p-1.5 rounded-full transition-all duration-200 hover:scale-110"
-        >
-          <Heart className={`w-3 h-3 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
-        </button>
+        {/* Action buttons */}
+        <div className="absolute top-2 left-2 flex gap-1">
+          <button
+            onClick={handleLike}
+            className="bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white p-1.5 rounded-full transition-all duration-200 hover:scale-110"
+          >
+            <Heart className={`w-3 h-3 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+          </button>
+          
+          {onPreview && (
+            <button
+              onClick={handlePreview}
+              className="bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white p-1.5 rounded-full transition-all duration-200 hover:scale-110"
+            >
+              <Eye className="w-3 h-3" />
+            </button>
+          )}
+        </div>
 
         {/* Play overlay */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">

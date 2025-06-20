@@ -21,6 +21,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [isComplete, setIsComplete] = useState(false);
   const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'complete'>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [caseSkins, setCaseSkins] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -37,7 +38,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Пользователь не найден');
       }
 
-      const { data: caseSkins, error: caseSkinsError } = await supabase
+      const { data: fetchedCaseSkins, error: caseSkinsError } = await supabase
         .from('case_skins')
         .select(`
           probability,
@@ -53,20 +54,21 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось загрузить содержимое кейса');
       }
 
-      if (!caseSkins || caseSkins.length === 0) {
+      if (!fetchedCaseSkins || fetchedCaseSkins.length === 0) {
         throw new Error('В кейсе нет доступных предметов');
       }
 
-      console.log('Case skins loaded:', caseSkins.length);
+      setCaseSkins(fetchedCaseSkins);
+      console.log('Case skins loaded:', fetchedCaseSkins.length);
 
-      const totalProbability = caseSkins.reduce((sum, item) => {
+      const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
         return sum + (item.custom_probability || item.probability || 0.01);
       }, 0);
       
       let random = Math.random() * totalProbability;
-      let selectedSkin = caseSkins[0];
+      let selectedSkin = fetchedCaseSkins[0];
 
-      for (const skin of caseSkins) {
+      for (const skin of fetchedCaseSkins) {
         const probability = skin.custom_probability || skin.probability || 0.01;
         random -= probability;
         if (random <= 0) {
@@ -83,10 +85,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       setTimeout(() => {
         setAnimationPhase('revealing');
+        setWonSkin(selectedSkin.skins);
       }, 2000);
       
       setTimeout(() => {
-        setWonSkin(selectedSkin.skins);
         setAnimationPhase('complete');
         setIsComplete(true);
         setIsOpening(false);
@@ -95,7 +97,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           title: "🎉 Поздравляем!",
           description: `Вы выиграли ${selectedSkin.skins.name}!`,
         });
-      }, 4000);
+      }, 7000);
 
     } catch (error) {
       console.error('Case opening error:', error);
@@ -291,6 +293,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     isComplete,
     animationPhase,
     isProcessing,
+    caseSkins,
     addToInventory,
     sellDirectly
   };

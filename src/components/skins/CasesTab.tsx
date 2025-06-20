@@ -186,6 +186,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 caseData={caseItem}
                 currentUser={currentUser}
                 onCaseSelect={handleCaseOpen}
+                onPreview={handleCaseSelect}
                 onCoinsUpdate={onCoinsUpdate}
                 disabled={!canOpenFreeCase}
                 onFreeOpen={updateLastFreeCase}
@@ -210,6 +211,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 caseData={caseItem}
                 currentUser={currentUser}
                 onCaseSelect={handleCaseOpen}
+                onPreview={handleCaseSelect}
                 onCoinsUpdate={onCoinsUpdate}
               />
             ))}
