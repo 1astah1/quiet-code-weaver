@@ -19,11 +19,10 @@ interface CurrentUser {
   id: string;
   username: string;
   coins: number;
-  quiz_lives?: number;
-  quiz_streak?: number;
-  isPremium?: boolean;
-  isAdmin?: boolean;
-  avatar_url?: string;
+  quiz_lives: number;
+  quiz_streak: number;
+  isPremium: boolean;
+  isAdmin: boolean;
   referralCode?: string | null;
 }
 
@@ -78,7 +77,7 @@ const MainApp = () => {
       // Query only existing columns based on the schema
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, username, coins, quiz_lives, quiz_streak, is_admin, avatar_url, referral_code, premium_until')
+        .select('id, username, coins, quiz_lives, quiz_streak, is_admin, referral_code, premium_until')
         .eq('auth_id', userId)
         .single();
 
@@ -103,7 +102,6 @@ const MainApp = () => {
           quiz_streak: user.quiz_streak || 0,
           isPremium,
           isAdmin: user.is_admin || false,
-          avatar_url: user.avatar_url,
           referralCode: user.referral_code,
         });
       }
@@ -161,8 +159,7 @@ const MainApp = () => {
         currentUser={{
           username: currentUser?.username || 'Пользователь',
           coins: currentUser?.coins || 0,
-          isPremium: currentUser?.isPremium || false,
-          avatar_url: currentUser?.avatar_url
+          isPremium: currentUser?.isPremium || false
         }}
         onMenuClick={() => setSidebarOpen(true)}
       />
@@ -174,8 +171,7 @@ const MainApp = () => {
           username: currentUser?.username || 'Пользователь',
           coins: currentUser?.coins || 0,
           isPremium: currentUser?.isPremium || false,
-          isAdmin: currentUser?.isAdmin || false,
-          avatar_url: currentUser?.avatar_url
+          isAdmin: currentUser?.isAdmin || false
         }}
         onScreenChange={(screen: Screen) => {
           setCurrentScreen(screen);
@@ -196,11 +192,13 @@ const MainApp = () => {
       {showSettings && currentUser && (
         <SettingsScreen
           currentUser={{
+            id: currentUser.id,
             username: currentUser.username,
             coins: currentUser.coins,
-            isPremium: currentUser.isPremium || false,
-            isAdmin: currentUser.isAdmin || false,
-            avatar_url: currentUser.avatar_url
+            language_code: 'ru',
+            sound_enabled: true,
+            vibration_enabled: true,
+            profile_private: false
           }}
           onCoinsUpdate={handleCoinsUpdate}
         />
