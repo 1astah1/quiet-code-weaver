@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,11 +10,15 @@ export interface Case {
   price: number;
   is_free: boolean;
   image_url: string | null;
+  cover_image_url?: string | null;
   likes_count: number;
+  last_free_open?: string | null;
 }
 
 export interface CaseSkin {
   probability: number;
+  never_drop?: boolean;
+  custom_probability?: number;
   skins: {
     id: string;
     name: string;
@@ -49,6 +52,8 @@ export const useCaseSkins = (caseId: string | null) => {
         .from('case_skins')
         .select(`
           probability,
+          never_drop,
+          custom_probability,
           skins (*)
         `)
         .eq('case_id', caseId);
@@ -89,12 +94,10 @@ export const useToggleFavorite = () => {
       try {
         console.log('Toggling favorite:', { userId, caseId, isFavorite });
         
-        // Проверяем валидность UUID
         if (!isValidUUID(userId) || !isValidUUID(caseId)) {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем существование пользователя или создаем его
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id')
@@ -102,7 +105,6 @@ export const useToggleFavorite = () => {
           .single();
 
         if (userCheckError && userCheckError.code === 'PGRST116') {
-          // Создаем пользователя если не существует
           const { error: createError } = await supabase
             .from('users')
             .insert({
@@ -178,17 +180,35 @@ export const useOpenCase = () => {
       try {
         console.log('Opening case:', caseItem.name, 'Price:', caseItem.price, 'User coins:', userCoins, 'Is free:', caseItem.is_free, 'Ad watched:', isAdWatched);
         
-        // Проверяем валидность UUID
         if (!isValidUUID(userId)) {
           throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем возможность открытия
+        // Проверяем кулдаун для бесплатного кейса
+        if (caseItem.is_free && !isAdWatched) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('last_free_case_notification')
+            .eq('id', userId)
+            .single();
+
+          if (userData?.last_free_case_notification) {
+            const lastOpen = new Date(userData.last_free_case_notification);
+            const now = new Date();
+            const timeDiff = now.getTime() - lastOpen.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+            if (hoursDiff < 2) {
+              const remainingTime = Math.ceil(2 - hoursDiff);
+              throw new Error(`Бесплатный кейс можно открыть через ${remainingTime} ч.`);
+            }
+          }
+        }
+
         if (!caseItem.is_free && !isAdWatched && caseItem.price > userCoins) {
           throw new Error(`Недостаточно монет. Нужно ${caseItem.price}, у вас ${userCoins}`);
         }
 
-        // Проверяем существование пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id, coins')
@@ -198,7 +218,6 @@ export const useOpenCase = () => {
         let actualCoins = userCoins;
 
         if (userCheckError && userCheckError.code === 'PGRST116') {
-          // Создаем пользователя если не существует
           const { error: createError } = await supabase
             .from('users')
             .insert({
@@ -218,14 +237,16 @@ export const useOpenCase = () => {
           actualCoins = existingUser.coins;
         }
 
-        // Получаем скины кейса
         const { data: caseSkins, error: skinsError } = await supabase
           .from('case_skins')
           .select(`
             probability,
+            never_drop,
+            custom_probability,
             skins (*)
           `)
-          .eq('case_id', caseItem.id);
+          .eq('case_id', caseItem.id)
+          .eq('never_drop', false); // Только скины которые могут выпасть
 
         if (skinsError) {
           console.error('Error getting case skins:', skinsError);
@@ -233,18 +254,22 @@ export const useOpenCase = () => {
         }
         
         if (!caseSkins || caseSkins.length === 0) {
-          throw new Error('В кейсе нет скинов');
+          throw new Error('В кейсе нет доступных скинов');
         }
 
         console.log('Case skins loaded:', caseSkins.length);
 
-        // Выбираем случайный скин на основе вероятности
-        const totalProbability = caseSkins.reduce((sum, item) => sum + item.probability, 0);
+        // Выбираем случайный скин на основе настроенной вероятности
+        const totalProbability = caseSkins.reduce((sum, item) => {
+          return sum + (item.custom_probability || item.probability);
+        }, 0);
+        
         let random = Math.random() * totalProbability;
         let selectedSkin = caseSkins[0];
 
         for (const skin of caseSkins) {
-          random -= skin.probability;
+          const probability = skin.custom_probability || skin.probability;
+          random -= probability;
           if (random <= 0) {
             selectedSkin = skin;
             break;
@@ -253,23 +278,32 @@ export const useOpenCase = () => {
 
         console.log('Selected skin:', selectedSkin.skins.name);
 
-        // Списываем монеты если кейс платный и не просмотрена реклама
         let newCoins = actualCoins;
+        let updateData: any = {};
+
+        // Списываем монеты если кейс платный и не просмотрена реклама
         if (!caseItem.is_free && !isAdWatched) {
           if (actualCoins < caseItem.price) {
             throw new Error(`Недостаточно монет. Нужно ${caseItem.price}, у вас ${actualCoins}`);
           }
           
           newCoins = actualCoins - caseItem.price;
-          console.log('Deducting coins:', caseItem.price, 'New balance:', newCoins);
-          
-          const { error: coinsError } = await supabase
+          updateData.coins = newCoins;
+        }
+
+        // Обновляем время последнего открытия бесплатного кейса
+        if (caseItem.is_free) {
+          updateData.last_free_case_notification = new Date().toISOString();
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: updateError } = await supabase
             .from('users')
-            .update({ coins: newCoins })
+            .update(updateData)
             .eq('id', userId);
-          if (coinsError) {
-            console.error('Error updating coins:', coinsError);
-            throw new Error('Не удалось списать монеты');
+          if (updateError) {
+            console.error('Error updating user:', updateError);
+            throw new Error('Не удалось обновить данные пользователя');
           }
         }
 
@@ -285,8 +319,8 @@ export const useOpenCase = () => {
           });
         if (inventoryError) {
           console.error('Error adding to inventory:', inventoryError);
-          // Откатываем списание монет
-          if (!caseItem.is_free && !isAdWatched) {
+          // Откатываем изменения пользователя
+          if (Object.keys(updateData).length > 0) {
             await supabase
               .from('users')
               .update({ coins: actualCoins })
@@ -307,7 +341,6 @@ export const useOpenCase = () => {
           });
         if (winError) {
           console.error('Error adding to recent wins:', winError);
-          // Не критичная ошибка, продолжаем
         }
 
         console.log('Case opened successfully');

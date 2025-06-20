@@ -48,19 +48,25 @@ export type Database = {
       case_skins: {
         Row: {
           case_id: string | null
+          custom_probability: number | null
           id: string
+          never_drop: boolean | null
           probability: number | null
           skin_id: string | null
         }
         Insert: {
           case_id?: string | null
+          custom_probability?: number | null
           id?: string
+          never_drop?: boolean | null
           probability?: number | null
           skin_id?: string | null
         }
         Update: {
           case_id?: string | null
+          custom_probability?: number | null
           id?: string
+          never_drop?: boolean | null
           probability?: number | null
           skin_id?: string | null
         }
@@ -84,11 +90,13 @@ export type Database = {
       cases: {
         Row: {
           case_type: string | null
+          cover_image_url: string | null
           created_at: string | null
           description: string | null
           id: string
           image_url: string | null
           is_free: boolean | null
+          last_free_open: string | null
           likes_count: number | null
           name: string
           price: number
@@ -96,11 +104,13 @@ export type Database = {
         }
         Insert: {
           case_type?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_free?: boolean | null
+          last_free_open?: string | null
           likes_count?: number | null
           name: string
           price: number
@@ -108,11 +118,13 @@ export type Database = {
         }
         Update: {
           case_type?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_free?: boolean | null
+          last_free_open?: string | null
           likes_count?: number | null
           name?: string
           price?: number
@@ -569,6 +581,7 @@ export type Database = {
           id: string
           is_admin: boolean | null
           language_code: string | null
+          last_free_case_notification: string | null
           last_quiz_date: string | null
           premium_until: string | null
           profile_private: boolean | null
@@ -590,6 +603,7 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_free_case_notification?: string | null
           last_quiz_date?: string | null
           premium_until?: string | null
           profile_private?: boolean | null
@@ -611,6 +625,7 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_free_case_notification?: string | null
           last_quiz_date?: string | null
           premium_until?: string | null
           profile_private?: boolean | null

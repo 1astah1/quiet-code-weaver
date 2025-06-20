@@ -29,6 +29,8 @@ interface Skin {
 const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
   const [selectedWeapon, setSelectedWeapon] = useState<string>("all");
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 999999 });
+  const [sortBy, setSortBy] = useState<string>("price-asc");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -53,17 +55,14 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
       try {
         console.log('Starting purchase:', { skin: skin.name, price: skin.price, userCoins: currentUser.coins, userId: currentUser.id });
 
-        // Проверяем валидность UUID
         if (!isValidUUID(currentUser.id)) {
           throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем баланс
         if (currentUser.coins < skin.price) {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
         }
 
-        // Проверяем существование пользователя или создаем его
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id, coins')
@@ -73,7 +72,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
         let userCoins = currentUser.coins;
         
         if (userCheckError && userCheckError.code === 'PGRST116') {
-          // Пользователь не существует, создаем его
           console.log('Creating new user:', currentUser.id);
           const { error: createError } = await supabase
             .from('users')
@@ -94,12 +92,10 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
           userCoins = existingUser.coins;
         }
 
-        // Проверяем актуальный баланс
         if (userCoins < skin.price) {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
         }
 
-        // Списываем монеты
         const newCoins = userCoins - skin.price;
         const { error: coinsError } = await supabase
           .from('users')
@@ -111,7 +107,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
           throw new Error('Не удалось списать монеты');
         }
 
-        // Добавляем в инвентарь
         const { error: inventoryError } = await supabase
           .from('user_inventory')
           .insert({
@@ -124,7 +119,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
 
         if (inventoryError) {
           console.error('Error adding to inventory:', inventoryError);
-          // Откатываем транзакцию с монетами
           await supabase
             .from('users')
             .update({ coins: userCoins })
@@ -157,10 +151,31 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
     }
   });
 
-  const filteredSkins = skins?.filter(skin => {
+  // Фильтрация и сортировка скинов
+  const filteredAndSortedSkins = skins?.filter(skin => {
     const rarityMatch = selectedRarity === "all" || skin.rarity === selectedRarity;
     const weaponMatch = selectedWeapon === "all" || skin.weapon_type === selectedWeapon;
-    return rarityMatch && weaponMatch;
+    const priceMatch = skin.price >= priceRange.min && skin.price <= priceRange.max;
+    return rarityMatch && weaponMatch && priceMatch;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case 'price-asc':
+        return a.price - b.price;
+      case 'price-desc':
+        return b.price - a.price;
+      case 'name-asc':
+        return a.name.localeCompare(b.name);
+      case 'name-desc':
+        return b.name.localeCompare(a.name);
+      case 'rarity-desc':
+        const rarityOrder = ['Contraband', 'Covert', 'Classified', 'Restricted', 'Mil-Spec', 'Industrial Grade', 'Consumer Grade'];
+        return rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
+      case 'rarity-asc':
+        const rarityOrderAsc = ['Consumer Grade', 'Industrial Grade', 'Mil-Spec', 'Restricted', 'Classified', 'Covert', 'Contraband'];
+        return rarityOrderAsc.indexOf(a.rarity) - rarityOrderAsc.indexOf(b.rarity);
+      default:
+        return 0;
+    }
   }) || [];
 
   const handlePurchase = (skin: Skin) => {
@@ -170,6 +185,14 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
       return;
     }
     purchaseMutation.mutate(skin);
+  };
+
+  const handlePriceRangeChange = (min: number, max: number) => {
+    setPriceRange({ min, max });
+  };
+
+  const handleSortChange = (sort: string) => {
+    setSortBy(sort);
   };
 
   if (isLoading) {
@@ -194,10 +217,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
         weaponTypes={weaponTypes}
         onRarityChange={setSelectedRarity}
         onWeaponChange={setSelectedWeapon}
+        onPriceRangeChange={handlePriceRangeChange}
+        onSortChange={handleSortChange}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredSkins.map((skin) => (
+        {filteredAndSortedSkins.map((skin) => (
           <ShopSkinCard
             key={skin.id}
             skin={skin}
@@ -208,7 +233,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
         ))}
       </div>
 
-      {filteredSkins.length === 0 && <ShopEmptyState />}
+      {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
     </div>
   );
 };
