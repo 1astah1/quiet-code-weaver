@@ -71,7 +71,9 @@ const MainApp = () => {
     }
   };
 
-  // Показываем загрузку только когда действительно идет процесс авторизации
+  console.log('MainApp render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
+
+  // Показываем загрузку только во время инициализации
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center">
@@ -83,7 +85,7 @@ const MainApp = () => {
     );
   }
 
-  // Показываем экран авторизации только если пользователь не авторизован
+  // Показываем экран авторизации если не авторизован
   if (!isAuthenticated || !user) {
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
