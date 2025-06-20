@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import MainScreen from "@/components/screens/MainScreen";
@@ -21,6 +21,8 @@ const MainApp = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isLoading, isAuthenticated, signOut, updateUserCoins } = useAuth();
   const { toast } = useToast();
+
+  console.log('MainApp: Render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
 
   // Обновляем монеты пользователя в базе данных
   const handleCoinsUpdate = async (newCoins: number) => {
@@ -71,8 +73,6 @@ const MainApp = () => {
     }
   };
 
-  console.log('MainApp render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
-
   // Показываем загрузку только во время инициализации
   if (isLoading) {
     return (
@@ -80,6 +80,7 @@ const MainApp = () => {
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
           <p className="text-white text-lg">Загрузка...</p>
+          <p className="text-gray-400 text-sm mt-2">Проверяем аутентификацию...</p>
         </div>
       </div>
     );
@@ -87,8 +88,11 @@ const MainApp = () => {
 
   // Показываем экран авторизации если не авторизован
   if (!isAuthenticated || !user) {
+    console.log('MainApp: Showing auth screen');
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
+
+  console.log('MainApp: Rendering main app for user:', user.username);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800">
