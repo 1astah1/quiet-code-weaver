@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -287,7 +286,7 @@ const AdminPanel = () => {
           <>
             {/* Current case skins */}
             <div className="mb-6">
-              <h4 className="text-white font-medium mb-3">Скины в кейсе (вероятности выпадения):</h4>
+              <h4 className="text-white font-medium mb-3">Скины в кейсе:</h4>
               <div className="space-y-3">
                 {caseSkins?.map((caseSkin: any) => (
                   <div key={caseSkin.id} className="bg-gray-700 p-3 rounded flex items-center justify-between">
@@ -316,7 +315,7 @@ const AdminPanel = () => {
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="flex flex-col items-center space-y-1">
-                        <label className="text-gray-300 text-xs">Вероятность (0-1)</label>
+                        <label className="text-gray-300 text-xs">Вероятность выпадения (0-1)</label>
                         <input
                           type="number"
                           step="0.001"
@@ -327,12 +326,13 @@ const AdminPanel = () => {
                             const newProb = parseFloat(e.target.value);
                             updateCaseSkinProbability(caseSkin.id, newProb);
                           }}
-                          className="w-20 bg-gray-600 text-white px-2 py-1 rounded text-sm"
+                          className="w-24 bg-gray-600 text-white px-2 py-1 rounded text-sm"
                           placeholder="0.001"
                         />
+                        <span className="text-gray-400 text-xs">Где 1 = 100%</span>
                       </div>
                       <div className="flex flex-col items-center space-y-1">
-                        <label className="text-gray-300 text-xs">Изображение</label>
+                        <label className="text-gray-300 text-xs">Изображение скина</label>
                         <input
                           type="file"
                           accept="image/*"
@@ -340,7 +340,7 @@ const AdminPanel = () => {
                             const file = e.target.files?.[0];
                             if (file) handleSkinImageUpload(file, caseSkin.skins.id);
                           }}
-                          className="bg-gray-600 text-white px-2 py-1 rounded text-xs"
+                          className="bg-gray-600 text-white px-2 py-1 rounded text-xs w-24"
                           disabled={uploadingImage}
                         />
                       </div>
@@ -364,6 +364,7 @@ const AdminPanel = () => {
                       <button
                         onClick={() => removeSkinFromCase(caseSkin.id)}
                         className="bg-red-600 hover:bg-red-700 text-white p-2 rounded"
+                        title="Удалить скин из кейса"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -407,6 +408,7 @@ const AdminPanel = () => {
                     <button
                       onClick={() => addSkinToCase(skin.id)}
                       className="bg-green-600 hover:bg-green-700 text-white p-1 rounded ml-2"
+                      title="Добавить скин в кейс"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
