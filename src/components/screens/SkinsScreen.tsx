@@ -20,6 +20,10 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
   // Создаем пользователя с правильным UUID если нужно
   const validUser = currentUser.id.includes('test-user') ? createTestUser() : currentUser;
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as "cases" | "shop" | "inventory");
+  };
+
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
       {/* Header */}
@@ -66,7 +70,11 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
         <CasesTab currentUser={validUser} onCoinsUpdate={onCoinsUpdate} />
       )}
       {activeTab === "shop" && (
-        <ShopTab currentUser={validUser} onCoinsUpdate={onCoinsUpdate} />
+        <ShopTab 
+          currentUser={validUser} 
+          onCoinsUpdate={onCoinsUpdate} 
+          onTabChange={handleTabChange}
+        />
       )}
       {activeTab === "inventory" && (
         <InventoryScreen currentUser={validUser} onCoinsUpdate={onCoinsUpdate} />

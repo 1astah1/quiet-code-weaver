@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +6,7 @@ import { generateUUID, isValidUUID } from "@/utils/uuid";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
+import PurchaseSuccessModal from "./PurchaseSuccessModal";
 
 interface ShopTabProps {
   currentUser: {
@@ -15,6 +15,7 @@ interface ShopTabProps {
     coins: number;
   };
   onCoinsUpdate: (newCoins: number) => void;
+  onTabChange?: (tab: string) => void;
 }
 
 interface Skin {
@@ -26,11 +27,16 @@ interface Skin {
   image_url: string | null;
 }
 
-const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
+const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
   const [selectedWeapon, setSelectedWeapon] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 999999 });
   const [sortBy, setSortBy] = useState<string>("price-asc");
+  const [purchaseSuccessModal, setPurchaseSuccessModal] = useState<{
+    isOpen: boolean;
+    item: Skin | null;
+  }>({ isOpen: false, item: null });
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -127,18 +133,20 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
         }
 
         console.log('Purchase successful, new coins:', newCoins);
-        return { newCoins };
+        return { newCoins, purchasedSkin: skin };
       } catch (error) {
         console.error('Purchase error:', error);
         throw error;
       }
     },
-    onSuccess: (data, skin) => {
+    onSuccess: (data) => {
       onCoinsUpdate(data.newCoins);
       queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
-      toast({
-        title: "Покупка успешна!",
-        description: `${skin.name} добавлен в инвентарь`,
+      
+      // Показываем модал успешной покупки
+      setPurchaseSuccessModal({
+        isOpen: true,
+        item: data.purchasedSkin
       });
     },
     onError: (error: any) => {
@@ -195,6 +203,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
     setSortBy(sort);
   };
 
+  const handleViewInventory = () => {
+    if (onTabChange) {
+      onTabChange('inventory');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -234,6 +248,14 @@ const ShopTab = ({ currentUser, onCoinsUpdate }: ShopTabProps) => {
       </div>
 
       {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
+
+      {/* Purchase Success Modal */}
+      <PurchaseSuccessModal
+        isOpen={purchaseSuccessModal.isOpen}
+        onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
+        purchasedItem={purchaseSuccessModal.item}
+        onViewInventory={handleViewInventory}
+      />
     </div>
   );
 };
