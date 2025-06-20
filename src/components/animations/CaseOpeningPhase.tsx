@@ -2,7 +2,12 @@
 import Case3DOpening from "./Case3DOpening";
 
 const CaseOpeningPhase = () => {
-  return <Case3DOpening />;
+  console.log('CaseOpeningPhase rendering');
+  return (
+    <div className="w-full h-full">
+      <Case3DOpening />
+    </div>
+  );
 };
 
 export default CaseOpeningPhase;
