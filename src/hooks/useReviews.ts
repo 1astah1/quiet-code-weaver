@@ -15,7 +15,8 @@ export const useReviews = () => {
       
       if (error) throw error;
       return data;
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5 минут кеша для улучшения производительности
   });
 };
 
@@ -45,6 +46,12 @@ export const useCompleteReview = () => {
         .eq('id', userId);
 
       if (error) throw error;
+
+      // Помечаем отзыв как завершенный
+      await supabase
+        .from('reviews')
+        .update({ is_completed: true, user_id: userId })
+        .eq('id', reviewId);
 
       return { newCoins, reward: review.reward_coins };
     },

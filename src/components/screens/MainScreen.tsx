@@ -1,12 +1,9 @@
-import { useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import BannerCarousel from "@/components/BannerCarousel";
 import RecentWins from "@/components/RecentWins";
 import ReviewsSection from "@/components/reviews/ReviewsSection";
-import GoalsSection from "@/components/goals/GoalsSection";
-import FreebiesSection from "@/components/freebies/FreebiesSection";
 import StatCard from "@/components/cards/StatCard";
 import { Coins, Trophy, Target, Gift } from "lucide-react";
 
@@ -22,27 +19,25 @@ interface MainScreenProps {
 }
 
 const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenProps) => {
-  const { toast } = useToast();
-
-  // Загружаем статистику пользователя
+  // Загружаем статистику пользователя с кешированием
   const { data: userStats } = useQuery({
     queryKey: ['user-stats', currentUser.id],
     queryFn: async () => {
       const [inventory, achievements, goals] = await Promise.all([
         supabase.from('user_inventory').select('*').eq('user_id', currentUser.id).eq('is_sold', false),
         supabase.from('user_achievements').select('*').eq('user_id', currentUser.id),
-        supabase.from('user_goals').select('*').eq('user_id', currentUser.id)
+        supabase.from('user_goals').select('*').eq('user_id', currentUser.id).eq('is_achieved', false)
       ]);
 
       return {
         skinsCount: inventory.data?.length || 0,
         achievementsCount: achievements.data?.length || 0,
-        activeGoalsCount: goals.data?.filter(g => !g.is_achieved).length || 0
+        activeGoalsCount: goals.data?.length || 0
       };
-    }
+    },
+    staleTime: 2 * 60 * 1000, // 2 минуты кеша
   });
 
-  // Handle banner actions
   const handleBannerAction = (action: string) => {
     switch (action) {
       case 'cases':
@@ -56,7 +51,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         onScreenChange('tasks');
         break;
       default:
-        // Handle other actions or log them
         console.log('Banner action:', action);
     }
   };
@@ -130,14 +124,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         </div>
       </div>
 
-      {/* Секция бесплатных бонусов */}
-      <FreebiesSection currentUser={currentUser} onCoinsUpdate={onCoinsUpdate} />
-
       {/* Секция отзывов/заданий */}
       <ReviewsSection currentUser={currentUser} onCoinsUpdate={onCoinsUpdate} />
-
-      {/* Секция целей */}
-      <GoalsSection currentUser={currentUser} />
 
       {/* Последние выигрыши */}
       <div className="mb-6">

@@ -1,8 +1,6 @@
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { ExternalLink, Star, Flame } from "lucide-react";
+import { ExternalLink, Flame } from "lucide-react";
+import { useReviews, useCompleteReview } from "@/hooks/useReviews";
 
 interface ReviewsSectionProps {
   currentUser: {
@@ -14,56 +12,36 @@ interface ReviewsSectionProps {
 }
 
 const ReviewsSection = ({ currentUser, onCoinsUpdate }: ReviewsSectionProps) => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { data: reviews, isLoading } = useReviews();
+  const completeMutation = useCompleteReview();
 
-  const { data: reviews } = useQuery({
-    queryKey: ['reviews'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('is_hot', { ascending: false })
-        .order('reward_coins', { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  const completeMutation = useMutation({
-    mutationFn: async (reviewId: string) => {
-      const review = reviews?.find(r => r.id === reviewId);
-      if (!review) throw new Error('Отзыв не найден');
-
-      // Начисляем награду
-      const newCoins = currentUser.coins + review.reward_coins;
-      const { error } = await supabase
-        .from('users')
-        .update({ coins: newCoins })
-        .eq('id', currentUser.id);
-
-      if (error) throw error;
-
-      // Помечаем как выполненное
-      const { error: reviewError } = await supabase
-        .from('reviews')
-        .update({ is_completed: true, user_id: currentUser.id })
-        .eq('id', reviewId);
-
-      if (reviewError) throw reviewError;
-
-      return { newCoins, reward: review.reward_coins };
-    },
-    onSuccess: (data) => {
-      onCoinsUpdate(data.newCoins);
-      toast({
-        title: "Отзыв отправлен!",
-        description: `+${data.reward} монет`,
+  const handleCompleteReview = async (reviewId: string) => {
+    try {
+      const result = await completeMutation.mutateAsync({
+        reviewId,
+        userId: currentUser.id,
+        currentCoins: currentUser.coins
       });
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      onCoinsUpdate(result.newCoins);
+    } catch (error) {
+      console.error('Error completing review:', error);
     }
-  });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-white mb-4">Отзывы и задания</h2>
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-gray-800/60 rounded-lg p-4 animate-pulse">
+              <div className="h-16 bg-gray-700 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-6">
@@ -100,10 +78,10 @@ const ReviewsSection = ({ currentUser, onCoinsUpdate }: ReviewsSectionProps) => 
               
               <div className="text-right">
                 <div className="text-yellow-400 font-bold text-lg mb-2">
-                  +{review.reward_coins.toLocaleString()}
+                  +{review.reward_coins?.toLocaleString() || 0}
                 </div>
                 <button
-                  onClick={() => completeMutation.mutate(review.id)}
+                  onClick={() => handleCompleteReview(review.id)}
                   disabled={completeMutation.isPending || review.is_completed}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
                     review.is_completed
