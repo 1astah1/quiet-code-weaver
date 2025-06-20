@@ -31,13 +31,6 @@ export const useUserInventory = (userId: string) => {
       }
 
       try {
-        // Проверяем аутентификацию перед запросом
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session || session.user.id !== userId) {
-          console.error('User not authenticated or ID mismatch');
-          return [];
-        }
-
         console.log('Loading inventory for user:', userId);
 
         const { data, error } = await supabase
@@ -63,7 +56,11 @@ export const useUserInventory = (userId: string) => {
       }
     },
     enabled: !!userId && isValidUUID(userId),
-    retry: 2
+    retry: 2,
+    // Добавляем более агрессивное обновление
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Обновляем каждые 10 секунд
+    staleTime: 5000 // Данные считаются устаревшими через 5 секунд
   });
 };
 
@@ -84,12 +81,10 @@ export const useSellSkin = () => {
       try {
         console.log('Selling skin:', { inventoryId, userId, sellPrice });
         
-        // Проверяем валидность UUID
         if (!isValidUUID(userId) || !isValidUUID(inventoryId)) {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем существование пользователя
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id, coins')
@@ -109,7 +104,6 @@ export const useSellSkin = () => {
         
         console.log('Current coins:', currentCoins, 'Adding:', sellPrice, 'New total:', newCoins);
 
-        // Проверяем существование предмета в инвентаре
         const { data: inventoryItem, error: inventoryCheckError } = await supabase
           .from('user_inventory')
           .select('id, user_id, is_sold')
@@ -126,7 +120,6 @@ export const useSellSkin = () => {
           throw new Error('Ошибка проверки инвентаря');
         }
 
-        // Обновляем монеты пользователя
         const { error: coinsError } = await supabase
           .from('users')
           .update({ coins: newCoins })
@@ -137,7 +130,6 @@ export const useSellSkin = () => {
           throw new Error('Не удалось обновить баланс');
         }
 
-        // Помечаем скин как проданный
         const { error: sellError } = await supabase
           .from('user_inventory')
           .update({
@@ -150,7 +142,6 @@ export const useSellSkin = () => {
 
         if (sellError) {
           console.error('Error marking skin as sold:', sellError);
-          // Откатываем изменение баланса
           await supabase
             .from('users')
             .update({ coins: currentCoins })
@@ -165,8 +156,11 @@ export const useSellSkin = () => {
         throw error;
       }
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] });
+    onSuccess: async (data, variables) => {
+      // Принудительно обновляем инвентарь
+      await queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] });
+      await queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] });
+      
       toast({
         title: "Скин продан!",
         description: `Получено ${variables.sellPrice} монет`,

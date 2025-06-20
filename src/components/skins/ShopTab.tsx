@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,6 +79,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
         }
 
+        // Проверяем существование пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id, coins')
@@ -113,6 +113,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
         }
 
+        // Списываем монеты
         const newCoins = userCoins - skin.price;
         const { error: coinsError } = await supabase
           .from('users')
@@ -124,6 +125,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error('Не удалось списать монеты');
         }
 
+        // Добавляем в инвентарь
         const { error: inventoryError } = await supabase
           .from('user_inventory')
           .insert({
@@ -136,6 +138,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
         if (inventoryError) {
           console.error('Error adding to inventory:', inventoryError);
+          // Откатываем списание монет
           await supabase
             .from('users')
             .update({ coins: userCoins })
@@ -150,13 +153,23 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       onCoinsUpdate(data.newCoins);
-      queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
+      
+      // ВАЖНО: Принудительно обновляем инвентарь
+      await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
+      await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
+      
+      console.log('Purchase completed, inventory cache invalidated');
       
       setPurchaseSuccessModal({
         isOpen: true,
         item: data.purchasedSkin
+      });
+      
+      toast({
+        title: "Покупка успешна!",
+        description: `${data.purchasedSkin.name} добавлен в инвентарь`,
       });
     },
     onError: (error: any) => {

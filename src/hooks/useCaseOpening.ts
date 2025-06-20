@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { generateUUID } from "@/utils/uuid";
 
 interface UseCaseOpeningProps {
@@ -21,6 +22,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'complete'>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const openCase = async () => {
     if (isOpening) return;
@@ -125,6 +127,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Пользователь не найден');
       }
 
+      // Добавляем в инвентарь
       const { error: inventoryError } = await supabase
         .from('user_inventory')
         .insert({
@@ -140,6 +143,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось добавить в инвентарь');
       }
 
+      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
@@ -154,6 +158,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.error('Recent win error (non-critical):', error);
       }
 
+      // Списываем монеты только для платных кейсов
       if (!caseItem.is_free) {
         const newCoins = userData.coins - caseItem.price;
         if (newCoins < 0) {
@@ -172,6 +177,14 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         onCoinsUpdate(newCoins);
       }
+
+      // ВАЖНО: Инвалидируем кеш инвентаря
+      await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
+      
+      // Принудительно обновляем данные
+      await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
+
+      console.log('Successfully added to inventory and invalidated cache');
 
       toast({
         title: "Скин добавлен в инвентарь!",
@@ -211,6 +224,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       const sellPrice = wonSkin.price || 0;
       let newCoins = userData.coins + sellPrice;
       
+      // Списываем монеты за кейс только для платных кейсов
       if (!caseItem.is_free) {
         newCoins -= caseItem.price;
         if (newCoins < 0) {
@@ -228,6 +242,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось обновить баланс');
       }
 
+      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
