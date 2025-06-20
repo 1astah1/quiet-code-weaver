@@ -52,6 +52,9 @@ const MainApp = () => {
         return;
       }
 
+      // Get auth user data for avatar
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
       setCurrentUser({
         id: userData.id,
         username: userData.username || 'Пользователь',
@@ -60,7 +63,7 @@ const MainApp = () => {
         streak: userData.quiz_streak || 0,
         isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
         isAdmin: userData.is_admin || false,
-        avatar_url: userData.avatar_url
+        avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture
       });
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -103,6 +106,10 @@ const MainApp = () => {
 
   const handleAuthSuccess = () => {
     loadUserData();
+  };
+
+  const handleCaseOpen = (caseItem: any) => {
+    setOpeningCase(caseItem);
   };
 
   if (authLoading || isLoading) {
