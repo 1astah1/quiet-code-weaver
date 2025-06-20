@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { Sparkles } from "lucide-react";
 import LazyImage from "@/components/ui/LazyImage";
 
 interface CaseRouletteProps {
@@ -14,6 +13,12 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
   const [rouletteItems, setRouletteItems] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!caseSkins || caseSkins.length === 0 || !wonSkin) {
+      console.error('Invalid props for roulette:', { caseSkins, wonSkin });
+      onComplete();
+      return;
+    }
+
     // Создаем массив предметов для рулетки
     const items = [];
     for (let i = 0; i < 15; i++) {
@@ -25,21 +30,29 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
         const randomSkin = caseSkins[Math.floor(Math.random() * caseSkins.length)]?.skins;
         if (randomSkin) {
           items.push(randomSkin);
+        } else {
+          items.push(wonSkin); // Fallback
         }
       }
     }
     setRouletteItems(items);
 
     // Запускаем анимацию
-    setTimeout(() => {
+    const startTimer = setTimeout(() => {
       setIsSpinning(true);
     }, 500);
 
-    // Останавливаем через 4 секунды
-    setTimeout(() => {
+    // Останавливаем через 3 секунды
+    const stopTimer = setTimeout(() => {
       setIsSpinning(false);
-      setTimeout(onComplete, 1000);
-    }, 4000);
+      const completeTimer = setTimeout(onComplete, 1000);
+      return () => clearTimeout(completeTimer);
+    }, 3500);
+
+    return () => {
+      clearTimeout(startTimer);
+      clearTimeout(stopTimer);
+    };
   }, [caseSkins, wonSkin, onComplete]);
 
   const getRarityColor = (rarity: string) => {
@@ -54,46 +67,50 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
     return colors[rarity as keyof typeof colors] || 'border-gray-500 bg-gray-500/20';
   };
 
+  if (!rouletteItems.length) {
+    return <div className="text-white text-center">Загрузка рулетки...</div>;
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 sm:mb-6 text-center">Крутим рулетку...</h2>
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4 text-center">Определяем победителя...</h2>
       
       {/* Рулетка */}
-      <div className="relative overflow-hidden mx-4 sm:mx-8">
+      <div className="relative overflow-hidden mx-2 sm:mx-4">
         {/* Указатель */}
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="w-0 h-0 border-l-[15px] border-r-[15px] border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
+          <div className="w-0 h-0 border-l-[10px] sm:border-l-[15px] border-r-[10px] sm:border-r-[15px] border-b-[15px] sm:border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
         </div>
         
         {/* Контейнер рулетки */}
-        <div className="bg-slate-800/50 rounded-xl border border-slate-600/50 overflow-hidden relative">
+        <div className="bg-slate-800/50 rounded-lg border border-slate-600/50 overflow-hidden relative">
           <div 
-            className={`flex transition-transform duration-4000 ease-out ${
+            className={`flex transition-transform duration-3000 ease-out ${
               isSpinning ? 'transform -translate-x-[50%]' : ''
             }`}
             style={{
-              transform: isSpinning ? 'translateX(calc(-50% + 200px))' : 'translateX(0)',
+              transform: isSpinning ? 'translateX(calc(-50% + 100px))' : 'translateX(0)',
             }}
           >
             {rouletteItems.map((item, index) => (
               <div
-                key={index}
-                className={`flex-shrink-0 w-24 sm:w-32 md:w-40 h-24 sm:h-32 md:h-40 border-2 ${getRarityColor(item?.rarity)} p-2 sm:p-3 flex flex-col items-center justify-center transition-all duration-300`}
+                key={`${item.id}-${index}`}
+                className={`flex-shrink-0 w-16 sm:w-24 md:w-32 h-16 sm:h-24 md:h-32 border-2 ${getRarityColor(item?.rarity)} p-1 sm:p-2 flex flex-col items-center justify-center transition-all duration-300`}
               >
-                <div className="w-full h-2/3 flex items-center justify-center mb-1 sm:mb-2">
+                <div className="w-full h-2/3 flex items-center justify-center mb-1">
                   {item?.image_url ? (
                     <LazyImage
                       src={item.image_url}
-                      alt={item.name}
+                      alt={item.name || 'Скин'}
                       className="w-full h-full object-contain"
-                      fallback={<div className="text-lg sm:text-xl">🔫</div>}
+                      fallback={<div className="text-sm sm:text-lg">🔫</div>}
                     />
                   ) : (
-                    <div className="text-lg sm:text-xl">🔫</div>
+                    <div className="text-sm sm:text-lg">🔫</div>
                   )}
                 </div>
-                <div className="text-white text-[8px] sm:text-[10px] md:text-xs font-medium text-center leading-tight truncate w-full">
-                  {item?.name?.substring(0, 15) || 'Скин'}
+                <div className="text-white text-[6px] sm:text-[8px] md:text-[10px] font-medium text-center leading-tight truncate w-full">
+                  {item?.name?.substring(0, 10) || 'Скин'}
                 </div>
               </div>
             ))}
@@ -101,26 +118,8 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
         </div>
       </div>
 
-      {/* Анимированные частицы */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 4}s`
-            }}
-          >
-            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-orange-400/40" />
-          </div>
-        ))}
-      </div>
-
-      <p className="text-yellow-300 text-lg sm:text-xl md:text-2xl font-semibold animate-pulse text-center">
-        Определяем победителя!
+      <p className="text-yellow-300 text-sm sm:text-lg md:text-xl font-semibold animate-pulse text-center">
+        Рулетка крутится!
       </p>
     </div>
   );
