@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Plus, Trash2, Upload, Edit, Save, X } from "lucide-react";
 import CaseJSONImporter from "./CaseJSONImporter";
 
 interface CaseManagementProps {
@@ -23,6 +23,13 @@ const CaseManagement = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showImporter, setShowImporter] = useState(false);
+  const [editingCase, setEditingCase] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    cover_image_url: ''
+  });
 
   // Fetch all skins for case management
   const { data: allSkins } = useQuery({
@@ -112,6 +119,81 @@ const CaseManagement = ({
     }
   };
 
+  const startEditCase = (caseItem: any) => {
+    setEditingCase(caseItem.id);
+    setEditForm({
+      name: caseItem.name || '',
+      description: caseItem.description || '',
+      price: caseItem.price || 0,
+      cover_image_url: caseItem.cover_image_url || ''
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingCase(null);
+    setEditForm({
+      name: '',
+      description: '',
+      price: 0,
+      cover_image_url: ''
+    });
+  };
+
+  const saveCase = async (caseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cases')
+        .update({
+          name: editForm.name,
+          description: editForm.description,
+          price: editForm.price,
+          cover_image_url: editForm.cover_image_url
+        })
+        .eq('id', caseId);
+
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      setEditingCase(null);
+      toast({ title: "Кейс обновлен успешно" });
+    } catch (error) {
+      console.error('Update case error:', error);
+      toast({ title: "Ошибка обновления кейса", variant: "destructive" });
+    }
+  };
+
+  const handleCoverUpload = async (file: File, caseId: string) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `case_cover_${caseId}_${Date.now()}.${fileExt}`;
+      const filePath = `case-covers/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('case-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('case-images')
+        .getPublicUrl(filePath);
+
+      const { error } = await supabase
+        .from('cases')
+        .update({ cover_image_url: publicUrl })
+        .eq('id', caseId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      setEditForm(prev => ({ ...prev, cover_image_url: publicUrl }));
+      toast({ title: "Обложка кейса обновлена" });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: "Ошибка загрузки обложки", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* JSON Importer */}
@@ -137,7 +219,121 @@ const CaseManagement = ({
         )}
       </div>
 
-      {/* Existing case management */}
+      {/* Case Settings */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <h3 className="text-white font-semibold mb-4">Настройки кейсов</h3>
+        
+        <div className="space-y-4">
+          {tableData?.map((caseItem: any) => (
+            <div key={caseItem.id} className="bg-gray-700 p-4 rounded-lg">
+              {editingCase === caseItem.id ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Название кейса:</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-gray-600 text-white px-3 py-2 rounded"
+                        placeholder="Название кейса"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Цена:</label>
+                      <input
+                        type="number"
+                        value={editForm.price}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))}
+                        className="w-full bg-gray-600 text-white px-3 py-2 rounded"
+                        placeholder="Цена кейса"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Описание:</label>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                      className="w-full bg-gray-600 text-white px-3 py-2 rounded"
+                      placeholder="Описание кейса"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Обложка кейса:</label>
+                    <div className="flex items-center space-x-4">
+                      {editForm.cover_image_url && (
+                        <img 
+                          src={editForm.cover_image_url} 
+                          alt="Обложка кейса"
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleCoverUpload(file, caseItem.id);
+                        }}
+                        className="bg-gray-600 text-white px-3 py-2 rounded text-sm"
+                        disabled={uploadingImage}
+                      />
+                    </div>
+                    <p className="text-gray-400 text-xs mt-1">Рекомендуемый размер: 800x600px</p>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => saveCase(caseItem.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center space-x-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Сохранить</span>
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded flex items-center space-x-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Отмена</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    {caseItem.cover_image_url && (
+                      <img 
+                        src={caseItem.cover_image_url} 
+                        alt={caseItem.name}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                    )}
+                    <div>
+                      <h4 className="text-white font-medium">{caseItem.name}</h4>
+                      <p className="text-gray-400 text-sm">{caseItem.description}</p>
+                      <p className="text-orange-400 text-sm font-bold">{caseItem.price} монет</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => startEditCase(caseItem)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center space-x-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Редактировать</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Case Content Management */}
       <div className="bg-gray-800 p-4 rounded-lg">
         <h3 className="text-white font-semibold mb-4">Управление содержимым кейсов</h3>
         
