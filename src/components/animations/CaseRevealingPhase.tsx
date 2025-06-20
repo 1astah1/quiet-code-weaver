@@ -9,65 +9,45 @@ interface CaseRevealingPhaseProps {
 }
 
 const CaseRevealingPhase = ({ caseSkins, wonSkin, onComplete }: CaseRevealingPhaseProps) => {
-  const [revealPhase, setRevealPhase] = useState<'analyzing' | 'roulette' | 'finalizing'>('analyzing');
+  const [showRoulette, setShowRoulette] = useState(false);
 
   useEffect(() => {
-    console.log('CaseRevealingPhase: Starting reveal sequence');
+    console.log('CaseRevealingPhase: Starting reveal');
     
     if (!caseSkins || !wonSkin || !onComplete) {
-      console.error('CaseRevealingPhase: Missing required props');
+      console.error('CaseRevealingPhase: Missing props');
       return;
     }
 
-    const timer1 = setTimeout(() => {
-      console.log('CaseRevealingPhase: Starting roulette');
-      setRevealPhase('roulette');
+    const timer = setTimeout(() => {
+      console.log('CaseRevealingPhase: Showing roulette');
+      setShowRoulette(true);
     }, 1000);
 
-    const timer2 = setTimeout(() => {
-      console.log('CaseRevealingPhase: Finalizing');
-      setRevealPhase('finalizing');
-      setTimeout(() => {
-        console.log('CaseRevealingPhase: Completing');
-        onComplete();
-      }, 500);
-    }, 5000);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    return () => clearTimeout(timer);
   }, [caseSkins, wonSkin, onComplete]);
 
-  if (revealPhase === 'roulette' && caseSkins && wonSkin) {
-    return <CaseRoulette caseSkins={caseSkins} wonSkin={wonSkin} onComplete={() => {}} />;
+  if (showRoulette && caseSkins && wonSkin) {
+    return <CaseRoulette caseSkins={caseSkins} wonSkin={wonSkin} onComplete={onComplete} />;
   }
 
   return (
-    <div className="min-h-[400px] flex flex-col items-center justify-center p-8">
+    <div className="min-h-[400px] flex flex-col items-center justify-center p-8 bg-slate-900">
       <h2 className="text-3xl font-bold text-white mb-8 text-center">
-        {revealPhase === 'analyzing' && 'Анализ содержимого...'}
-        {revealPhase === 'finalizing' && 'Финализация выигрыша...'}
+        Определяем выигрыш...
       </h2>
       
-      <div className="relative flex justify-center">
-        <div className="w-40 h-40 relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-5xl shadow-2xl shadow-cyan-500/50 animate-pulse">
-            💎
-          </div>
-          
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-48 h-48 border-4 border-transparent border-t-cyan-400 border-r-cyan-400 rounded-full animate-spin"></div>
-          </div>
+      <div className="relative">
+        <div className="w-40 h-40 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center text-5xl shadow-2xl">
+          💎
         </div>
+        
+        <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl animate-pulse"></div>
       </div>
       
-      <div className="text-center mt-8">
-        <p className="text-cyan-300 text-xl font-semibold animate-pulse">
-          {revealPhase === 'analyzing' && 'Сканирование матрицы...'}
-          {revealPhase === 'finalizing' && 'Калибровка результата...'}
-        </p>
-      </div>
+      <p className="text-purple-400 text-xl font-semibold mt-8 animate-pulse">
+        Анализ содержимого...
+      </p>
     </div>
   );
 };

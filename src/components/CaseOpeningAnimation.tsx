@@ -17,10 +17,7 @@ interface CaseOpeningAnimationProps {
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
-  console.log('CaseOpeningAnimation: Rendering', { 
-    caseItem: caseItem?.name, 
-    currentUser: currentUser?.username 
-  });
+  console.log('CaseOpeningAnimation: Rendering');
 
   const {
     wonSkin,
@@ -32,32 +29,32 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     caseSkins
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
-  console.log('CaseOpeningAnimation: Hook state', { 
+  console.log('CaseOpeningAnimation: State', { 
     animationPhase, 
     isComplete, 
-    wonSkin: !!wonSkin,
-    caseSkins: caseSkins?.length 
+    hasWonSkin: !!wonSkin,
+    hasCaseSkins: !!caseSkins?.length 
   });
 
   const handleAddToInventory = async () => {
-    console.log('CaseOpeningAnimation: Adding to inventory');
+    console.log('Adding to inventory');
     await addToInventory();
     onClose();
   };
 
   const handleSellDirectly = async () => {
-    console.log('CaseOpeningAnimation: Selling directly');
+    console.log('Selling directly');
     await sellDirectly();
     onClose();
   };
 
-  const handleRouletteComplete = () => {
-    console.log('CaseOpeningAnimation: Roulette complete');
+  const handleRevealComplete = () => {
+    console.log('Reveal phase complete');
   };
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 rounded-2xl w-full max-w-4xl mx-auto text-center relative overflow-hidden border border-orange-500/30 max-h-[95vh] overflow-y-auto">
+      <div className="bg-slate-900 rounded-2xl w-full max-w-4xl mx-auto relative border border-orange-500/30 max-h-[95vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10 bg-black/50 rounded-full p-2"
@@ -66,20 +63,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         </button>
 
         <div className="p-6">
-          {/* Debug info */}
-          <div className="text-xs text-gray-500 mb-4">
-            Phase: {animationPhase}, Complete: {isComplete ? 'yes' : 'no'}
-          </div>
-
-          {animationPhase === 'opening' && (
-            <CaseOpeningPhase />
-          )}
+          {/* Показываем текущую фазу */}
+          {animationPhase === 'opening' && <CaseOpeningPhase />}
           
-          {animationPhase === 'revealing' && caseSkins && wonSkin && (
+          {animationPhase === 'revealing' && (
             <CaseRevealingPhase 
               caseSkins={caseSkins} 
               wonSkin={wonSkin} 
-              onComplete={handleRouletteComplete}
+              onComplete={handleRevealComplete}
             />
           )}
 
@@ -92,10 +83,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
             />
           )}
 
-          {/* Fallback content */}
+          {/* Резервный контент если что-то пошло не так */}
           {!animationPhase && !isComplete && (
-            <div className="min-h-[400px] flex items-center justify-center">
-              <div className="text-white">Загрузка...</div>
+            <div className="min-h-[400px] flex items-center justify-center bg-slate-900">
+              <div className="text-center">
+                <div className="text-white text-xl mb-4">Загрузка...</div>
+                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              </div>
             </div>
           )}
         </div>

@@ -2,82 +2,51 @@
 import { useState, useEffect } from "react";
 
 const Case3DOpening = () => {
-  const [phase, setPhase] = useState<'initial' | 'glowing' | 'opening' | 'complete'>('initial');
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    console.log('Case3DOpening: Starting animation');
+    console.log('Case3DOpening: Starting');
     
-    const timer1 = setTimeout(() => {
-      setPhase('glowing');
-    }, 500);
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 5;
+      });
+    }, 50);
 
-    const timer2 = setTimeout(() => {
-      setPhase('opening');
-    }, 1500);
-
-    const timer3 = setTimeout(() => {
-      setPhase('complete');
-    }, 2500);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-[400px] flex flex-col items-center justify-center p-8">
+    <div className="min-h-[400px] flex flex-col items-center justify-center p-8 bg-slate-900">
       <h2 className="text-3xl font-bold text-white mb-8 text-center">
-        {phase === 'initial' && 'Подготовка кейса...'}
-        {phase === 'glowing' && 'Активация...'}
-        {phase === 'opening' && 'Открытие кейса...'}
-        {phase === 'complete' && 'Готово!'}
+        Открытие кейса...
       </h2>
       
-      <div className="relative">
+      <div className="relative mb-8">
+        <div className="w-48 h-48 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center text-6xl border-4 border-orange-500/50 shadow-lg shadow-orange-500/20">
+          📦
+        </div>
+        
+        <div className="absolute -inset-4 border-2 border-orange-400 rounded-3xl opacity-50"></div>
+      </div>
+
+      <div className="w-64 bg-slate-700 rounded-full h-4 mb-4">
         <div 
-          className={`w-48 h-48 transition-all duration-1000 ease-in-out ${
-            phase === 'initial' ? 'scale-100' :
-            phase === 'glowing' ? 'scale-110' :
-            phase === 'opening' ? 'scale-125' :
-            'scale-150'
-          }`}
-        >
-          <div className={`w-full h-full rounded-3xl flex items-center justify-center text-8xl transition-all duration-500 border-4 ${
-            phase === 'initial' ? 'bg-slate-700 border-slate-500' :
-            phase === 'glowing' ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-400/50' :
-            phase === 'opening' ? 'bg-purple-600 border-purple-400 shadow-lg shadow-purple-400/50' :
-            'bg-yellow-500 border-yellow-300 shadow-lg shadow-yellow-400/50'
-          }`}>
-            📦
-          </div>
-        </div>
-
-        {phase !== 'initial' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`w-64 h-64 border-2 rounded-full animate-spin ${
-              phase === 'glowing' ? 'border-blue-400/50' :
-              phase === 'opening' ? 'border-purple-400/50' :
-              'border-yellow-400/70'
-            }`} style={{ animationDuration: '2s' }} />
-          </div>
-        )}
+          className="bg-gradient-to-r from-orange-500 to-red-500 h-4 rounded-full transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        ></div>
       </div>
-
-      <div className="mt-8">
-        <div className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-500 ${
-          phase === 'initial' ? 'bg-slate-700 text-slate-300' :
-          phase === 'glowing' ? 'bg-blue-500/20 text-blue-400' :
-          phase === 'opening' ? 'bg-purple-500/20 text-purple-400' :
-          'bg-yellow-500/20 text-yellow-400'
-        }`}>
-          {phase === 'initial' && '🔐 Инициализация'}
-          {phase === 'glowing' && '⚡ Зарядка энергии'}
-          {phase === 'opening' && '🌟 Открытие'}
-          {phase === 'complete' && '💥 Готово к извлечению!'}
-        </div>
-      </div>
+      
+      <p className="text-orange-400 text-lg font-semibold">
+        {progress < 30 && 'Инициализация...'}
+        {progress >= 30 && progress < 70 && 'Активация кейса...'}
+        {progress >= 70 && progress < 100 && 'Открытие...'}
+        {progress === 100 && 'Готово!'}
+      </p>
     </div>
   );
 };
