@@ -229,6 +229,11 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
       case 'Classified': return 'from-red-600 to-red-700';
       case 'Covert': return 'from-orange-600 to-orange-700';
       case 'Contraband': return 'from-yellow-600 to-yellow-700';
+      case 'Special': return 'from-yellow-500 to-orange-500';
+      // Совместимость со старыми значениями
+      case 'Consumer Grade': return 'from-gray-600 to-gray-700';
+      case 'Industrial Grade': return 'from-blue-600 to-blue-700';
+      case '★ Special Items': return 'from-yellow-500 to-orange-500';
       default: return 'from-gray-600 to-gray-700';
     }
   };
