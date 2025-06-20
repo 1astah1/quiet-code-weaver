@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { generateUUID } from "@/utils/uuid";
 import type { User } from "@supabase/supabase-js";
 
 interface AuthUser {
@@ -22,104 +22,62 @@ export const useAuth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('useAuth: Starting initialization');
-    let mounted = true;
+    // Проверяем текущую сессию
+    checkSession();
 
-    const initializeAuth = async () => {
-      try {
-        setIsLoading(true);
-        console.log('useAuth: Getting session...');
+    // Слушаем изменения авторизации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         
-        // Получаем текущую сессию
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('useAuth: Session error:', sessionError);
-          if (mounted) {
-            setIsLoading(false);
-            setIsAuthenticated(false);
-            setUser(null);
-          }
-          return;
-        }
-
-        console.log('useAuth: Session result:', !!session);
-
-        if (session?.user && mounted) {
-          console.log('useAuth: User found, loading profile...');
-          await loadUserProfile(session.user);
-        } else {
-          console.log('useAuth: No session found');
-          if (mounted) {
-            setIsLoading(false);
-            setIsAuthenticated(false);
-            setUser(null);
-          }
-        }
-      } catch (error) {
-        console.error('useAuth: Initialize error:', error);
-        if (mounted) {
-          setIsLoading(false);
-          setIsAuthenticated(false);
-          setUser(null);
+        if (event === 'SIGNED_IN' && session?.user) {
+          await handleUserSignIn(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          handleUserSignOut();
         }
       }
-    };
+    );
 
-    const loadUserProfile = async (authUser: User) => {
-      try {
-        console.log('useAuth: Loading profile for user:', authUser.id);
-        
-        // Получаем данные пользователя
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
+    return () => subscription.unsubscribe();
+  }, []);
 
-        if (error) {
-          console.error('useAuth: Profile load error:', error);
-          
-          // Если пользователя нет в базе, создаем его
-          if (error.code === 'PGRST116') {
-            console.log('useAuth: Creating user profile...');
-            await createUserProfile(authUser);
-            return;
-          }
-          
-          throw error;
-        }
-
-        if (userData && mounted) {
-          const userProfile: AuthUser = {
-            id: userData.id,
-            username: userData.username || 'User',
-            email: userData.email || authUser.email || '',
-            coins: userData.coins || 0,
-            isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
-            isAdmin: userData.is_admin || false,
-            referralCode: userData.referral_code,
-            avatar_url: authUser.user_metadata?.avatar_url
-          };
-
-          console.log('useAuth: Profile loaded successfully:', userProfile);
-          setUser(userProfile);
-          setIsAuthenticated(true);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('useAuth: Load profile error:', error);
-        if (mounted) {
-          setIsLoading(false);
-          setIsAuthenticated(false);
-          setUser(null);
-        }
+  const checkSession = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Session check error:', error);
+        setIsLoading(false);
+        return;
       }
-    };
 
-    const createUserProfile = async (authUser: User) => {
-      try {
-        console.log('useAuth: Creating profile for user:', authUser.id);
+      if (session?.user) {
+        await handleUserSignIn(session.user);
+      } else {
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleUserSignIn = async (authUser: User) => {
+    try {
+      console.log('Handling user sign in:', authUser.id);
+      
+      // Проверяем существование пользователя в нашей базе
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      let userData: AuthUser;
+
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Пользователь не существует, создаем нового
+        console.log('Creating new user in database');
         
         const newUser = {
           id: authUser.id,
@@ -128,107 +86,90 @@ export const useAuth = () => {
                    authUser.email?.split('@')[0] || 
                    'User',
           email: authUser.email || '',
-          coins: 1000,
+          coins: 1000, // Стартовые монеты для новых пользователей
           is_admin: false,
           referral_code: null
         };
 
-        const { data, error } = await supabase
+        const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUser)
           .select()
           .single();
 
-        if (error) throw error;
-
-        if (data && mounted) {
-          const userProfile: AuthUser = {
-            id: data.id,
-            username: data.username,
-            email: data.email || '',
-            coins: data.coins || 1000,
-            isPremium: false,
-            isAdmin: data.is_admin || false,
-            referralCode: data.referral_code,
-            avatar_url: authUser.user_metadata?.avatar_url
-          };
-
-          console.log('useAuth: Profile created successfully:', userProfile);
-          setUser(userProfile);
-          setIsAuthenticated(true);
-          setIsLoading(false);
-
-          toast({
-            title: "Добро пожаловать!",
-            description: "Вы получили 1000 стартовых монет!",
-          });
+        if (createError) {
+          console.error('Error creating user:', createError);
+          throw createError;
         }
-      } catch (error) {
-        console.error('useAuth: Create profile error:', error);
-        if (mounted) {
-          setIsLoading(false);
-          setIsAuthenticated(false);
-          setUser(null);
-        }
+
+        userData = {
+          id: createdUser.id,
+          username: createdUser.username,
+          email: createdUser.email || '',
+          coins: createdUser.coins || 1000,
+          isPremium: createdUser.premium_until ? new Date(createdUser.premium_until) > new Date() : false,
+          isAdmin: createdUser.is_admin || false,
+          referralCode: createdUser.referral_code,
+          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+        };
+
+        toast({
+          title: "Добро пожаловать!",
+          description: `Вы получили 1000 стартовых монет!`,
+        });
+      } else if (fetchError) {
+        console.error('Error fetching user:', fetchError);
+        throw fetchError;
+      } else {
+        // Пользователь существует, используем данные из базы
+        userData = {
+          id: existingUser.id,
+          username: existingUser.username,
+          email: existingUser.email || '',
+          coins: existingUser.coins || 0,
+          isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
+          isAdmin: existingUser.is_admin || false,
+          referralCode: existingUser.referral_code,
+          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture
+        };
       }
-    };
 
-    // Настраиваем слушатель событий аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('useAuth: Auth state changed:', event, !!session);
-        
-        if (!mounted) return;
+      setUser(userData);
+      setIsAuthenticated(true);
+      setIsLoading(false);
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('useAuth: User signed in');
-          setIsLoading(true);
-          await loadUserProfile(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          console.log('useAuth: User signed out');
-          setUser(null);
-          setIsAuthenticated(false);
-          setIsLoading(false);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('useAuth: Token refreshed');
-          // При обновлении токена не перезагружаем профиль
-        }
-      }
-    );
+      console.log('User signed in successfully:', userData.username);
+    } catch (error) {
+      console.error('Error handling user sign in:', error);
+      toast({
+        title: "Ошибка авторизации",
+        description: "Не удалось войти в систему",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
 
-    // Инициализируем аутентификацию
-    initializeAuth();
-
-    return () => {
-      console.log('useAuth: Cleanup');
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [toast]);
+  const handleUserSignOut = () => {
+    setUser(null);
+    setIsAuthenticated(false);
+    setIsLoading(false);
+    console.log('User signed out');
+  };
 
   const signOut = async () => {
     try {
-      console.log('useAuth: Signing out...');
-      setIsLoading(true);
-      
       const { error } = await supabase.auth.signOut();
-      
       if (error) {
-        console.error('useAuth: Sign out error:', error);
+        console.error('Sign out error:', error);
         toast({
           title: "Ошибка",
           description: "Не удалось выйти из системы",
           variant: "destructive",
         });
-      } else {
-        console.log('useAuth: Successfully signed out');
-        setUser(null);
-        setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('useAuth: Sign out error:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Sign out error:', error);
     }
   };
 
@@ -237,8 +178,6 @@ export const useAuth = () => {
       setUser({ ...user, coins: newCoins });
     }
   };
-
-  console.log('useAuth: Current state - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
 
   return {
     user,
