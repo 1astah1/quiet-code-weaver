@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, User, Volume2, VolumeX, Smartphone, SmartphoneNfc, Globe, HelpCircle, Gift2, Key } from "lucide-react";
+import { Save, User, Volume2, VolumeX, Smartphone, SmartphoneNfc, Globe, HelpCircle, Gift, Key } from "lucide-react";
 import SteamConnectionModal from "./SteamConnectionModal";
 import PromoCodeModal from "./PromoCodeModal";
 import FAQModal from "./FAQModal";
@@ -239,7 +239,7 @@ const SettingsScreen = ({ currentUser }: SettingsScreenProps) => {
                 className="w-full flex items-center justify-between p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
               >
                 <div className="flex items-center space-x-2">
-                  <Gift2 className="w-4 h-4 text-gray-400" />
+                  <Gift className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-300">Промокод</span>
                 </div>
                 <span className="text-orange-400">→</span>
@@ -273,6 +273,7 @@ const SettingsScreen = ({ currentUser }: SettingsScreenProps) => {
       {/* Модальные окна */}
       {showSteamModal && (
         <SteamConnectionModal
+          isOpen={showSteamModal}
           currentUser={currentUser}
           onClose={() => setShowSteamModal(false)}
         />
@@ -280,6 +281,7 @@ const SettingsScreen = ({ currentUser }: SettingsScreenProps) => {
 
       {showPromoModal && (
         <PromoCodeModal
+          isOpen={showPromoModal}
           currentUser={currentUser}
           onClose={() => setShowPromoModal(false)}
           onCoinsUpdate={() => {}}
@@ -287,7 +289,10 @@ const SettingsScreen = ({ currentUser }: SettingsScreenProps) => {
       )}
 
       {showFAQModal && (
-        <FAQModal onClose={() => setShowFAQModal(false)} />
+        <FAQModal 
+          isOpen={showFAQModal}
+          onClose={() => setShowFAQModal(false)} 
+        />
       )}
     </div>
   );
