@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
@@ -12,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { clearAllCache } from "@/utils/clearCache";
 
 export type Screen = "main" | "skins" | "tasks" | "quiz" | "admin" | "settings";
 
@@ -20,6 +22,15 @@ const MainApp = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isLoading, isAuthenticated, signOut, updateUserCoins } = useAuth();
   const { toast } = useToast();
+
+  // Clear cache on app start (only once)
+  useEffect(() => {
+    const hasCleared = sessionStorage.getItem('cache-cleared');
+    if (!hasCleared) {
+      clearAllCache();
+      sessionStorage.setItem('cache-cleared', 'true');
+    }
+  }, []);
 
   // Обновляем монеты пользователя в базе данных
   const handleCoinsUpdate = async (newCoins: number) => {
