@@ -340,6 +340,64 @@ export type Database = {
           },
         ]
       }
+      skin_withdrawal_requests: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          inventory_item_id: string
+          status: string
+          steam_trade_offer_id: string | null
+          steam_trade_url: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          inventory_item_id: string
+          status?: string
+          steam_trade_offer_id?: string | null
+          steam_trade_url: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          inventory_item_id?: string
+          status?: string
+          steam_trade_offer_id?: string | null
+          steam_trade_url?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skin_withdrawal_requests_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: true
+            referencedRelation: "user_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skins: {
         Row: {
           created_at: string | null

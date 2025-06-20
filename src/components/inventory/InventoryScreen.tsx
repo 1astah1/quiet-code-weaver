@@ -1,16 +1,18 @@
 
 import { useState } from "react";
 import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
-import { Package, Coins, ExternalLink, Loader2 } from "lucide-react";
+import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
 import LazyImage from "@/components/ui/LazyImage";
 import { inventoryLimiter } from "@/utils/rateLimiter";
 import { useToast } from "@/hooks/use-toast";
+import WithdrawSkinModal from "./WithdrawSkinModal";
 
 interface InventoryScreenProps {
   currentUser: {
     id: string;
     username: string;
     coins: number;
+    steam_trade_url?: string;
   };
   onCoinsUpdate: (newCoins: number) => void;
 }
@@ -19,6 +21,9 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
   const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
   const sellSkinMutation = useSellSkin();
   const { toast } = useToast();
+  
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
 
   const getRarityColor = (rarity: string) => {
     const colors = {
@@ -62,6 +67,11 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     } catch (error) {
       console.error('Error selling skin:', error);
     }
+  };
+
+  const handleWithdrawSkin = (item: any) => {
+    setSelectedItem(item);
+    setWithdrawModalOpen(true);
   };
 
   if (isLoading) {
@@ -166,6 +176,15 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                     )}
                   </button>
                   
+                  <button 
+                    onClick={() => handleWithdrawSkin(item)}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
+                  >
+                    <Download className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    <span className="hidden xs:inline">Вывести</span>
+                    <span className="xs:hidden">↓</span>
+                  </button>
+                  
                   <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1">
                     <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     <span className="hidden xs:inline">Steam</span>
@@ -176,6 +195,21 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
             </div>
           ))}
         </div>
+      )}
+
+      {/* Модальное окно для вывода скина */}
+      {selectedItem && (
+        <WithdrawSkinModal
+          isOpen={withdrawModalOpen}
+          onClose={() => {
+            setWithdrawModalOpen(false);
+            setSelectedItem(null);
+          }}
+          inventoryItemId={selectedItem.id}
+          skinName={selectedItem.skins.name}
+          skinImage={selectedItem.skins.image_url}
+          currentTradeUrl={currentUser.steam_trade_url}
+        />
       )}
     </div>
   );
