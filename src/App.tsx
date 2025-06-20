@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
+import AuthScreen from "@/components/auth/AuthScreen";
+import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,23 +18,44 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => {
-  const [isLoading, setIsLoading] = useState(true);
+const AppContent = () => {
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const { user, isLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
 
+  if (isInitialLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-2xl">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <AuthScreen onAuthSuccess={() => {}} />;
+  }
+
+  return <MainApp />;
+};
+
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-slate-900 overflow-hidden">
-            {isLoading ? <LoadingScreen /> : <MainApp />}
+            <AppContent />
             <Toaster />
           </div>
         </BrowserRouter>

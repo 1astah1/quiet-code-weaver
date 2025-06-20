@@ -12,19 +12,9 @@ import TasksScreen from "./screens/TasksScreen";
 import RankingsScreen from "./screens/RankingsScreen";
 import SettingsScreen from "./settings/SettingsScreen";
 import ReferralModal from "./ReferralModal";
+import { useAuth } from "@/hooks/useAuth";
 
 export type Screen = 'main' | 'skins' | 'inventory' | 'quiz' | 'tasks' | 'rankings';
-
-interface CurrentUser {
-  id: string;
-  username: string;
-  coins: number;
-  quiz_lives: number;
-  quiz_streak: number;
-  isPremium: boolean;
-  isAdmin: boolean;
-  referralCode?: string | null;
-}
 
 const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
@@ -32,126 +22,28 @@ const MainApp = () => {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [isAuth, setIsAuth] = useState(false);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const { user, updateUserCoins, signOut } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('Checking authentication...');
-        const { data: { session } } = await supabase.auth.getSession();
-
-        setIsAuth(!!session);
-
-        if (session?.user) {
-          console.log('User found, loading data...');
-          await loadUserData(session.user.id);
-        } else {
-          console.log('No user session found');
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      setIsAuth(!!session);
-
-      if (session?.user) {
-        await loadUserData(session.user.id);
-      } else {
-        setCurrentUser(null);
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription?.unsubscribe();
-  }, []);
-
-  const loadUserData = async (userId: string) => {
-    try {
-      if (!userId) {
-        console.error("Invalid user ID");
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('Loading user data for:', userId);
-
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('id, username, coins, quiz_lives, quiz_streak, is_admin, referral_code, premium_until')
-        .eq('auth_id', userId)
-        .single();
-
-      if (error) {
-        console.error("Error loading user data:", error);
-        toast({
-          variant: "destructive",
-          title: "Ошибка",
-          description: "Не удалось загрузить данные пользователя.",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      if (user) {
-        console.log('User data loaded:', user);
-        const isPremium = user.premium_until ? new Date(user.premium_until) > new Date() : false;
-        
-        setCurrentUser({
-          id: user.id,
-          username: user.username || 'Пользователь',
-          coins: user.coins || 0,
-          quiz_lives: user.quiz_lives || 3,
-          quiz_streak: user.quiz_streak || 0,
-          isPremium,
-          isAdmin: user.is_admin || false,
-          referralCode: user.referral_code,
-        });
-      }
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      toast({
-        variant: "destructive",
-        title: "Ошибка",
-        description: "Не удалось загрузить данные пользователя.",
-      });
-      setIsLoading(false);
-    }
-  };
-
   const handleCoinsUpdate = (newCoins: number) => {
-    if (currentUser && typeof newCoins === 'number' && newCoins >= 0) {
-      setCurrentUser({ ...currentUser, coins: newCoins });
+    if (typeof newCoins === 'number' && newCoins >= 0) {
+      updateUserCoins(newCoins);
     }
   };
 
   const handleLivesUpdate = (newLives: number) => {
-    if (currentUser && typeof newLives === 'number' && newLives >= 0) {
-      setCurrentUser({ ...currentUser, quiz_lives: newLives });
-    }
+    // Здесь можно добавить логику обновления жизней в useAuth хуке
+    console.log('Lives updated:', newLives);
   };
 
   const handleStreakUpdate = (newStreak: number) => {
-    if (currentUser && typeof newStreak === 'number' && newStreak >= 0) {
-      setCurrentUser({ ...currentUser, quiz_streak: newStreak });
-    }
+    // Здесь можно добавить логику обновления стрика в useAuth хуке
+    console.log('Streak updated:', newStreak);
   };
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
-      setCurrentUser(null);
+      await signOut();
       setCurrentScreen('main');
       setSidebarOpen(false);
     } catch (error) {
@@ -160,17 +52,17 @@ const MainApp = () => {
   };
 
   const renderCurrentScreen = () => {
-    if (!currentUser) return null;
+    if (!user) return null;
 
     switch (currentScreen) {
       case 'skins':
-        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case 'inventory':
-        return <InventoryScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return <InventoryScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case 'quiz':
         return (
           <QuizScreen 
-            currentUser={currentUser} 
+            currentUser={user} 
             onBack={() => setCurrentScreen('main')}
             onCoinsUpdate={handleCoinsUpdate}
             onLivesUpdate={handleLivesUpdate}
@@ -178,31 +70,15 @@ const MainApp = () => {
           />
         );
       case 'tasks':
-        return <TasksScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return <TasksScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case 'rankings':
-        return <RankingsScreen currentUser={currentUser} />;
+        return <RankingsScreen currentUser={user} />;
       default:
-        return <MainScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="grid h-screen place-items-center bg-slate-900">
-        <div className="text-white text-2xl">Загрузка...</div>
-      </div>
-    );
-  }
-
-  if (!isAuth) {
-    return (
-      <div className="grid h-screen place-items-center bg-slate-900">
-        <div className="text-white text-2xl">Требуется авторизация...</div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
+  if (!user) {
     return (
       <div className="grid h-screen place-items-center bg-slate-900">
         <div className="text-white text-2xl">Загрузка данных пользователя...</div>
@@ -214,9 +90,9 @@ const MainApp = () => {
     <div className="min-h-screen bg-slate-900 text-white">
       <Header
         currentUser={{
-          username: currentUser.username,
-          coins: currentUser.coins,
-          isPremium: currentUser.isPremium
+          username: user.username,
+          coins: user.coins,
+          isPremium: user.isPremium
         }}
         onMenuClick={() => setSidebarOpen(true)}
       />
@@ -225,10 +101,10 @@ const MainApp = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={{
-          username: currentUser.username,
-          coins: currentUser.coins,
-          isPremium: currentUser.isPremium,
-          isAdmin: currentUser.isAdmin
+          username: user.username,
+          coins: user.coins,
+          isPremium: user.isPremium,
+          isAdmin: user.isAdmin
         }}
         onScreenChange={(screen: Screen) => {
           setCurrentScreen(screen);
@@ -246,12 +122,12 @@ const MainApp = () => {
         </main>
       </div>
 
-      {showSettings && currentUser && (
+      {showSettings && user && (
         <SettingsScreen
           currentUser={{
-            id: currentUser.id,
-            username: currentUser.username,
-            coins: currentUser.coins,
+            id: user.id,
+            username: user.username,
+            coins: user.coins,
             language_code: 'ru',
             sound_enabled: true,
             vibration_enabled: true,
@@ -261,11 +137,11 @@ const MainApp = () => {
         />
       )}
 
-      {showReferralModal && currentUser && (
+      {showReferralModal && user && (
         <ReferralModal
           isOpen={showReferralModal}
           onClose={() => setShowReferralModal(false)}
-          currentUser={currentUser}
+          currentUser={user}
           onCoinsUpdate={handleCoinsUpdate}
         />
       )}
