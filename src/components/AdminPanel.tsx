@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Save, X, Upload, Coins } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, Upload, Coins, Image } from "lucide-react";
 
 type TableName = "cases" | "skins" | "users" | "tasks" | "quiz_questions";
 
@@ -65,7 +65,10 @@ const AdminPanel = () => {
       const fileName = `${Date.now()}.${fileExt}`;
       
       // Choose folder based on table type
-      const folder = activeTable === 'cases' ? 'case-covers' : 'skin-images';
+      let folder = 'case-covers';
+      if (activeTable === 'skins') folder = 'skin-images';
+      if (activeTable === 'quiz_questions') folder = 'quiz-images';
+      
       const filePath = `${folder}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -85,6 +88,10 @@ const AdminPanel = () => {
           .eq('id', itemId);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: [activeTable] });
+        if (activeTable === 'skins') {
+          queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+          queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+        }
       } else {
         setNewItem({ ...newItem, [fieldName]: publicUrl });
       }
@@ -124,6 +131,7 @@ const AdminPanel = () => {
 
       queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
       queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+      queryClient.invalidateQueries({ queryKey: ['skins'] });
       toast({ title: "Изображение скина обновлено" });
     } catch (error) {
       console.error('Upload error:', error);
@@ -252,10 +260,23 @@ const AdminPanel = () => {
       case "tasks":
         return ['title', 'description', 'reward_coins', 'task_url', 'is_active'];
       case "quiz_questions":
-        return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'];
+        return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
       default:
         return [];
     }
+  };
+
+  const getImageRequirements = (fieldName: string) => {
+    if (fieldName === 'cover_image_url') {
+      return "Рекомендуемый размер: 800x600px, форматы: JPG, PNG, WebP, максимум 2MB";
+    }
+    if (fieldName === 'image_url' && activeTable === 'skins') {
+      return "Рекомендуемый размер: 512x512px, форматы: JPG, PNG, WebP, максимум 1MB";
+    }
+    if (fieldName === 'image_url' && activeTable === 'quiz_questions') {
+      return "Рекомендуемый размер: 600x400px, форматы: JPG, PNG, WebP, максимум 2MB";
+    }
+    return "Форматы: JPG, PNG, WebP, максимум 2MB";
   };
 
   const renderCaseManagement = () => {
@@ -343,6 +364,7 @@ const AdminPanel = () => {
                           className="bg-gray-600 text-white px-2 py-1 rounded text-xs w-24"
                           disabled={uploadingImage}
                         />
+                        <span className="text-gray-400 text-xs">512x512px, JPG/PNG</span>
                       </div>
                       <label className="flex items-center space-x-2">
                         <input
@@ -453,6 +475,7 @@ const AdminPanel = () => {
                       className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                       disabled={uploadingImage}
                     />
+                    <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
                     {newItem[field] && (
                       <img 
                         src={newItem[field]} 
@@ -469,6 +492,17 @@ const AdminPanel = () => {
                   >
                     <option value="false">Нет</option>
                     <option value="true">Да</option>
+                  </select>
+                ) : field === 'correct_answer' ? (
+                  <select
+                    value={newItem[field] || 'A'}
+                    onChange={(e) => setNewItem({...newItem, [field]: e.target.value})}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded"
+                  >
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
                   </select>
                 ) : field === 'price' || field === 'coins' || field === 'reward_coins' ? (
                   <input
@@ -523,6 +557,7 @@ const AdminPanel = () => {
                     onDelete={() => handleDelete(item.id)}
                     onImageUpload={(file, fieldName) => handleImageUpload(file, true, item.id, fieldName)}
                     uploadingImage={uploadingImage}
+                    getImageRequirements={getImageRequirements}
                   />
                 ))}
               </tbody>
@@ -571,7 +606,8 @@ const TableRow = ({
   onCancel, 
   onDelete, 
   onImageUpload, 
-  uploadingImage 
+  uploadingImage,
+  getImageRequirements
 }: any) => {
   const [editData, setEditData] = useState(item);
 
@@ -596,6 +632,7 @@ const TableRow = ({
                   className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
                   disabled={uploadingImage}
                 />
+                <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
                 {editData[field] && (
                   <img 
                     src={editData[field]} 
@@ -612,6 +649,17 @@ const TableRow = ({
               >
                 <option value="false">Нет</option>
                 <option value="true">Да</option>
+              </select>
+            ) : field === 'correct_answer' ? (
+              <select
+                value={editData[field] || 'A'}
+                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
+                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
+              >
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
               </select>
             ) : field === 'price' || field === 'coins' || field === 'reward_coins' ? (
               <input
