@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -402,7 +401,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes spin-items {
           0% { transform: translateX(0); }
           100% { transform: translateX(-160px); }
