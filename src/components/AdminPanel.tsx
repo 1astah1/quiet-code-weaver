@@ -59,34 +59,61 @@ const AdminPanel = () => {
   });
 
   const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
+    if (!file) return;
+    
     setUploadingImage(true);
     try {
+      // Проверяем размер файла (максимум 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Файл слишком большой. Максимальный размер: 5MB');
+      }
+
+      // Проверяем тип файла
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Файл должен быть изображением');
+      }
+
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       
-      // Choose folder based on table type
+      // Выбираем папку в зависимости от типа таблицы
       let folder = 'case-covers';
       if (activeTable === 'skins') folder = 'skin-images';
       if (activeTable === 'quiz_questions') folder = 'quiz-images';
+      if (fieldName === 'cover_image_url') folder = 'case-covers';
+      if (fieldName === 'image_url' && activeTable === 'skins') folder = 'skin-images';
       
       const filePath = `${folder}/${fileName}`;
 
+      console.log('Uploading file:', filePath);
+
       const { error: uploadError } = await supabase.storage
         .from('case-images')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('case-images')
         .getPublicUrl(filePath);
+
+      console.log('Public URL:', publicUrl);
 
       if (isEdit && itemId) {
         const { error } = await supabase
           .from(activeTable)
           .update({ [fieldName]: publicUrl })
           .eq('id', itemId);
-        if (error) throw error;
+        if (error) {
+          console.error('Database update error:', error);
+          throw new Error(`Ошибка обновления БД: ${error.message}`);
+        }
         queryClient.invalidateQueries({ queryKey: [activeTable] });
         if (activeTable === 'skins') {
           queryClient.invalidateQueries({ queryKey: ['all_skins'] });
@@ -97,9 +124,13 @@ const AdminPanel = () => {
       }
 
       toast({ title: "Изображение загружено успешно" });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast({ title: "Ошибка загрузки", variant: "destructive" });
+      toast({ 
+        title: "Ошибка загрузки", 
+        description: error.message || "Неизвестная ошибка",
+        variant: "destructive" 
+      });
     } finally {
       setUploadingImage(false);
     }
@@ -199,18 +230,26 @@ const AdminPanel = () => {
 
   const handleAdd = async () => {
     try {
+      console.log('Adding new item:', newItem);
       const { error } = await supabase
         .from(activeTable)
         .insert([newItem]);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Add error:', error);
+        throw new Error(`Ошибка добавления: ${error.message}`);
+      }
       
       setNewItem({});
       queryClient.invalidateQueries({ queryKey: [activeTable] });
       toast({ title: "Успешно добавлено" });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add error:', error);
-      toast({ title: "Ошибка", variant: "destructive" });
+      toast({ 
+        title: "Ошибка", 
+        description: error.message || "Не удалось добавить элемент",
+        variant: "destructive" 
+      });
     }
   };
 
@@ -268,15 +307,15 @@ const AdminPanel = () => {
 
   const getImageRequirements = (fieldName: string) => {
     if (fieldName === 'cover_image_url') {
-      return "Рекомендуемый размер: 800x600px, форматы: JPG, PNG, WebP, максимум 2MB";
+      return "Рекомендуемый размер: 800x600px, форматы: JPG, PNG, WebP, максимум 5MB";
     }
     if (fieldName === 'image_url' && activeTable === 'skins') {
-      return "Рекомендуемый размер: 512x512px, форматы: JPG, PNG, WebP, максимум 1MB";
+      return "Рекомендуемый размер: 512x512px, форматы: JPG, PNG, WebP, максимум 5MB";
     }
     if (fieldName === 'image_url' && activeTable === 'quiz_questions') {
-      return "Рекомендуемый размер: 600x400px, форматы: JPG, PNG, WebP, максимум 2MB";
+      return "Рекомендуемый размер: 600x400px, форматы: JPG, PNG, WebP, максимум 5MB";
     }
-    return "Форматы: JPG, PNG, WebP, максимум 2MB";
+    return "Форматы: JPG, PNG, WebP, максимум 5MB";
   };
 
   const renderCaseManagement = () => {
@@ -472,16 +511,24 @@ const AdminPanel = () => {
                         const file = e.target.files?.[0];
                         if (file) handleImageUpload(file, false, undefined, field);
                       }}
-                      className="w-full bg-gray-700 text-white px-3 py-2 rounded"
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded text-sm"
                       disabled={uploadingImage}
                     />
                     <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
                     {newItem[field] && (
-                      <img 
-                        src={newItem[field]} 
-                        alt="Preview" 
-                        className="w-20 h-20 object-cover rounded"
-                      />
+                      <div className="flex items-center space-x-2">
+                        <img 
+                          src={newItem[field]} 
+                          alt="Preview" 
+                          className="w-20 h-20 object-cover rounded"
+                        />
+                        <button
+                          onClick={() => setNewItem({...newItem, [field]: ''})}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : field === 'is_free' || field === 'is_active' || field === 'is_admin' ? (
