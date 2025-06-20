@@ -1,6 +1,7 @@
 
 import { Heart, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface ShopSkinCardProps {
   skin: {
@@ -33,13 +34,19 @@ const getRarityColor = (rarity: string) => {
 const ShopSkinCard = ({ skin, canAfford, onPurchase, isPurchasing }: ShopSkinCardProps) => {
   return (
     <div className={`bg-slate-800/50 rounded-lg border ${getRarityColor(skin.rarity)} p-4 hover:scale-105 transition-all duration-200`}>
-      {/* Image */}
+      {/* Image with Lazy Loading */}
       <div className="aspect-square bg-slate-700/50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
         {skin.image_url ? (
-          <img 
-            src={skin.image_url} 
+          <LazyImage
+            src={skin.image_url}
             alt={skin.name}
             className="w-full h-full object-contain"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center text-4xl">
+                🔫
+              </div>
+            }
+            onError={() => console.log('Failed to load image for:', skin.name)}
           />
         ) : (
           <div className="text-4xl">🔫</div>

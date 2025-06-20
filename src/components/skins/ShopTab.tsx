@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
+import { purchaseLimiter } from "@/utils/rateLimiter";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
@@ -63,6 +65,11 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const purchaseMutation = useMutation({
     mutationFn: async (skin: Skin) => {
       try {
+        // Проверка rate limiting
+        if (!purchaseLimiter.isAllowed(currentUser.id)) {
+          throw new Error('Слишком много покупок. Подождите немного.');
+        }
+
         console.log('Starting purchase:', { skin: skin.name, price: skin.price, userCoins: currentUser.coins, userId: currentUser.id });
 
         if (!isValidUUID(currentUser.id)) {
@@ -197,6 +204,18 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   const handlePurchase = (skin: Skin) => {
     console.log('Handle purchase clicked for:', skin.name);
+    
+    // Проверяем rate limiting перед попыткой покупки
+    const remaining = purchaseLimiter.getRemainingRequests(currentUser.id);
+    if (remaining === 0) {
+      toast({
+        title: "Слишком много покупок",
+        description: "Подождите немного перед следующей покупкой",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (purchaseMutation.isPending) {
       console.log('Purchase already in progress, ignoring click');
       return;

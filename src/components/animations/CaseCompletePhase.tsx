@@ -1,6 +1,7 @@
 
 import { Coins, ShoppingBag } from "lucide-react";
 import { getRarityColor } from "@/utils/rarityColors";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface CaseCompletePhaseProps {
   wonSkin: any;
@@ -20,14 +21,12 @@ const CaseCompletePhase = ({ wonSkin, isProcessing, onAddToInventory, onSellDire
       <div className={`bg-gradient-to-br ${getRarityColor(wonSkin.rarity)} rounded-3xl p-8 transform animate-scale-in border-4 border-white/30 relative overflow-hidden`}>
         <div className="bg-black/30 rounded-2xl h-48 mb-6 flex items-center justify-center relative overflow-hidden">
           {wonSkin.image_url ? (
-            <img 
-              src={wonSkin.image_url} 
+            <LazyImage
+              src={wonSkin.image_url}
               alt={wonSkin.name}
               className="max-w-full max-h-full object-contain animate-fade-in"
-              onError={(e) => {
-                console.log('Image failed to load:', wonSkin.image_url);
-                e.currentTarget.style.display = 'none';
-              }}
+              fallback={<span className="text-8xl animate-bounce">🎯</span>}
+              onError={() => console.log('Image failed to load:', wonSkin.image_url)}
             />
           ) : (
             <span className="text-8xl animate-bounce">🎯</span>

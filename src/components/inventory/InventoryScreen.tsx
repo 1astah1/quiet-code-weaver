@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
 import { Package, Coins, ExternalLink, Loader2 } from "lucide-react";
+import LazyImage from "@/components/ui/LazyImage";
+import { inventoryLimiter } from "@/utils/rateLimiter";
+import { useToast } from "@/hooks/use-toast";
 
 interface InventoryScreenProps {
   currentUser: {
@@ -15,6 +18,7 @@ interface InventoryScreenProps {
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
   const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
   const sellSkinMutation = useSellSkin();
+  const { toast } = useToast();
 
   const getRarityColor = (rarity: string) => {
     const colors = {
@@ -30,6 +34,16 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
 
   const handleSellSkin = async (inventoryId: string, sellPrice: number) => {
     try {
+      // Проверка rate limiting
+      if (!inventoryLimiter.isAllowed(currentUser.id)) {
+        toast({
+          title: "Слишком много операций",
+          description: "Подождите немного перед следующей продажей",
+          variant: "destructive",
+        });
+        return;
+      }
+
       console.log('Selling skin from inventory:', inventoryId, 'for', sellPrice);
       if (sellSkinMutation.isPending) {
         console.log('Sell already in progress');
@@ -104,13 +118,14 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                 {item.skins.rarity}
               </div>
 
-              {/* Skin Image Placeholder */}
+              {/* Skin Image with Lazy Loading */}
               <div className="bg-black/30 rounded-lg h-32 mb-4 flex items-center justify-center">
                 {item.skins.image_url ? (
-                  <img 
-                    src={item.skins.image_url} 
+                  <LazyImage
+                    src={item.skins.image_url}
                     alt={item.skins.name}
                     className="w-full h-full object-cover rounded-lg"
+                    fallback={<Package className="w-12 h-12 text-white/50" />}
                   />
                 ) : (
                   <Package className="w-12 h-12 text-white/50" />
