@@ -17,6 +17,11 @@ interface CaseOpeningAnimationProps {
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
+  console.log('CaseOpeningAnimation: Rendering with props', { 
+    caseItem: caseItem?.name, 
+    currentUser: currentUser?.username 
+  });
+
   const {
     wonSkin,
     isComplete,
@@ -27,20 +32,27 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     caseSkins
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
-  console.log('CaseOpeningAnimation render:', { animationPhase, isComplete, wonSkin: !!wonSkin });
+  console.log('CaseOpeningAnimation: Hook state', { 
+    animationPhase, 
+    isComplete, 
+    wonSkin: !!wonSkin,
+    caseSkins: caseSkins?.length 
+  });
 
   const handleAddToInventory = async () => {
+    console.log('CaseOpeningAnimation: Adding to inventory');
     await addToInventory();
     onClose();
   };
 
   const handleSellDirectly = async () => {
+    console.log('CaseOpeningAnimation: Selling directly');
     await sellDirectly();
     onClose();
   };
 
   const handleRouletteComplete = () => {
-    console.log('Roulette complete');
+    console.log('CaseOpeningAnimation: Roulette complete');
   };
 
   return (
@@ -55,12 +67,10 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
         <div className="p-6">
           {animationPhase === 'opening' && (
-            <div>
-              <CaseOpeningPhase />
-            </div>
+            <CaseOpeningPhase />
           )}
           
-          {animationPhase === 'revealing' && (
+          {animationPhase === 'revealing' && caseSkins && wonSkin && (
             <CaseRevealingPhase 
               caseSkins={caseSkins} 
               wonSkin={wonSkin} 

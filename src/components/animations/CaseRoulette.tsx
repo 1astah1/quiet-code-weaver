@@ -13,9 +13,11 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
   const [rouletteItems, setRouletteItems] = useState<any[]>([]);
 
   useEffect(() => {
+    console.log('CaseRoulette: Initializing', { caseSkins: caseSkins?.length, wonSkin: !!wonSkin });
+    
     if (!caseSkins || caseSkins.length === 0 || !wonSkin) {
-      console.error('Invalid props for roulette:', { caseSkins, wonSkin });
-      onComplete();
+      console.error('CaseRoulette: Invalid props');
+      setTimeout(onComplete, 1000);
       return;
     }
 
@@ -23,30 +25,27 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
     const items = [];
     for (let i = 0; i < 15; i++) {
       if (i === 7) {
-        // Выигрышный предмет в центре
         items.push(wonSkin);
       } else {
-        // Случайные предметы из кейса
         const randomSkin = caseSkins[Math.floor(Math.random() * caseSkins.length)]?.skins;
-        if (randomSkin) {
-          items.push(randomSkin);
-        } else {
-          items.push(wonSkin); // Fallback
-        }
+        items.push(randomSkin || wonSkin);
       }
     }
     setRouletteItems(items);
 
     // Запускаем анимацию
     const startTimer = setTimeout(() => {
+      console.log('CaseRoulette: Starting spin');
       setIsSpinning(true);
     }, 500);
 
-    // Останавливаем через 3 секунды
     const stopTimer = setTimeout(() => {
+      console.log('CaseRoulette: Stopping spin');
       setIsSpinning(false);
-      const completeTimer = setTimeout(onComplete, 1000);
-      return () => clearTimeout(completeTimer);
+      setTimeout(() => {
+        console.log('CaseRoulette: Completing');
+        onComplete();
+      }, 1000);
     }, 3500);
 
     return () => {
@@ -68,34 +67,32 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
   };
 
   if (!rouletteItems.length) {
-    return <div className="text-white text-center">Загрузка рулетки...</div>;
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-white text-center">Загрузка рулетки...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4 text-center">Определяем победителя...</h2>
+    <div className="space-y-8 p-4">
+      <h2 className="text-2xl md:text-3xl font-bold text-white text-center">Определяем победителя...</h2>
       
-      {/* Рулетка */}
-      <div className="relative overflow-hidden mx-2 sm:mx-4">
-        {/* Указатель */}
+      <div className="relative overflow-hidden">
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="w-0 h-0 border-l-[10px] sm:border-l-[15px] border-r-[10px] sm:border-r-[15px] border-b-[15px] sm:border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
+          <div className="w-0 h-0 border-l-[15px] border-r-[15px] border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500"></div>
         </div>
         
-        {/* Контейнер рулетки */}
-        <div className="bg-slate-800/50 rounded-lg border border-slate-600/50 overflow-hidden relative">
+        <div className="bg-slate-800/50 rounded-lg border border-slate-600/50 overflow-hidden">
           <div 
             className={`flex transition-transform duration-3000 ease-out ${
-              isSpinning ? 'transform -translate-x-[50%]' : ''
+              isSpinning ? 'transform -translate-x-[calc(50%-100px)]' : ''
             }`}
-            style={{
-              transform: isSpinning ? 'translateX(calc(-50% + 100px))' : 'translateX(0)',
-            }}
           >
             {rouletteItems.map((item, index) => (
               <div
-                key={`${item.id}-${index}`}
-                className={`flex-shrink-0 w-16 sm:w-24 md:w-32 h-16 sm:h-24 md:h-32 border-2 ${getRarityColor(item?.rarity)} p-1 sm:p-2 flex flex-col items-center justify-center transition-all duration-300`}
+                key={`roulette-${index}`}
+                className={`flex-shrink-0 w-32 h-32 border-2 ${getRarityColor(item?.rarity)} p-2 flex flex-col items-center justify-center`}
               >
                 <div className="w-full h-2/3 flex items-center justify-center mb-1">
                   {item?.image_url ? (
@@ -103,13 +100,13 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
                       src={item.image_url}
                       alt={item.name || 'Скин'}
                       className="w-full h-full object-contain"
-                      fallback={<div className="text-sm sm:text-lg">🔫</div>}
+                      fallback={<div className="text-lg">🔫</div>}
                     />
                   ) : (
-                    <div className="text-sm sm:text-lg">🔫</div>
+                    <div className="text-lg">🔫</div>
                   )}
                 </div>
-                <div className="text-white text-[6px] sm:text-[8px] md:text-[10px] font-medium text-center leading-tight truncate w-full">
+                <div className="text-white text-[10px] font-medium text-center leading-tight truncate w-full">
                   {item?.name?.substring(0, 10) || 'Скин'}
                 </div>
               </div>
@@ -118,7 +115,7 @@ const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => 
         </div>
       </div>
 
-      <p className="text-yellow-300 text-sm sm:text-lg md:text-xl font-semibold animate-pulse text-center">
+      <p className="text-yellow-300 text-xl font-semibold animate-pulse text-center">
         Рулетка крутится!
       </p>
     </div>
