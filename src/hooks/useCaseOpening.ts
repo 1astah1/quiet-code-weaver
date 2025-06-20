@@ -83,11 +83,13 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       console.log('Selected skin:', selectedSkin.skins.name);
 
+      // Увеличенное время для новой анимации открытия (3 секунды)
       setTimeout(() => {
         setAnimationPhase('revealing');
         setWonSkin(selectedSkin.skins);
-      }, 2000);
+      }, 3000);
       
+      // Общее время анимации увеличено до 8 секунд
       setTimeout(() => {
         setAnimationPhase('complete');
         setIsComplete(true);
@@ -97,7 +99,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           title: "🎉 Поздравляем!",
           description: `Вы выиграли ${selectedSkin.skins.name}!`,
         });
-      }, 7000);
+      }, 8000);
 
     } catch (error) {
       console.error('Case opening error:', error);

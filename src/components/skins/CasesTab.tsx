@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +16,7 @@ interface CasesTabProps {
 }
 
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
-  const [selectedCase, setSelectedCase] = useState<any>(null);
+  const [selectedCaseForPreview, setSelectedCaseForPreview] = useState<any>(null);
   const [openingCase, setOpeningCase] = useState<any>(null);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
@@ -77,13 +76,14 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retry: 2
   });
 
-  const { data: caseSkins = [] } = useQuery({
-    queryKey: ['case-skins', selectedCase?.id],
+  // Отдельный запрос для содержимого кейса при предварительном просмотре
+  const { data: previewCaseSkins = [] } = useQuery({
+    queryKey: ['case-skins-preview', selectedCaseForPreview?.id],
     queryFn: async () => {
-      if (!selectedCase?.id) return [];
+      if (!selectedCaseForPreview?.id) return [];
       
       try {
-        console.log('Loading case skins for:', selectedCase.name);
+        console.log('Loading case skins for preview:', selectedCaseForPreview.name);
         const { data, error } = await supabase
           .from('case_skins')
           .select(`
@@ -92,21 +92,21 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             custom_probability,
             skins (*)
           `)
-          .eq('case_id', selectedCase.id);
+          .eq('case_id', selectedCaseForPreview.id);
         
         if (error) {
           console.error('Case skins fetch error:', error);
           throw error;
         }
         
-        console.log('Case skins loaded:', data?.length || 0);
+        console.log('Case skins loaded for preview:', data?.length || 0);
         return data || [];
       } catch (error) {
         console.error('Error in case skins query:', error);
         return [];
       }
     },
-    enabled: !!selectedCase?.id,
+    enabled: !!selectedCaseForPreview?.id,
     retry: 2
   });
 
@@ -132,13 +132,13 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     setOpeningCase(caseData);
   };
 
-  const handleCaseSelect = (caseData: any) => {
+  const handleCasePreview = (caseData: any) => {
     if (!caseData) {
-      console.error('Invalid case data for selection');
+      console.error('Invalid case data for preview');
       return;
     }
     console.log('Selecting case for preview:', caseData.name);
-    setSelectedCase(caseData);
+    setSelectedCaseForPreview(caseData);
   };
 
   if (error) {
@@ -186,7 +186,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 caseData={caseItem}
                 currentUser={currentUser}
                 onCaseSelect={handleCaseOpen}
-                onPreview={handleCaseSelect}
+                onPreview={handleCasePreview}
                 onCoinsUpdate={onCoinsUpdate}
                 disabled={!canOpenFreeCase}
                 onFreeOpen={updateLastFreeCase}
@@ -211,7 +211,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 caseData={caseItem}
                 currentUser={currentUser}
                 onCaseSelect={handleCaseOpen}
-                onPreview={handleCaseSelect}
+                onPreview={handleCasePreview}
                 onCoinsUpdate={onCoinsUpdate}
               />
             ))}
@@ -227,11 +227,11 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         </div>
       )}
 
-      {selectedCase && (
+      {selectedCaseForPreview && (
         <CasePreviewModal
-          caseItem={selectedCase}
-          caseSkins={caseSkins}
-          onClose={() => setSelectedCase(null)}
+          caseItem={selectedCaseForPreview}
+          caseSkins={previewCaseSkins}
+          onClose={() => setSelectedCaseForPreview(null)}
         />
       )}
 
