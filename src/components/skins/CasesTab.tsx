@@ -1,10 +1,10 @@
 
 import { useState } from "react";
-import { useCases, useCaseSkins, useUserFavorites, useToggleFavorite, useOpenCase } from "@/hooks/useCases";
-import CaseOpeningSimulation from "@/components/CaseOpeningSimulation";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
-import { Loader2, Package, Sparkles } from "lucide-react";
+import FreeCaseTimer from "@/components/FreeCaseTimer";
 
 interface CasesTabProps {
   currentUser: {
@@ -16,155 +16,120 @@ interface CasesTabProps {
 }
 
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
-  const [openingCase, setOpeningCase] = useState<any>(null);
   const [selectedCase, setSelectedCase] = useState<any>(null);
+  const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
-  // API Hooks
-  const { data: cases, isLoading: casesLoading } = useCases();
-  const { data: favorites = [] } = useUserFavorites(currentUser.id);
-  const { data: caseSkins = [] } = useCaseSkins(selectedCase?.id);
-  const toggleFavoriteMutation = useToggleFavorite();
-  const openCaseMutation = useOpenCase();
-
-  const handleOpenCase = async (caseItem: any) => {
-    if (caseItem.is_free) {
-      // Для бесплатных кейсов показываем опцию рекламы
-      const watchAd = confirm("Этот кейс можно открыть бесплатно за просмотр рекламы. Смотреть рекламу?");
-      if (watchAd) {
-        // Симуляция просмотра рекламы
-        setTimeout(() => {
-          setOpeningCase({ ...caseItem, isAdWatched: true });
-        }, 2000);
-        return;
-      }
+  // Получаем случаи
+  const { data: cases = [], isLoading } = useQuery({
+    queryKey: ['cases'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
     }
-    
-    if (!caseItem.is_free && caseItem.price > currentUser.coins) {
-      return; // Кнопка уже заблокирована, но на всякий случай
+  });
+
+  // Получаем информацию о последнем бесплатном открытии
+  const { data: userData } = useQuery({
+    queryKey: ['user-free-case-timer', currentUser.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('last_free_case_notification')
+        .eq('id', currentUser.id)
+        .single();
+      if (error) throw error;
+      return data;
     }
+  });
 
-    setOpeningCase(caseItem);
+  const updateLastFreeCase = async () => {
+    await supabase
+      .from('users')
+      .update({ last_free_case_notification: new Date().toISOString() })
+      .eq('id', currentUser.id);
   };
 
-  const handleCaseOpened = (result: any) => {
-    onCoinsUpdate(result.newCoins);
-    setOpeningCase(null);
-  };
-
-  const handleToggleFavorite = (caseId: string) => {
-    const isFavorite = favorites.includes(caseId);
-    toggleFavoriteMutation.mutate({
-      userId: currentUser.id,
-      caseId,
-      isFavorite
-    });
-  };
-
-  if (casesLoading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto" />
-            <div className="absolute inset-0 w-12 h-12 bg-orange-500/20 rounded-full animate-ping mx-auto" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-white font-medium">Загрузка кейсов</p>
-            <p className="text-slate-400 text-sm">Подготавливаем лучшие предложения...</p>
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-white text-lg">Загрузка кейсов...</div>
       </div>
     );
   }
 
-  if (!cases || cases.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <div className="space-y-6">
-          <div className="relative">
-            <Package className="w-20 h-20 text-slate-400 mx-auto" />
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-orange-400" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-white text-xl font-semibold">Кейсы не найдены</p>
-            <p className="text-slate-400">Скоро здесь появятся новые кейсы</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const freeCases = cases.filter(caseItem => caseItem.is_free);
+  const paidCases = cases.filter(caseItem => !caseItem.is_free);
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Header */}
-      <div className="text-center py-8 space-y-4">
-        <div className="relative inline-block">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-orange-400 via-red-400 to-purple-400 bg-clip-text text-transparent">
-            Коллекция кейсов
+    <div className="space-y-6">
+      {/* Бесплатные кейсы */}
+      {freeCases.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+            <span className="mr-2">🎁</span>
+            Бесплатные кейсы
           </h2>
-          <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-purple-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 transition duration-1000" />
-        </div>
-        <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-          Открывайте кейсы и получайте редкие скины. Каждый кейс содержит уникальные предметы с различной степенью редкости.
-        </p>
-        
-        {/* Stats Bar */}
-        <div className="flex items-center justify-center gap-8 pt-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-400">{cases.length}</div>
-            <div className="text-slate-400 text-sm">Доступно кейсов</div>
-          </div>
-          <div className="w-px h-12 bg-slate-600" />
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">{cases.filter(c => c.is_free).length}</div>
-            <div className="text-slate-400 text-sm">Бесплатных</div>
-          </div>
-          <div className="w-px h-12 bg-slate-600" />
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-400">{currentUser.coins}</div>
-            <div className="text-slate-400 text-sm">Ваши монеты</div>
+          
+          <FreeCaseTimer 
+            lastOpenTime={userData?.last_free_case_notification}
+            onTimerComplete={() => setCanOpenFreeCase(true)}
+          />
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+            {freeCases.map((caseItem) => (
+              <CaseCard
+                key={caseItem.id}
+                caseData={caseItem}
+                currentUser={currentUser}
+                onCaseSelect={setSelectedCase}
+                onCoinsUpdate={onCoinsUpdate}
+                disabled={!canOpenFreeCase}
+                onFreeOpen={updateLastFreeCase}
+              />
+            ))}
           </div>
         </div>
-      </div>
-
-      {/* Cases Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-        {cases.map((caseItem, index) => (
-          <div 
-            key={caseItem.id}
-            className="animate-fade-in"
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <CaseCard
-              caseItem={caseItem}
-              isFavorite={favorites.includes(caseItem.id)}
-              canAfford={caseItem.price <= currentUser.coins}
-              onOpen={handleOpenCase}
-              onPreview={setSelectedCase}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Case Opening Simulation */}
-      {openingCase && (
-        <CaseOpeningSimulation
-          caseItem={openingCase}
-          onClose={() => setOpeningCase(null)}
-          currentUser={currentUser}
-          onCoinsUpdate={onCoinsUpdate}
-        />
       )}
 
-      {/* Case Preview Modal */}
+      {/* Платные кейсы */}
+      {paidCases.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+            <span className="mr-2">💎</span>
+            Премиум кейсы
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paidCases.map((caseItem) => (
+              <CaseCard
+                key={caseItem.id}
+                caseData={caseItem}
+                currentUser={currentUser}
+                onCaseSelect={setSelectedCase}
+                onCoinsUpdate={onCoinsUpdate}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cases.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📦</div>
+          <h3 className="text-xl font-semibold text-white mb-2">Пока нет кейсов</h3>
+          <p className="text-slate-400">Скоро здесь появятся удивительные кейсы!</p>
+        </div>
+      )}
+
       {selectedCase && (
         <CasePreviewModal
-          caseItem={selectedCase}
-          caseSkins={caseSkins}
+          case={selectedCase}
           onClose={() => setSelectedCase(null)}
+          currentUser={currentUser}
+          onCoinsUpdate={onCoinsUpdate}
         />
       )}
     </div>

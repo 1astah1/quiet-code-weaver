@@ -1,11 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import { Screen } from "@/components/MainApp";
 
@@ -14,6 +15,8 @@ interface BannerCarouselProps {
 }
 
 const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
+  const [api, setApi] = useState<CarouselApi>();
+
   const { data: banners } = useQuery({
     queryKey: ['banners'],
     queryFn: async () => {
@@ -26,6 +29,17 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
       return data;
     }
   });
+
+  // Автоскролл каждые 5 секунд
+  useEffect(() => {
+    if (!api || !banners || banners.length <= 1) return;
+
+    const interval = setInterval(() => {
+      api.scrollNext();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [api, banners]);
 
   const handleBannerAction = (action: string) => {
     switch (action) {
@@ -51,6 +65,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
   return (
     <div className="mb-6">
       <Carousel 
+        setApi={setApi}
         className="w-full"
         opts={{
           align: "start",

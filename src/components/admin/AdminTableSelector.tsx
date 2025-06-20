@@ -1,4 +1,5 @@
 
+import { Button } from "@/components/ui/button";
 import { TableName } from "@/types/admin";
 
 interface AdminTableSelectorProps {
@@ -7,23 +8,31 @@ interface AdminTableSelectorProps {
 }
 
 const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorProps) => {
-  const tables: TableName[] = ['cases', 'skins', 'users', 'tasks', 'quiz_questions'];
+  const tables: { key: TableName; label: string }[] = [
+    { key: "banners", label: "Банеры" },
+    { key: "cases", label: "Кейсы" },
+    { key: "skins", label: "Скины" },
+    { key: "users", label: "Пользователи" },
+    { key: "tasks", label: "Задания" },
+    { key: "quiz_questions", label: "Вопросы викторины" },
+  ];
 
   return (
     <div className="mb-6">
-      <div className="flex space-x-2 bg-gray-800 p-2 rounded-lg">
-        {tables.map(table => (
-          <button
-            key={table}
-            onClick={() => onTableChange(table)}
-            className={`px-4 py-2 rounded ${
-              activeTable === table
-                ? 'bg-orange-500 text-white'
-                : 'text-gray-300 hover:bg-gray-700'
-            }`}
+      <div className="flex flex-wrap gap-2">
+        {tables.map((table) => (
+          <Button
+            key={table.key}
+            onClick={() => onTableChange(table.key)}
+            variant={activeTable === table.key ? "default" : "outline"}
+            className={
+              activeTable === table.key
+                ? "bg-orange-500 hover:bg-orange-600 text-white"
+                : "border-slate-600 text-slate-300 hover:bg-slate-800"
+            }
           >
-            {table}
-          </button>
+            {table.label}
+          </Button>
         ))}
       </div>
     </div>

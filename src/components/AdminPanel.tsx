@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AdminTableSelector from "./admin/AdminTableSelector";
 import CaseManagement from "./admin/CaseManagement";
+import BannerManagement from "./admin/BannerManagement";
 import AddItemForm from "./admin/AddItemForm";
 import AdminTable from "./admin/AdminTable";
 import { TableName } from "@/types/admin";
@@ -227,6 +229,10 @@ const AdminPanel = () => {
       />
 
       <div className="space-y-4">
+        {activeTable === 'banners' && (
+          <BannerManagement />
+        )}
+
         {activeTable === 'cases' && (
           <CaseManagement
             tableData={tableData || []}
@@ -237,25 +243,29 @@ const AdminPanel = () => {
           />
         )}
 
-        <AddItemForm
-          activeTable={activeTable}
-          newItem={newItem}
-          setNewItem={setNewItem}
-          onAdd={handleAdd}
-          onImageUpload={handleImageUpload}
-          uploadingImage={uploadingImage}
-          getImageRequirements={getImageRequirements}
-        />
+        {activeTable !== 'cases' && activeTable !== 'banners' && (
+          <>
+            <AddItemForm
+              activeTable={activeTable}
+              newItem={newItem}
+              setNewItem={setNewItem}
+              onAdd={handleAdd}
+              onImageUpload={handleImageUpload}
+              uploadingImage={uploadingImage}
+              getImageRequirements={getImageRequirements}
+            />
 
-        <AdminTable
-          activeTable={activeTable}
-          tableData={tableData || []}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onImageUpload={handleImageUpload}
-          uploadingImage={uploadingImage}
-          getImageRequirements={getImageRequirements}
-        />
+            <AdminTable
+              activeTable={activeTable}
+              tableData={tableData || []}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onImageUpload={handleImageUpload}
+              uploadingImage={uploadingImage}
+              getImageRequirements={getImageRequirements}
+            />
+          </>
+        )}
       </div>
     </div>
   );
