@@ -17,7 +17,6 @@ interface SkinsScreenProps {
 const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
   const [activeTab, setActiveTab] = useState<"cases" | "shop" | "inventory">("cases");
 
-  // Создаем пользователя с правильным UUID если нужно
   const validUser = currentUser.id.includes('test-user') ? createTestUser() : currentUser;
 
   const handleTabChange = (tab: string) => {
@@ -25,16 +24,16 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen pb-20 px-4 pt-4">
+    <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-4">Скины</h1>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">Скины</h1>
         
-        {/* Tabs */}
-        <div className="flex bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
+        {/* Tabs - более компактные на мобильных */}
+        <div className="flex bg-slate-800/50 rounded-lg p-0.5 sm:p-1 border border-slate-700/50">
           <button
             onClick={() => setActiveTab("cases")}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
+            className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-md font-medium transition-all text-xs sm:text-sm ${
               activeTab === "cases"
                 ? "bg-orange-500 text-white"
                 : "text-slate-400 hover:text-white"
@@ -44,7 +43,7 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
           </button>
           <button
             onClick={() => setActiveTab("shop")}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
+            className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-md font-medium transition-all text-xs sm:text-sm ${
               activeTab === "shop"
                 ? "bg-orange-500 text-white"
                 : "text-slate-400 hover:text-white"
@@ -54,7 +53,7 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
           </button>
           <button
             onClick={() => setActiveTab("inventory")}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
+            className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-md font-medium transition-all text-xs sm:text-sm ${
               activeTab === "inventory"
                 ? "bg-orange-500 text-white"
                 : "text-slate-400 hover:text-white"

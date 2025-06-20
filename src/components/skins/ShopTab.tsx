@@ -29,7 +29,7 @@ interface Skin {
   image_url: string | null;
 }
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 24; // Увеличил для лучшего отображения
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
@@ -64,7 +64,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const purchaseMutation = useMutation({
     mutationFn: async (skin: Skin) => {
       try {
-        // Проверка rate limiting
         if (!purchaseLimiter.isAllowed(currentUser.id)) {
           throw new Error('Слишком много покупок. Подождите немного.');
         }
@@ -79,7 +78,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
         }
 
-        // Проверяем существование пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id, coins')
@@ -113,7 +111,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
         }
 
-        // Списываем монеты
         const newCoins = userCoins - skin.price;
         const { error: coinsError } = await supabase
           .from('users')
@@ -125,7 +122,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error('Не удалось списать монеты');
         }
 
-        // Добавляем в инвентарь
         const { error: inventoryError } = await supabase
           .from('user_inventory')
           .insert({
@@ -138,7 +134,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
         if (inventoryError) {
           console.error('Error adding to inventory:', inventoryError);
-          // Откатываем списание монет
           await supabase
             .from('users')
             .update({ coins: userCoins })
@@ -156,7 +151,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     onSuccess: async (data) => {
       onCoinsUpdate(data.newCoins);
       
-      // ВАЖНО: Принудительно обновляем инвентарь
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
       await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
       
@@ -218,7 +212,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const handlePurchase = (skin: Skin) => {
     console.log('Handle purchase clicked for:', skin.name);
     
-    // Проверяем rate limiting перед попыткой покупки
     const remaining = purchaseLimiter.getRemainingRequests(currentUser.id);
     if (remaining === 0) {
       toast({
@@ -271,9 +264,9 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {[1, 2, 3, 4, 5, 6].map(i => (
-          <div key={i} className="bg-gray-800/50 rounded-lg h-24 animate-pulse"></div>
+          <div key={i} className="bg-gray-800/50 rounded-lg h-16 sm:h-20 animate-pulse"></div>
         ))}
       </div>
     );
@@ -283,7 +276,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const weaponTypes = [...new Set(skins?.map(skin => skin.weapon_type) || [])];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <ShopFilters
         selectedRarity={selectedRarity}
         selectedWeapon={selectedWeapon}
@@ -296,7 +289,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       />
 
       {/* Информация о результатах */}
-      <div className="flex justify-between items-center text-sm text-slate-400">
+      <div className="flex justify-between items-center text-xs sm:text-sm text-slate-400 px-1">
         <span>
           Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
         </span>
@@ -308,7 +301,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       </div>
 
       {/* Улучшенная сетка для скинов - более компактная */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
         {currentSkins.map((skin) => (
           <ShopSkinCard
             key={skin.id}

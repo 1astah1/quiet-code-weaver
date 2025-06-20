@@ -43,11 +43,9 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
   const handleTaskClick = async (task: Task) => {
     if (completedTasks.includes(task.id)) return;
 
-    // Mark as completed locally
     setCompletedTasks(prev => [...prev, task.id]);
 
     try {
-      // Award coins
       const newCoins = currentUser.coins + task.reward_coins;
       const { error } = await supabase
         .from('users')
@@ -63,13 +61,11 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
         description: `Получено ${task.reward_coins} монет`,
       });
 
-      // Open task URL if it's not a special action
       if (task.task_url && !task.task_url.startsWith('#')) {
         window.open(task.task_url, '_blank');
       }
     } catch (error) {
       console.error('Task completion error:', error);
-      // Revert local state if server update failed
       setCompletedTasks(prev => prev.filter(id => id !== task.id));
       toast({
         title: "Ошибка",
@@ -81,10 +77,10 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-20 px-4 pt-4">
-        <div className="animate-pulse space-y-4">
+      <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
+        <div className="animate-pulse space-y-3 sm:space-y-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-gray-800/50 rounded-lg h-24"></div>
+            <div key={i} className="bg-gray-800/50 rounded-lg h-20 sm:h-24"></div>
           ))}
         </div>
       </div>
@@ -92,43 +88,43 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
   }
 
   return (
-    <div className="min-h-screen pb-20 px-4 pt-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Задания</h1>
-        <p className="text-gray-400">Выполняй задания и получай монеты</p>
+    <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">Задания</h1>
+        <p className="text-gray-400 text-xs sm:text-sm md:text-base">Выполняй задания и получай монеты</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {tasks?.map((task) => {
           const isCompleted = completedTasks.includes(task.id);
           
           return (
             <div
               key={task.id}
-              className={`bg-gradient-to-r from-gray-800/90 to-gray-900/90 rounded-lg p-4 border transition-all ${
+              className={`bg-gradient-to-r from-gray-800/90 to-gray-900/90 rounded-lg p-3 sm:p-4 border transition-all ${
                 isCompleted 
                   ? "border-green-500/50 bg-green-900/20" 
                   : "border-orange-500/30 hover:border-orange-500/50"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-white font-semibold">{task.title}</h3>
-                    {isCompleted && <CheckCircle className="w-5 h-5 text-green-400" />}
+                    <h3 className="text-white font-semibold text-sm sm:text-base truncate">{task.title}</h3>
+                    {isCompleted && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />}
                   </div>
-                  <p className="text-gray-400 text-sm mb-3">{task.description}</p>
+                  <p className="text-gray-400 text-xs sm:text-sm mb-3 line-clamp-2">{task.description}</p>
                   
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 text-yellow-400">
-                      <Gift className="w-4 h-4" />
-                      <span className="font-medium">+{task.reward_coins} монет</span>
+                    <div className="flex items-center space-x-1 sm:space-x-2 text-yellow-400">
+                      <Gift className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="font-medium text-xs sm:text-sm">+{task.reward_coins} монет</span>
                     </div>
                     
                     <button
                       onClick={() => handleTaskClick(task)}
                       disabled={isCompleted}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                      className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                         isCompleted
                           ? "bg-green-600 text-white cursor-not-allowed"
                           : "bg-orange-500 hover:bg-orange-600 text-white"
@@ -136,13 +132,13 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
                     >
                       {isCompleted ? (
                         <>
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Выполнено</span>
+                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden xs:inline">Выполнено</span>
                         </>
                       ) : (
                         <>
-                          <ExternalLink className="w-4 h-4" />
-                          <span>Выполнить</span>
+                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden xs:inline">Выполнить</span>
                         </>
                       )}
                     </button>
@@ -155,18 +151,18 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
       </div>
 
       {/* Daily Tasks Section */}
-      <div className="mt-8">
-        <h2 className="text-xl font-bold text-white mb-4">Ежедневные задания</h2>
-        <div className="bg-gradient-to-r from-purple-800/50 to-pink-800/50 rounded-lg p-4 border border-purple-500/30">
+      <div className="mt-6 sm:mt-8">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Ежедневные задания</h2>
+        <div className="bg-gradient-to-r from-purple-800/50 to-pink-800/50 rounded-lg p-3 sm:p-4 border border-purple-500/30">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Clock className="w-6 h-6 text-purple-400" />
-              <div>
-                <h3 className="text-white font-semibold">Ежедневный вход</h3>
-                <p className="text-gray-400 text-sm">Заходи каждый день и получай бонусы</p>
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-white font-semibold text-sm sm:text-base">Ежедневный вход</h3>
+                <p className="text-gray-400 text-xs sm:text-sm truncate">Заходи каждый день и получай бонусы</p>
               </div>
             </div>
-            <div className="text-yellow-400 font-bold">+25 монет</div>
+            <div className="text-yellow-400 font-bold text-xs sm:text-sm ml-2 flex-shrink-0">+25 монет</div>
           </div>
         </div>
       </div>

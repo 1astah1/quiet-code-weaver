@@ -21,7 +21,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [openingCase, setOpeningCase] = useState<any>(null);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
-  // Получаем случаи с защитой от ошибок
   const { data: cases = [], isLoading, error } = useQuery({
     queryKey: ['cases'],
     queryFn: async () => {
@@ -48,7 +47,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retryDelay: 1000
   });
 
-  // Получаем информацию о последнем бесплатном открытии с защитой от ошибок
   const { data: userData } = useQuery({
     queryKey: ['user-free-case-timer', currentUser?.id],
     queryFn: async () => {
@@ -79,7 +77,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retry: 2
   });
 
-  // Получаем скины для выбранного кейса с защитой от ошибок
   const { data: caseSkins = [] } = useQuery({
     queryKey: ['case-skins', selectedCase?.id],
     queryFn: async () => {
@@ -147,10 +144,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   if (error) {
     console.error('Cases tab error:', error);
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
         <div className="text-center">
-          <div className="text-red-500 text-lg mb-2">Ошибка загрузки кейсов</div>
-          <div className="text-gray-400 text-sm">Попробуйте обновить страницу</div>
+          <div className="text-red-500 text-base sm:text-lg mb-2">Ошибка загрузки кейсов</div>
+          <div className="text-gray-400 text-xs sm:text-sm">Попробуйте обновить страницу</div>
         </div>
       </div>
     );
@@ -158,8 +155,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-white text-lg">Загрузка кейсов...</div>
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
+        <div className="text-white text-sm sm:text-lg">Загрузка кейсов...</div>
       </div>
     );
   }
@@ -168,11 +165,11 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const paidCases = cases.filter(caseItem => !caseItem?.is_free) || [];
 
   return (
-    <div className="space-y-6">
-      {/* Бесплатные кейсы */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Free cases */}
       {freeCases.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+          <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center">
             <span className="mr-2">🎁</span>
             Бесплатные кейсы
           </h2>
@@ -182,8 +179,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             onTimerComplete={() => setCanOpenFreeCase(true)}
           />
           
-          {/* Компактная горизонтальная сетка для бесплатных кейсов */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 sm:mt-4">
             {freeCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
@@ -199,15 +195,15 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         </div>
       )}
 
-      {/* Платные кейсы */}
+      {/* Paid cases */}
       {paidCases.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+          <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center">
             <span className="mr-2">💎</span>
             Премиум кейсы
           </h2>
-          {/* Более плотная сетка для премиум кейсов */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
             {paidCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
@@ -222,10 +218,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       )}
 
       {cases.length === 0 && !isLoading && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📦</div>
-          <h3 className="text-xl font-semibold text-white mb-2">Пока нет кейсов</h3>
-          <p className="text-slate-400">Скоро здесь появятся удивительные кейсы!</p>
+        <div className="text-center py-8 sm:py-12">
+          <div className="text-4xl sm:text-6xl mb-4">📦</div>
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">Пока нет кейсов</h3>
+          <p className="text-slate-400 text-sm sm:text-base">Скоро здесь появятся удивительные кейсы!</p>
         </div>
       )}
 
