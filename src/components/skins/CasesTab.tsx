@@ -46,6 +46,26 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     }
   });
 
+  // Получаем скины для выбранного кейса
+  const { data: caseSkins = [] } = useQuery({
+    queryKey: ['case-skins', selectedCase?.id],
+    queryFn: async () => {
+      if (!selectedCase?.id) return [];
+      const { data, error } = await supabase
+        .from('case_skins')
+        .select(`
+          probability,
+          never_drop,
+          custom_probability,
+          skins (*)
+        `)
+        .eq('case_id', selectedCase.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCase?.id
+  });
+
   const updateLastFreeCase = async () => {
     await supabase
       .from('users')
@@ -126,10 +146,9 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
 
       {selectedCase && (
         <CasePreviewModal
-          case={selectedCase}
+          caseItem={selectedCase}
+          caseSkins={caseSkins}
           onClose={() => setSelectedCase(null)}
-          currentUser={currentUser}
-          onCoinsUpdate={onCoinsUpdate}
         />
       )}
     </div>
