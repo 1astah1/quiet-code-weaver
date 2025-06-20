@@ -8,6 +8,7 @@ import {
   CarouselItem,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 import { Screen } from "@/components/MainApp";
 
 interface BannerCarouselProps {
@@ -76,12 +77,18 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
           {banners.map((banner) => (
             <CarouselItem key={banner.id}>
               <div className="relative bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 overflow-hidden">
-                {/* Background Image */}
+                {/* Background Image using OptimizedImage */}
                 {banner.image_url && (
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center opacity-30"
-                    style={{ backgroundImage: `url(${banner.image_url})` }}
-                  />
+                  <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                    <OptimizedImage
+                      src={banner.image_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover opacity-30"
+                      fallback={
+                        <div className="w-full h-full bg-gradient-to-r from-orange-600 to-red-600" />
+                      }
+                    />
+                  </div>
                 )}
                 
                 {/* Content */}
