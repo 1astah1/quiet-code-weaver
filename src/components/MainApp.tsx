@@ -1,232 +1,155 @@
 import { useState, useEffect } from "react";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
-import MainScreen from "@/components/screens/MainScreen";
-import SkinsScreen from "@/components/screens/SkinsScreen";
-import TasksScreen from "@/components/screens/TasksScreen";
-import QuizScreen from "@/components/screens/QuizScreen";
-import AdminPanel from "@/components/AdminPanel";
-import SettingsScreen from "@/components/settings/SettingsScreen";
-import AuthScreen from "@/components/auth/AuthScreen";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
-import { clearAllCache } from "@/utils/clearCache";
-
-export type Screen = "main" | "skins" | "tasks" | "quiz" | "admin" | "settings";
+import { useToast } from "@/components/ui/use-toast";
+import Header from "./Header";
+import Sidebar from "./Sidebar";
+import MainScreen from "./screens/MainScreen";
+import SkinsScreen from "./screens/SkinsScreen";
+import InventoryScreen from "./inventory/InventoryScreen";
+import QuizScreen from "./screens/QuizScreen";
+import TasksScreen from "./screens/TasksScreen";
+import RankingsScreen from "./screens/RankingsScreen";
+import SettingsScreen from "./settings/SettingsScreen";
+import ReferralModal from "./ReferralModal";
 
 const MainApp = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>("main");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [appInitialized, setAppInitialized] = useState(false);
-  const { user, isLoading, isAuthenticated, signOut, updateUserCoins } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState('main');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+
+  const [isAuth, setIsAuth] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    username: string;
+    coins: number;
+  } | null>(null);
+
   const { toast } = useToast();
 
-  // Инициализация приложения
   useEffect(() => {
-    const initializeApp = async () => {
-      console.log('🚀 Initializing app...');
-      
-      try {
-        // Очищаем кэш только при первом запуске
-        const hasCleared = sessionStorage.getItem('cache-cleared-v2');
-        if (!hasCleared) {
-          console.log('🧹 Clearing cache on first load');
-          clearAllCache();
-          sessionStorage.setItem('cache-cleared-v2', 'true');
-        }
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
 
-        // Небольшая задержка для стабилизации
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        setAppInitialized(true);
-        console.log('✅ App initialized successfully');
-        
-      } catch (error) {
-        console.error('❌ App initialization error:', error);
-        setAppInitialized(true); // Все равно продолжаем работу
+      setIsAuth(!!session);
+
+      if (session?.user) {
+        loadUserData(session.user.id);
       }
     };
 
-    initializeApp();
+    checkAuth();
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuth(!!session);
+
+      if (session?.user) {
+        loadUserData(session.user.id);
+      } else {
+        setCurrentUser(null);
+      }
+    });
   }, []);
 
-  // Обновляем монеты пользователя в базе данных
-  const handleCoinsUpdate = async (newCoins: number) => {
-    if (!user) {
-      console.warn('⚠️ No user found for coins update');
-      return;
-    }
-
+  const loadUserData = async (userId: string) => {
     try {
-      console.log('💰 Updating coins:', { userId: user.id, newCoins });
-      
-      const { error } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
-        .update({ coins: newCoins })
-        .eq('id', user.id);
+        .select('id, username, coins')
+        .eq('id', userId)
+        .single();
 
       if (error) {
-        console.error('❌ Error updating coins:', error);
-        throw error;
+        console.error("Ошибка при загрузке данных пользователя:", error);
+        toast({
+          variant: "destructive",
+          title: "Ошибка",
+          description: "Не удалось загрузить данные пользователя.",
+        });
+        return;
       }
 
-      updateUserCoins(newCoins);
-      console.log('✅ Coins updated successfully');
-      
+      setCurrentUser({
+        id: user.id,
+        username: user.username,
+        coins: user.coins,
+      });
     } catch (error) {
-      console.error('❌ Error updating coins:', error);
+      console.error("Ошибка при загрузке данных пользователя:", error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось обновить баланс",
         variant: "destructive",
+        title: "Ошибка",
+        description: "Не удалось загрузить данные пользователя.",
       });
     }
   };
 
-  // Обновляем жизни пользователя
-  const handleLivesUpdate = async (newLives: number) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ quiz_lives: newLives })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      // Обновляем локальное состояние пользователя (если нужно)
-    } catch (error) {
-      console.error('❌ Error updating lives:', error);
+  const handleCoinsUpdate = (newCoins: number) => {
+    if (currentUser) {
+      setCurrentUser({ ...currentUser, coins: newCoins });
     }
   };
 
-  // Обновляем серию викторины
-  const handleStreakUpdate = async (newStreak: number) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ quiz_streak: newStreak })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      // Обновляем локальное состояние пользователя (если нужно)
-    } catch (error) {
-      console.error('❌ Error updating streak:', error);
-    }
-  };
-
-  const renderScreen = () => {
-    if (!user) return null;
+  const renderCurrentScreen = () => {
+    if (!currentUser) return null;
 
     switch (currentScreen) {
-      case "main":
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
-      case "skins":
-        return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "tasks":
-        return <TasksScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "quiz":
-        return (
-          <QuizScreen 
-            currentUser={user} 
-            onBack={() => setCurrentScreen("main")}
-            onCoinsUpdate={handleCoinsUpdate}
-            onLivesUpdate={handleLivesUpdate}
-            onStreakUpdate={handleStreakUpdate}
-          />
-        );
-      case "settings":
-        return <SettingsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "admin":
-        return user.isAdmin ? <AdminPanel /> : <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+      case 'skins':
+        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'inventory':
+        return <InventoryScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'quiz':
+        return <QuizScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'tasks':
+        return <TasksScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'rankings':
+        return <RankingsScreen currentUser={currentUser} />;
       default:
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return <MainScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
     }
   };
 
-  console.log('🎯 MainApp render state:', { 
-    appInitialized, 
-    isLoading, 
-    isAuthenticated, 
-    hasUser: !!user,
-    username: user?.username 
-  });
-
-  // Показываем экран загрузки
-  if (!appInitialized || isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
-          <p className="text-white text-lg">
-            {!appInitialized ? "Инициализация..." : "Загрузка..."}
-          </p>
-        </div>
-      </div>
-    );
+  if (!isAuth) {
+    return <div className="grid h-screen place-items-center">
+      <div className="text-white text-2xl">Loading...</div>
+    </div>;
   }
 
-  // Показываем экран авторизации
-  if (!isAuthenticated || !user) {
-    console.log('🔐 Showing auth screen');
-    return <AuthScreen onAuthSuccess={() => {}} />;
-  }
-
-  console.log('🎮 Showing main app for user:', user.username);
-
-  // Показываем основное приложение
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800">
-      {/* Background Pattern */}
-      <div className="fixed inset-0 opacity-5">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01MCA1MEwwIDB2MTAwbDUwLTUwTDEwMCAxMDBWMEw1MCA1MHoiIGZpbGw9IiMwMDAwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMyIvPgo8L3N2Zz4=')] bg-repeat"></div>
-      </div>
-
-      <Header 
-        currentUser={user}
-        onMenuClick={() => setSidebarOpen(true)}
-      />
-      
-      <Sidebar 
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        currentUser={user}
-        onScreenChange={setCurrentScreen}
-        onSignOut={signOut}
+    <div className="min-h-screen bg-slate-900 text-white">
+      <Header
+        currentUser={currentUser}
+        onShowSettings={() => setShowSettings(true)}
+        onShowReferral={() => setShowReferralModal(true)}
       />
 
-      <main className="relative z-10">
-        {renderScreen()}
-      </main>
+      <div className="container mx-auto flex py-6">
+        <Sidebar
+          currentScreen={currentScreen}
+          onScreenChange={setCurrentScreen}
+          onShowSettings={() => setShowSettings(true)}
+          onShowReferral={() => setShowReferralModal(true)}
+          currentUser={currentUser}
+        />
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-orange-500/30 z-40">
-        <div className="flex justify-around items-center py-3">
-          {[
-            { id: "main", label: "Главная", icon: "🏠" },
-            { id: "skins", label: "Скины", icon: "🎯" },
-            { id: "tasks", label: "Задания", icon: "📋" },
-            { id: "quiz", label: "Викторина", icon: "🧠" }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setCurrentScreen(tab.id as Screen)}
-              className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-lg transition-all ${
-                currentScreen === tab.id
-                  ? "bg-orange-500 text-white"
-                  : "text-gray-400 hover:text-orange-400"
-              }`}
-            >
-              <span className="text-xl">{tab.icon}</span>
-              <span className="text-xs font-medium">{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        <main className="flex-1 p-4">
+          {renderCurrentScreen()}
+        </main>
       </div>
+
+      {showSettings && (
+        <SettingsScreen
+          onClose={() => setShowSettings(false)}
+          currentUser={currentUser}
+          onCoinsUpdate={handleCoinsUpdate}
+        />
+      )}
+
+      {showReferralModal && (
+        <ReferralModal
+          onClose={() => setShowReferralModal(false)}
+          currentUser={currentUser}
+        />
+      )}
     </div>
   );
 };

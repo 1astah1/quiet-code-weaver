@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { X, Settings, LogOut, Crown, Shield, Coins } from "lucide-react";
+import { X, Settings, LogOut, Crown, Shield, Coins, Home, Package, Package2, Trophy, Brain, CheckSquare, Users } from "lucide-react";
 import { Screen } from "@/components/MainApp";
 
 interface SidebarProps {
@@ -15,9 +14,12 @@ interface SidebarProps {
   };
   onScreenChange: (screen: Screen) => void;
   onSignOut: () => void;
+  currentScreen: Screen;
+  onShowSettings: () => void;
+  onShowReferral: () => void;
 }
 
-const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: SidebarProps) => {
+const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut, currentScreen, onShowSettings, onShowReferral }: SidebarProps) => {
   const [showSettings, setShowSettings] = useState(false);
 
   const handleSettingsClick = () => {
@@ -25,6 +27,15 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
     onScreenChange('settings');
     onClose();
   };
+
+  const menuItems = [
+    { id: 'main', label: 'Главная', icon: Home },
+    { id: 'skins', label: 'Скины', icon: Package },
+    { id: 'inventory', label: 'Инвентарь', icon: Package2 },
+    { id: 'rankings', label: 'Рейтинги', icon: Trophy },
+    { id: 'quiz', label: 'Викторина', icon: Brain },
+    { id: 'tasks', label: 'Задания', icon: CheckSquare },
+  ];
 
   return (
     <>
@@ -88,26 +99,16 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
 
           {/* Menu Items */}
           <div className="space-y-2">
-            <button
-              onClick={handleSettingsClick}
-              className="w-full flex items-center space-x-3 p-4 rounded-xl hover:bg-gray-800/50 text-gray-300 hover:text-white transition-all"
-            >
-              <Settings className="w-5 h-5" />
-              <span className="font-medium">Настройки</span>
-            </button>
-
-            {currentUser.isAdmin && (
+            {menuItems.map(item => (
               <button
-                onClick={() => {
-                  onScreenChange('admin');
-                  onClose();
-                }}
+                key={item.id}
+                onClick={() => onScreenChange(item.id)}
                 className="w-full flex items-center space-x-3 p-4 rounded-xl hover:bg-gray-800/50 text-gray-300 hover:text-white transition-all"
               >
-                <Shield className="w-5 h-5" />
-                <span className="font-medium">Админ панель</span>
+                {item.icon && <item.icon className="w-5 h-5" />}
+                <span className="font-medium">{item.label}</span>
               </button>
-            )}
+            ))}
           </div>
 
           {/* Sign Out */}

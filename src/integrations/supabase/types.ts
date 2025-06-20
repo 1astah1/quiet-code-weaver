@@ -275,6 +275,13 @@ export type Database = {
             foreignKeyName: "recent_wins_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_wins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -307,7 +314,21 @@ export type Database = {
             foreignKeyName: "referral_earnings_referred_id_fkey"
             columns: ["referred_id"]
             isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -413,6 +434,13 @@ export type Database = {
             foreignKeyName: "user_favorites_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -458,6 +486,13 @@ export type Database = {
             foreignKeyName: "user_inventory_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -488,6 +523,13 @@ export type Database = {
             columns: ["promo_code_id"]
             isOneToOne: false
             referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_promo_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -525,6 +567,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_quiz_progress_user_id_fkey"
             columns: ["user_id"]
@@ -567,6 +616,13 @@ export type Database = {
             foreignKeyName: "user_steam_settings_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_steam_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -583,6 +639,7 @@ export type Database = {
           language_code: string | null
           last_free_case_notification: string | null
           last_quiz_date: string | null
+          most_expensive_skin_value: number | null
           premium_until: string | null
           profile_private: boolean | null
           quiz_lives: number | null
@@ -592,6 +649,8 @@ export type Database = {
           sound_enabled: boolean | null
           steam_connected: boolean | null
           steam_trade_url: string | null
+          total_cases_opened: number | null
+          total_spent: number | null
           username: string
           vibration_enabled: boolean | null
         }
@@ -605,6 +664,7 @@ export type Database = {
           language_code?: string | null
           last_free_case_notification?: string | null
           last_quiz_date?: string | null
+          most_expensive_skin_value?: number | null
           premium_until?: string | null
           profile_private?: boolean | null
           quiz_lives?: number | null
@@ -614,6 +674,8 @@ export type Database = {
           sound_enabled?: boolean | null
           steam_connected?: boolean | null
           steam_trade_url?: string | null
+          total_cases_opened?: number | null
+          total_spent?: number | null
           username: string
           vibration_enabled?: boolean | null
         }
@@ -627,6 +689,7 @@ export type Database = {
           language_code?: string | null
           last_free_case_notification?: string | null
           last_quiz_date?: string | null
+          most_expensive_skin_value?: number | null
           premium_until?: string | null
           profile_private?: boolean | null
           quiz_lives?: number | null
@@ -636,6 +699,8 @@ export type Database = {
           sound_enabled?: boolean | null
           steam_connected?: boolean | null
           steam_trade_url?: string | null
+          total_cases_opened?: number | null
+          total_spent?: number | null
           username?: string
           vibration_enabled?: boolean | null
         }
@@ -643,7 +708,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_rankings: {
+        Row: {
+          id: string | null
+          most_expensive_skin_value: number | null
+          total_cases_opened: number | null
+          total_inventory_value: number | null
+          total_items_count: number | null
+          total_spent: number | null
+          username: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       is_admin_user: {
