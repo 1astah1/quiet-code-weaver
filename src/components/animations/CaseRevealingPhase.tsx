@@ -12,20 +12,18 @@ const CaseRevealingPhase = ({ caseSkins, wonSkin, onComplete }: CaseRevealingPha
   const [revealPhase, setRevealPhase] = useState<'analyzing' | 'roulette' | 'finalizing'>('analyzing');
 
   useEffect(() => {
-    console.log('CaseRevealingPhase: Starting reveal sequence', { caseSkins: !!caseSkins, wonSkin: !!wonSkin });
+    console.log('CaseRevealingPhase: Starting reveal sequence');
     
     if (!caseSkins || !wonSkin || !onComplete) {
       console.error('CaseRevealingPhase: Missing required props');
       return;
     }
 
-    // Фаза анализа
     const timer1 = setTimeout(() => {
       console.log('CaseRevealingPhase: Starting roulette');
       setRevealPhase('roulette');
     }, 1000);
 
-    // Переход к финализации
     const timer2 = setTimeout(() => {
       console.log('CaseRevealingPhase: Finalizing');
       setRevealPhase('finalizing');
@@ -46,14 +44,13 @@ const CaseRevealingPhase = ({ caseSkins, wonSkin, onComplete }: CaseRevealingPha
   }
 
   return (
-    <div className="min-h-[400px] flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <h2 className="text-2xl md:text-3xl font-bold text-white mb-8 text-center">
+    <div className="min-h-[400px] flex flex-col items-center justify-center p-8">
+      <h2 className="text-3xl font-bold text-white mb-8 text-center">
         {revealPhase === 'analyzing' && 'Анализ содержимого...'}
         {revealPhase === 'finalizing' && 'Финализация выигрыша...'}
       </h2>
       
       <div className="relative flex justify-center">
-        {/* Простой анализатор */}
         <div className="w-40 h-40 relative">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-5xl shadow-2xl shadow-cyan-500/50 animate-pulse">
             💎

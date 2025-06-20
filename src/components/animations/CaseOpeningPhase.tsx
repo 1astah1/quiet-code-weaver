@@ -2,9 +2,10 @@
 import Case3DOpening from "./Case3DOpening";
 
 const CaseOpeningPhase = () => {
-  console.log('CaseOpeningPhase rendering');
+  console.log('CaseOpeningPhase: Rendering');
+  
   return (
-    <div className="w-full h-full">
+    <div className="w-full">
       <Case3DOpening />
     </div>
   );

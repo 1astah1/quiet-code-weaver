@@ -17,7 +17,7 @@ interface CaseOpeningAnimationProps {
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
-  console.log('CaseOpeningAnimation: Rendering with props', { 
+  console.log('CaseOpeningAnimation: Rendering', { 
     caseItem: caseItem?.name, 
     currentUser: currentUser?.username 
   });
@@ -66,6 +66,11 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         </button>
 
         <div className="p-6">
+          {/* Debug info */}
+          <div className="text-xs text-gray-500 mb-4">
+            Phase: {animationPhase}, Complete: {isComplete ? 'yes' : 'no'}
+          </div>
+
           {animationPhase === 'opening' && (
             <CaseOpeningPhase />
           )}
@@ -85,6 +90,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
               onAddToInventory={handleAddToInventory}
               onSellDirectly={handleSellDirectly}
             />
+          )}
+
+          {/* Fallback content */}
+          {!animationPhase && !isComplete && (
+            <div className="min-h-[400px] flex items-center justify-center">
+              <div className="text-white">Загрузка...</div>
+            </div>
           )}
         </div>
       </div>
