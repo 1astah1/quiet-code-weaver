@@ -26,6 +26,8 @@ export const useAuth = () => {
 
     const initializeAuth = async () => {
       try {
+        console.log('Initializing auth...');
+        
         // Проверяем текущую сессию
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -39,8 +41,10 @@ export const useAuth = () => {
         }
 
         if (session?.user && mounted) {
+          console.log('Found existing session, handling user sign in');
           await handleUserSignIn(session.user);
         } else if (mounted) {
+          console.log('No existing session found');
           setIsLoading(false);
           setIsAuthenticated(false);
         }
@@ -53,9 +57,6 @@ export const useAuth = () => {
       }
     };
 
-    // Инициализируем аутентификацию
-    initializeAuth();
-
     // Слушаем изменения состояния аутентификации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -64,15 +65,20 @@ export const useAuth = () => {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in, processing...');
           await handleUserSignIn(session.user);
         } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
           handleUserSignOut();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          // Обновляем данные пользователя при обновлении токена
+          console.log('Token refreshed, updating user data');
           await handleUserSignIn(session.user);
         }
       }
     );
+
+    // Инициализируем аутентификацию после установки слушателя
+    initializeAuth();
 
     return () => {
       mounted = false;
@@ -82,7 +88,7 @@ export const useAuth = () => {
 
   const handleUserSignIn = async (authUser: User) => {
     try {
-      console.log('Handling user sign in:', authUser.id);
+      console.log('Handling user sign in for:', authUser.id);
       
       // Проверяем существование пользователя в базе данных
       const { data: existingUser, error: fetchError } = await supabase
@@ -94,25 +100,34 @@ export const useAuth = () => {
       if (fetchError) {
         console.error('Error fetching user:', fetchError);
         setIsLoading(false);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить данные пользователя",
+          variant: "destructive",
+        });
         return;
       }
 
       let userData: AuthUser;
 
       if (!existingUser) {
-        // Создаем нового пользователя
         console.log('Creating new user in database');
         
+        // Получаем имя пользователя из метаданных Google
+        const displayName = authUser.user_metadata?.full_name || 
+                           authUser.user_metadata?.name || 
+                           authUser.user_metadata?.display_name ||
+                           authUser.email?.split('@')[0] || 
+                           'User';
+
         const newUser = {
           id: authUser.id,
-          username: authUser.user_metadata?.full_name || 
-                   authUser.user_metadata?.name || 
-                   authUser.email?.split('@')[0] || 
-                   'User',
+          username: displayName,
           email: authUser.email || '',
           coins: 1000,
           is_admin: false,
-          referral_code: null
+          referral_code: null,
+          created_at: new Date().toISOString()
         };
 
         const { data: createdUser, error: createError } = await supabase
@@ -124,6 +139,11 @@ export const useAuth = () => {
         if (createError) {
           console.error('Error creating user:', createError);
           setIsLoading(false);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось создать профиль пользователя",
+            variant: "destructive",
+          });
           return;
         }
 
@@ -143,7 +163,7 @@ export const useAuth = () => {
           description: "Вы получили 1000 стартовых монет!",
         });
       } else {
-        // Используем существующего пользователя
+        console.log('Using existing user data');
         userData = {
           id: existingUser.id,
           username: existingUser.username,
@@ -156,6 +176,7 @@ export const useAuth = () => {
         };
       }
 
+      console.log('Setting user data and updating state');
       setUser(userData);
       setIsAuthenticated(true);
       setIsLoading(false);
@@ -173,14 +194,15 @@ export const useAuth = () => {
   };
 
   const handleUserSignOut = () => {
+    console.log('Handling user sign out');
     setUser(null);
     setIsAuthenticated(false);
     setIsLoading(false);
-    console.log('User signed out');
   };
 
   const signOut = async () => {
     try {
+      console.log('Signing out user');
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {

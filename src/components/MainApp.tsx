@@ -24,15 +24,18 @@ const MainApp = () => {
   const { user, isLoading, isAuthenticated, signOut, updateUserCoins } = useAuth();
   const { toast } = useToast();
 
-  // Инициализация приложения (очистка кэша только один раз)
+  // Инициализация приложения
   useEffect(() => {
     const initializeApp = () => {
+      console.log('Initializing app...');
       const hasCleared = sessionStorage.getItem('cache-cleared');
       if (!hasCleared) {
+        console.log('Clearing cache on first load');
         clearAllCache();
         sessionStorage.setItem('cache-cleared', 'true');
       }
       setAppInitialized(true);
+      console.log('App initialized');
     };
 
     initializeApp();
@@ -82,6 +85,8 @@ const MainApp = () => {
     }
   };
 
+  console.log('MainApp render - appInitialized:', appInitialized, 'isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
+
   // Показываем загрузку только если приложение не инициализировано или идет загрузка аутентификации
   if (!appInitialized || isLoading) {
     return (
@@ -97,9 +102,12 @@ const MainApp = () => {
   }
 
   // Показываем экран авторизации если пользователь не авторизован
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
+    console.log('Showing auth screen - isAuthenticated:', isAuthenticated, 'user:', !!user);
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
+
+  console.log('Showing main app for user:', user.username);
 
   // Показываем основное приложение
   return (
