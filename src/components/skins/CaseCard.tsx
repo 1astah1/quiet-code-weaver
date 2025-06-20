@@ -65,32 +65,40 @@ const CaseCard = ({
         </div>
       </div>
 
-      {/* Case Visual */}
-      <div className="relative px-6 pb-6">
-        <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl h-48 flex items-center justify-center overflow-hidden">
-          {/* Cover Image or Animated background */}
+      {/* Case Visual - обложка кейса */}
+      <div className="relative px-6 pb-4">
+        <div className="relative rounded-xl h-48 overflow-hidden">
+          {/* Обложка кейса */}
           {caseItem.cover_image_url ? (
             <img 
               src={caseItem.cover_image_url} 
               alt={caseItem.name}
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl mb-4 flex items-center justify-center mx-auto shadow-lg group-hover:shadow-orange-500/30 transition-shadow duration-300">
+                  <Gift className="w-12 h-12 text-white" />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Анимированный эффект при наведении */}
+          {!caseItem.cover_image_url && (
             <div className="absolute inset-0 opacity-20">
               <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-orange-500/20 to-transparent transform -skew-x-12 transition-transform duration-1000 ${isHovered ? 'translate-x-full' : '-translate-x-full'}`} />
             </div>
           )}
-          
-          {/* Case Icon */}
-          <div className="relative z-10 text-center">
-            <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl mb-4 flex items-center justify-center mx-auto shadow-lg group-hover:shadow-orange-500/30 transition-shadow duration-300">
-              <Gift className="w-12 h-12 text-white" />
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-              <span className="text-slate-300 font-medium">{caseItem.name}</span>
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-            </div>
+        </div>
+        
+        {/* Название кейса под обложкой */}
+        <div className="mt-4 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+            <span className="text-slate-300 font-medium">{caseItem.name}</span>
+            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
           </div>
         </div>
       </div>
