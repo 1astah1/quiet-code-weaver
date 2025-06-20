@@ -59,12 +59,10 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     try {
       console.log('Starting case opening for:', caseItem?.name);
 
-      // Проверяем пользователя
       if (!currentUser?.id) {
         throw new Error('Пользователь не найден');
       }
 
-      // Получаем скины из кейса с защитой от ошибок
       const { data: caseSkins, error: caseSkinsError } = await supabase
         .from('case_skins')
         .select(`
@@ -87,7 +85,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
       console.log('Case skins loaded:', caseSkins.length);
 
-      // Выбираем случайный скин на основе вероятности
       const totalProbability = caseSkins.reduce((sum, item) => {
         return sum + (item.custom_probability || item.probability || 0.01);
       }, 0);
@@ -110,14 +107,11 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
       console.log('Selected skin:', selectedSkin.skins.name);
 
-      // Фазы анимации с безопасными интервалами
-      const timeouts: NodeJS.Timeout[] = [];
-      
-      timeouts.push(setTimeout(() => {
+      setTimeout(() => {
         setAnimationPhase('revealing');
-      }, 2000));
+      }, 2000);
       
-      timeouts.push(setTimeout(() => {
+      setTimeout(() => {
         setWonSkin(selectedSkin.skins);
         setAnimationPhase('complete');
         setIsComplete(true);
@@ -127,12 +121,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           title: "🎉 Поздравляем!",
           description: `Вы выиграли ${selectedSkin.skins.name}!`,
         });
-      }, 4000));
-
-      // Очищаем таймауты при размонтировании
-      return () => {
-        timeouts.forEach(timeout => clearTimeout(timeout));
-      };
+      }, 4000);
 
     } catch (error) {
       console.error('Case opening error:', error);
@@ -153,7 +142,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     try {
       console.log('Adding to inventory:', wonSkin.name);
 
-      // Проверяем пользователя
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, coins')
@@ -165,7 +153,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error('Пользователь не найден');
       }
 
-      // Добавляем скин в инвентарь
       const { error: inventoryError } = await supabase
         .from('user_inventory')
         .insert({
@@ -181,7 +168,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error('Не удалось добавить в инвентарь');
       }
 
-      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
@@ -196,7 +182,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         console.error('Recent win error (non-critical):', error);
       }
 
-      // Списываем монеты, если кейс не бесплатный
       if (!caseItem.is_free) {
         const newCoins = userData.coins - caseItem.price;
         if (newCoins < 0) {
@@ -241,7 +226,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     try {
       console.log('Selling directly:', wonSkin.name);
 
-      // Проверяем пользователя
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, coins')
@@ -253,11 +237,9 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error('Пользователь не найден');
       }
 
-      // Вычисляем новые монеты
       const sellPrice = wonSkin.price || 0;
       let newCoins = userData.coins + sellPrice;
       
-      // Списываем цену кейса, если он не бесплатный
       if (!caseItem.is_free) {
         newCoins -= caseItem.price;
         if (newCoins < 0) {
@@ -275,7 +257,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error('Не удалось обновить баланс');
       }
 
-      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
@@ -316,12 +297,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
       return;
     }
     
-    const cleanup = openCase();
-    return () => {
-      if (cleanup && typeof cleanup === 'function') {
-        cleanup();
-      }
-    };
+    openCase();
   }, [caseItem?.id, currentUser?.id]);
 
   return (
