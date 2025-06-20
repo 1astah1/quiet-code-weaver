@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +41,25 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
       };
     }
   });
+
+  // Handle banner actions
+  const handleBannerAction = (action: string) => {
+    switch (action) {
+      case 'cases':
+      case 'skins':
+        onScreenChange('skins');
+        break;
+      case 'quiz':
+        onScreenChange('quiz');
+        break;
+      case 'tasks':
+        onScreenChange('tasks');
+        break;
+      default:
+        // Handle other actions or log them
+        console.log('Banner action:', action);
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20 px-4 pt-4 bg-gradient-to-br from-gray-900 via-black to-gray-800">
@@ -88,7 +106,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
 
       {/* Баннеры */}
       <div className="mb-6">
-        <BannerCarousel />
+        <BannerCarousel onBannerAction={handleBannerAction} />
       </div>
 
       {/* Быстрые действия */}

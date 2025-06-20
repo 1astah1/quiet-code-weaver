@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
@@ -45,12 +44,17 @@ const MainApp = () => {
     }
   };
 
+  // Helper function to handle screen changes with proper typing
+  const handleScreenChange = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
   const renderScreen = () => {
     if (!user) return null;
 
     switch (currentScreen) {
       case "main":
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
       case "skins":
         return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "tasks":
@@ -60,9 +64,9 @@ const MainApp = () => {
       case "settings":
         return <SettingsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "admin":
-        return user.isAdmin ? <AdminPanel /> : <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return user.isAdmin ? <AdminPanel /> : <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
       default:
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={handleScreenChange} />;
     }
   };
 
@@ -99,7 +103,7 @@ const MainApp = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentUser={user}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={handleScreenChange}
         onSignOut={signOut}
       />
 
@@ -118,7 +122,7 @@ const MainApp = () => {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setCurrentScreen(tab.id as Screen)}
+              onClick={() => handleScreenChange(tab.id)}
               className={`flex flex-col items-center space-y-1 px-4 py-2 rounded-xl transition-all transform ${
                 currentScreen === tab.id
                   ? `bg-gradient-to-r ${tab.gradient} text-white scale-105 shadow-lg`
