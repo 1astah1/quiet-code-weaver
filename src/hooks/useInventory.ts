@@ -30,6 +30,13 @@ export const useUserInventory = (userId: string) => {
         return [];
       }
 
+      // Проверяем аутентификацию перед запросом
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || session.user.id !== userId) {
+        console.error('User not authenticated or ID mismatch');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('user_inventory')
         .select(`

@@ -15,7 +15,10 @@ const RecentWins = () => {
         `)
         .order('won_at', { ascending: false })
         .limit(10);
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading recent wins:', error);
+        return [];
+      }
       return data;
     }
   });

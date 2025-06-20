@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -71,10 +72,18 @@ export const useUserFavorites = (userId: string) => {
       if (!isValidUUID(userId)) {
         return [];
       }
+      
+      // Проверяем аутентификацию перед запросом
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return [];
+      }
+      
       const { data, error } = await supabase
         .from('user_favorites')
         .select('case_id')
         .eq('user_id', userId);
+      
       if (error) {
         console.error('Error loading favorites:', error);
         return [];
@@ -96,6 +105,12 @@ export const useToggleFavorite = () => {
         
         if (!isValidUUID(userId) || !isValidUUID(caseId)) {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
+        }
+
+        // Проверяем аутентификацию
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || session.user.id !== userId) {
+          throw new Error('Необходимо войти в систему');
         }
 
         const { data: existingUser, error: userCheckError } = await supabase
