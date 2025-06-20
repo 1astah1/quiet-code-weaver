@@ -34,13 +34,27 @@ export const useCases = () => {
   return useQuery({
     queryKey: ['cases'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .order('price');
-      if (error) throw error;
-      return data as Case[];
-    }
+      try {
+        console.log('Fetching cases...');
+        const { data, error } = await supabase
+          .from('cases')
+          .select('*')
+          .order('price');
+        
+        if (error) {
+          console.error('Error fetching cases:', error);
+          throw error;
+        }
+        
+        console.log('Cases fetched successfully:', data?.length || 0);
+        return (data || []) as Case[];
+      } catch (error) {
+        console.error('Cases query error:', error);
+        throw error;
+      }
+    },
+    retry: 3,
+    retryDelay: 1000
   });
 };
 
@@ -49,19 +63,33 @@ export const useCaseSkins = (caseId: string | null) => {
     queryKey: ['case-skins', caseId],
     queryFn: async () => {
       if (!caseId) return [];
-      const { data, error } = await supabase
-        .from('case_skins')
-        .select(`
-          probability,
-          never_drop,
-          custom_probability,
-          skins (*)
-        `)
-        .eq('case_id', caseId);
-      if (error) throw error;
-      return data as CaseSkin[];
+      
+      try {
+        console.log('Fetching case skins for case:', caseId);
+        const { data, error } = await supabase
+          .from('case_skins')
+          .select(`
+            probability,
+            never_drop,
+            custom_probability,
+            skins (*)
+          `)
+          .eq('case_id', caseId);
+        
+        if (error) {
+          console.error('Error fetching case skins:', error);
+          throw error;
+        }
+        
+        console.log('Case skins fetched successfully:', data?.length || 0);
+        return (data || []) as CaseSkin[];
+      } catch (error) {
+        console.error('Case skins query error:', error);
+        return [];
+      }
     },
-    enabled: !!caseId
+    enabled: !!caseId,
+    retry: 2
   });
 };
 
@@ -70,27 +98,36 @@ export const useUserFavorites = (userId: string) => {
     queryKey: ['user-favorites', userId],
     queryFn: async () => {
       if (!isValidUUID(userId)) {
+        console.log('Invalid user ID for favorites');
         return [];
       }
       
-      // Проверяем аутентификацию перед запросом
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      try {
+        // Проверяем аутентификацию перед запросом
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.log('No valid session for favorites');
+          return [];
+        }
+        
+        const { data, error } = await supabase
+          .from('user_favorites')
+          .select('case_id')
+          .eq('user_id', userId);
+        
+        if (error) {
+          console.error('Error loading favorites:', error);
+          return [];
+        }
+        
+        return data?.map(f => f.case_id) || [];
+      } catch (error) {
+        console.error('Favorites query error:', error);
         return [];
       }
-      
-      const { data, error } = await supabase
-        .from('user_favorites')
-        .select('case_id')
-        .eq('user_id', userId);
-      
-      if (error) {
-        console.error('Error loading favorites:', error);
-        return [];
-      }
-      return data?.map(f => f.case_id) || [];
     },
-    enabled: !!userId && isValidUUID(userId)
+    enabled: !!userId && isValidUUID(userId),
+    retry: 2
   });
 };
 
@@ -108,11 +145,12 @@ export const useToggleFavorite = () => {
         }
 
         // Проверяем аутентификацию
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session || session.user.id !== userId) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session || session.user.id !== userId) {
           throw new Error('Необходимо войти в систему');
         }
 
+        // Проверяем/создаем пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id')
@@ -120,12 +158,14 @@ export const useToggleFavorite = () => {
           .single();
 
         if (userCheckError && userCheckError.code === 'PGRST116') {
+          console.log('Creating user for favorites');
           const { error: createError } = await supabase
             .from('users')
             .insert({
               id: userId,
-              username: 'user',
-              coins: 0
+              username: session.user.email?.split('@')[0] || 'user',
+              email: session.user.email,
+              coins: 1000
             });
 
           if (createError) {
@@ -138,16 +178,19 @@ export const useToggleFavorite = () => {
         }
         
         if (isFavorite) {
+          // Удаляем из избранного
           const { error } = await supabase
             .from('user_favorites')
             .delete()
             .eq('user_id', userId)
             .eq('case_id', caseId);
+          
           if (error) {
             console.error('Error removing favorite:', error);
             throw new Error('Не удалось убрать из избранного');
           }
         } else {
+          // Добавляем в избранное
           const { error } = await supabase
             .from('user_favorites')
             .insert({
@@ -155,6 +198,7 @@ export const useToggleFavorite = () => {
               user_id: userId,
               case_id: caseId
             });
+          
           if (error) {
             console.error('Error adding favorite:', error);
             throw new Error('Не удалось добавить в избранное');
@@ -201,13 +245,13 @@ export const useOpenCase = () => {
 
         // Проверяем кулдаун для бесплатного кейса
         if (caseItem.is_free && !isAdWatched) {
-          const { data: userData } = await supabase
+          const { data: userData, error: userDataError } = await supabase
             .from('users')
             .select('last_free_case_notification')
             .eq('id', userId)
             .single();
 
-          if (userData?.last_free_case_notification) {
+          if (!userDataError && userData?.last_free_case_notification) {
             const lastOpen = new Date(userData.last_free_case_notification);
             const now = new Date();
             const timeDiff = now.getTime() - lastOpen.getTime();
@@ -220,10 +264,12 @@ export const useOpenCase = () => {
           }
         }
 
+        // Проверяем достаточность монет
         if (!caseItem.is_free && !isAdWatched && caseItem.price > userCoins) {
           throw new Error(`Недостаточно монет. Нужно ${caseItem.price}, у вас ${userCoins}`);
         }
 
+        // Проверяем/создаем пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id, coins')
@@ -233,6 +279,7 @@ export const useOpenCase = () => {
         let actualCoins = userCoins;
 
         if (userCheckError && userCheckError.code === 'PGRST116') {
+          console.log('Creating new user for case opening');
           const { error: createError } = await supabase
             .from('users')
             .insert({
@@ -252,6 +299,7 @@ export const useOpenCase = () => {
           actualCoins = existingUser.coins;
         }
 
+        // Получаем скины кейса
         const { data: caseSkins, error: skinsError } = await supabase
           .from('case_skins')
           .select(`
@@ -261,7 +309,7 @@ export const useOpenCase = () => {
             skins (*)
           `)
           .eq('case_id', caseItem.id)
-          .eq('never_drop', false); // Только скины которые могут выпасть
+          .eq('never_drop', false);
 
         if (skinsError) {
           console.error('Error getting case skins:', skinsError);
@@ -274,16 +322,16 @@ export const useOpenCase = () => {
 
         console.log('Case skins loaded:', caseSkins.length);
 
-        // Выбираем случайный скин на основе настроенной вероятности
+        // Выбираем случайный скин
         const totalProbability = caseSkins.reduce((sum, item) => {
-          return sum + (item.custom_probability || item.probability);
+          return sum + (item.custom_probability || item.probability || 0.01);
         }, 0);
         
         let random = Math.random() * totalProbability;
         let selectedSkin = caseSkins[0];
 
         for (const skin of caseSkins) {
-          const probability = skin.custom_probability || skin.probability;
+          const probability = skin.custom_probability || skin.probability || 0.01;
           random -= probability;
           if (random <= 0) {
             selectedSkin = skin;
@@ -316,6 +364,7 @@ export const useOpenCase = () => {
             .from('users')
             .update(updateData)
             .eq('id', userId);
+          
           if (updateError) {
             console.error('Error updating user:', updateError);
             throw new Error('Не удалось обновить данные пользователя');
@@ -332,6 +381,7 @@ export const useOpenCase = () => {
             obtained_at: new Date().toISOString(),
             is_sold: false
           });
+        
         if (inventoryError) {
           console.error('Error adding to inventory:', inventoryError);
           // Откатываем изменения пользователя
@@ -345,17 +395,18 @@ export const useOpenCase = () => {
         }
 
         // Записываем в историю выигрышей
-        const { error: winError } = await supabase
-          .from('recent_wins')
-          .insert({
-            id: generateUUID(),
-            user_id: userId,
-            skin_id: selectedSkin.skins.id,
-            case_id: caseItem.id,
-            won_at: new Date().toISOString()
-          });
-        if (winError) {
-          console.error('Error adding to recent wins:', winError);
+        try {
+          await supabase
+            .from('recent_wins')
+            .insert({
+              id: generateUUID(),
+              user_id: userId,
+              skin_id: selectedSkin.skins.id,
+              case_id: caseItem.id,
+              won_at: new Date().toISOString()
+            });
+        } catch (error) {
+          console.error('Error adding to recent wins (non-critical):', error);
         }
 
         console.log('Case opened successfully');

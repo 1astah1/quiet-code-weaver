@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { X, Sparkles, Coins, ShoppingBag } from "lucide-react";
+import { generateUUID } from "@/utils/uuid";
 
 interface CaseOpeningAnimationProps {
   caseItem: any;
@@ -18,17 +20,51 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
   const [isOpening, setIsOpening] = useState(false);
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [isComplete, setIsComplete] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'opening' | 'spinning' | 'slowing' | 'revealing' | 'complete'>('opening');
-  const [spinItems, setSpinItems] = useState<any[]>([]);
+  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'complete'>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  const getRarityColor = (rarity: string) => {
+    switch (rarity?.toLowerCase()) {
+      case 'consumer grade':
+      case 'consumer': 
+        return 'from-gray-600 to-gray-700';
+      case 'industrial grade':
+      case 'industrial': 
+        return 'from-blue-600 to-blue-700';
+      case 'mil-spec': 
+        return 'from-purple-600 to-purple-700';
+      case 'restricted': 
+        return 'from-pink-600 to-pink-700';
+      case 'classified': 
+        return 'from-red-600 to-red-700';
+      case 'covert': 
+        return 'from-orange-600 to-orange-700';
+      case 'contraband': 
+        return 'from-yellow-600 to-yellow-700';
+      case 'special':
+      case '★ special items': 
+        return 'from-yellow-500 to-orange-500';
+      default: 
+        return 'from-gray-600 to-gray-700';
+    }
+  };
+
   const openCase = async () => {
+    if (isOpening) return;
+    
     setIsOpening(true);
     setAnimationPhase('opening');
 
     try {
-      // Получаем скины из кейса
+      console.log('Starting case opening for:', caseItem?.name);
+
+      // Проверяем пользователя
+      if (!currentUser?.id) {
+        throw new Error('Пользователь не найден');
+      }
+
+      // Получаем скины из кейса с защитой от ошибок
       const { data: caseSkins, error: caseSkinsError } = await supabase
         .from('case_skins')
         .select(`
@@ -40,69 +76,71 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         .eq('case_id', caseItem.id)
         .eq('never_drop', false);
 
-      if (caseSkinsError) throw caseSkinsError;
+      if (caseSkinsError) {
+        console.error('Error fetching case skins:', caseSkinsError);
+        throw new Error('Не удалось загрузить содержимое кейса');
+      }
 
       if (!caseSkins || caseSkins.length === 0) {
         throw new Error('В кейсе нет доступных предметов');
       }
 
-      // Создаем массив элементов для анимации
-      const itemsForSpin = [];
-      for (let i = 0; i < 50; i++) {
-        const randomSkin = caseSkins[Math.floor(Math.random() * caseSkins.length)];
-        itemsForSpin.push({
-          ...randomSkin.skins,
-          isWinner: false
-        });
-      }
+      console.log('Case skins loaded:', caseSkins.length);
 
       // Выбираем случайный скин на основе вероятности
-      const random = Math.random();
-      let cumulativeProbability = 0;
-      let selectedSkin = null;
+      const totalProbability = caseSkins.reduce((sum, item) => {
+        return sum + (item.custom_probability || item.probability || 0.01);
+      }, 0);
+      
+      let random = Math.random() * totalProbability;
+      let selectedSkin = caseSkins[0];
 
-      for (const item of caseSkins) {
-        const probability = item.custom_probability || item.probability;
-        cumulativeProbability += probability;
-        if (random <= cumulativeProbability) {
-          selectedSkin = item.skins;
+      for (const skin of caseSkins) {
+        const probability = skin.custom_probability || skin.probability || 0.01;
+        random -= probability;
+        if (random <= 0) {
+          selectedSkin = skin;
           break;
         }
       }
 
-      if (!selectedSkin && caseSkins.length) {
-        selectedSkin = caseSkins[0].skins;
+      if (!selectedSkin?.skins) {
+        throw new Error('Не удалось выбрать скин');
       }
 
-      // Помещаем выигрышный предмет в середину
-      itemsForSpin[25] = { ...selectedSkin, isWinner: true };
-      setSpinItems(itemsForSpin);
+      console.log('Selected skin:', selectedSkin.skins.name);
 
-      // Фазы анимации
-      setTimeout(() => setAnimationPhase('spinning'), 1000);
-      setTimeout(() => setAnimationPhase('slowing'), 3000);
-      setTimeout(() => setAnimationPhase('revealing'), 5000);
+      // Фазы анимации с безопасными интервалами
+      const timeouts: NodeJS.Timeout[] = [];
       
-      // Показываем результат
-      setTimeout(async () => {
-        if (selectedSkin) {
-          setWonSkin(selectedSkin);
-          setAnimationPhase('complete');
-          setIsComplete(true);
-          setIsOpening(false);
+      timeouts.push(setTimeout(() => {
+        setAnimationPhase('revealing');
+      }, 2000));
+      
+      timeouts.push(setTimeout(() => {
+        setWonSkin(selectedSkin.skins);
+        setAnimationPhase('complete');
+        setIsComplete(true);
+        setIsOpening(false);
 
-          toast({
-            title: "🎉 Поздравляем!",
-            description: `Вы выиграли ${selectedSkin.name}!`,
-          });
-        }
-      }, 6000);
+        toast({
+          title: "🎉 Поздравляем!",
+          description: `Вы выиграли ${selectedSkin.skins.name}!`,
+        });
+      }, 4000));
+
+      // Очищаем таймауты при размонтировании
+      return () => {
+        timeouts.forEach(timeout => clearTimeout(timeout));
+      };
+
     } catch (error) {
       console.error('Case opening error:', error);
       setIsOpening(false);
+      setAnimationPhase('opening');
       toast({
         title: "Ошибка",
-        description: "Не удалось открыть кейс",
+        description: error instanceof Error ? error.message : "Не удалось открыть кейс",
         variant: "destructive",
       });
     }
@@ -113,36 +151,68 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     
     setIsProcessing(true);
     try {
+      console.log('Adding to inventory:', wonSkin.name);
+
+      // Проверяем пользователя
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, coins')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (userError) {
+        console.error('User check error:', userError);
+        throw new Error('Пользователь не найден');
+      }
+
       // Добавляем скин в инвентарь
       const { error: inventoryError } = await supabase
         .from('user_inventory')
         .insert({
-          user_id: currentUser.id,
-          skin_id: wonSkin.id
-        });
-
-      if (inventoryError) throw inventoryError;
-
-      // Добавляем в недавние выигрыши
-      const { error: recentWinError } = await supabase
-        .from('recent_wins')
-        .insert({
+          id: generateUUID(),
           user_id: currentUser.id,
           skin_id: wonSkin.id,
-          case_id: caseItem.id
+          obtained_at: new Date().toISOString(),
+          is_sold: false
         });
 
-      if (recentWinError) console.error('Recent win error:', recentWinError);
+      if (inventoryError) {
+        console.error('Inventory error:', inventoryError);
+        throw new Error('Не удалось добавить в инвентарь');
+      }
+
+      // Добавляем в недавние выигрыши
+      try {
+        await supabase
+          .from('recent_wins')
+          .insert({
+            id: generateUUID(),
+            user_id: currentUser.id,
+            skin_id: wonSkin.id,
+            case_id: caseItem.id,
+            won_at: new Date().toISOString()
+          });
+      } catch (error) {
+        console.error('Recent win error (non-critical):', error);
+      }
 
       // Списываем монеты, если кейс не бесплатный
       if (!caseItem.is_free) {
-        const newCoins = currentUser.coins - caseItem.price;
+        const newCoins = userData.coins - caseItem.price;
+        if (newCoins < 0) {
+          throw new Error('Недостаточно монет');
+        }
+
         const { error: coinsError } = await supabase
           .from('users')
           .update({ coins: newCoins })
           .eq('id', currentUser.id);
 
-        if (coinsError) throw coinsError;
+        if (coinsError) {
+          console.error('Coins update error:', coinsError);
+          throw new Error('Не удалось списать монеты');
+        }
+        
         onCoinsUpdate(newCoins);
       }
 
@@ -156,7 +226,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
       console.error('Add to inventory error:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось добавить скин в инвентарь",
+        description: error instanceof Error ? error.message : "Не удалось добавить скин в инвентарь",
         variant: "destructive",
       });
     } finally {
@@ -169,13 +239,30 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     
     setIsProcessing(true);
     try {
-      // Сразу продаем скин за его цену
-      const sellPrice = wonSkin.price;
-      let newCoins = currentUser.coins + sellPrice;
+      console.log('Selling directly:', wonSkin.name);
+
+      // Проверяем пользователя
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, coins')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (userError) {
+        console.error('User check error:', userError);
+        throw new Error('Пользователь не найден');
+      }
+
+      // Вычисляем новые монеты
+      const sellPrice = wonSkin.price || 0;
+      let newCoins = userData.coins + sellPrice;
       
       // Списываем цену кейса, если он не бесплатный
       if (!caseItem.is_free) {
         newCoins -= caseItem.price;
+        if (newCoins < 0) {
+          throw new Error('Недостаточно монет для покупки кейса');
+        }
       }
 
       const { error: coinsError } = await supabase
@@ -183,18 +270,25 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         .update({ coins: newCoins })
         .eq('id', currentUser.id);
 
-      if (coinsError) throw coinsError;
+      if (coinsError) {
+        console.error('Coins update error:', coinsError);
+        throw new Error('Не удалось обновить баланс');
+      }
 
-      // Добавляем в недавние выигрыши (как проданный)
-      const { error: recentWinError } = await supabase
-        .from('recent_wins')
-        .insert({
-          user_id: currentUser.id,
-          skin_id: wonSkin.id,
-          case_id: caseItem.id
-        });
-
-      if (recentWinError) console.error('Recent win error:', recentWinError);
+      // Добавляем в недавние выигрыши
+      try {
+        await supabase
+          .from('recent_wins')
+          .insert({
+            id: generateUUID(),
+            user_id: currentUser.id,
+            skin_id: wonSkin.id,
+            case_id: caseItem.id,
+            won_at: new Date().toISOString()
+          });
+      } catch (error) {
+        console.error('Recent win error (non-critical):', error);
+      }
 
       onCoinsUpdate(newCoins);
 
@@ -208,7 +302,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
       console.error('Sell directly error:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось продать скин",
+        description: error instanceof Error ? error.message : "Не удалось продать скин",
         variant: "destructive",
       });
     } finally {
@@ -217,32 +311,24 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
   };
 
   useEffect(() => {
-    openCase();
-  }, []);
-
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'Consumer': return 'from-gray-600 to-gray-700';
-      case 'Industrial': return 'from-blue-600 to-blue-700';
-      case 'Mil-Spec': return 'from-purple-600 to-purple-700';
-      case 'Restricted': return 'from-pink-600 to-pink-700';
-      case 'Classified': return 'from-red-600 to-red-700';
-      case 'Covert': return 'from-orange-600 to-orange-700';
-      case 'Contraband': return 'from-yellow-600 to-yellow-700';
-      case 'Special': return 'from-yellow-500 to-orange-500';
-      // Совместимость со старыми значениями
-      case 'Consumer Grade': return 'from-gray-600 to-gray-700';
-      case 'Industrial Grade': return 'from-blue-600 to-blue-700';
-      case '★ Special Items': return 'from-yellow-500 to-orange-500';
-      default: return 'from-gray-600 to-gray-700';
+    if (!caseItem || !currentUser) {
+      console.error('Missing required props');
+      return;
     }
-  };
+    
+    const cleanup = openCase();
+    return () => {
+      if (cleanup && typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [caseItem?.id, currentUser?.id]);
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center">
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(30)].map((_, i) => (
+        {[...Array(20)].map((_, i) => (
           <div
             key={i}
             className="absolute animate-pulse"
@@ -266,69 +352,27 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           <X className="w-8 h-8" />
         </button>
 
-        {(animationPhase === 'opening' || animationPhase === 'spinning' || animationPhase === 'slowing') && (
+        {animationPhase === 'opening' && (
           <div className="space-y-8">
-            <h2 className="text-4xl font-bold text-white mb-6">
-              {animationPhase === 'opening' && "Открытие кейса..."}
-              {animationPhase === 'spinning' && "Определяем выигрыш..."}
-              {animationPhase === 'slowing' && "Почти готово!"}
-            </h2>
+            <h2 className="text-4xl font-bold text-white mb-6">Открытие кейса...</h2>
             
-            {animationPhase === 'opening' && (
-              <div className="relative">
-                <div className="animate-bounce w-32 h-32 mx-auto mb-8">
-                  <div className="w-full h-full bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center text-6xl shadow-2xl shadow-orange-500/50">
-                    📦
-                  </div>
-                </div>
-                
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-40 h-40 border-4 border-transparent border-t-orange-500 border-r-orange-500 rounded-full animate-spin"></div>
+            <div className="relative">
+              <div className="animate-bounce w-32 h-32 mx-auto mb-8">
+                <div className="w-full h-full bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center text-6xl shadow-2xl shadow-orange-500/50">
+                  📦
                 </div>
               </div>
-            )}
-
-            {(animationPhase === 'spinning' || animationPhase === 'slowing') && (
-              <div className="relative h-40 overflow-hidden bg-gradient-to-r from-transparent via-black/50 to-transparent rounded-xl border border-orange-500/30">
-                <div 
-                  className={`flex absolute top-0 transition-transform duration-1000 ${
-                    animationPhase === 'spinning' ? 'animate-[spin-items_2s_linear_infinite]' : 
-                    animationPhase === 'slowing' ? 'animate-[spin-slow_3s_ease-out_forwards]' : ''
-                  }`}
-                  style={{
-                    transform: animationPhase === 'slowing' ? 'translateX(-50%)' : 'translateX(0)',
-                    width: `${spinItems.length * 160}px`
-                  }}
-                >
-                  {spinItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className={`w-32 h-32 mx-4 my-4 bg-gradient-to-br ${getRarityColor(item.rarity)} rounded-xl flex flex-col items-center justify-center p-2 border-2 ${
-                        index === 25 ? 'border-yellow-400 shadow-lg shadow-yellow-400/50' : 'border-white/20'
-                      }`}
-                    >
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-16 h-16 object-contain" />
-                      ) : (
-                        <div className="w-16 h-16 bg-white/20 rounded"></div>
-                      )}
-                      <span className="text-white text-xs font-bold text-center truncate w-full">
-                        {item.name?.split('|')[0]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Центральный указатель */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/50"></div>
+              
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-40 h-40 border-4 border-transparent border-t-orange-500 border-r-orange-500 rounded-full animate-spin"></div>
               </div>
-            )}
+            </div>
           </div>
         )}
 
         {animationPhase === 'revealing' && (
           <div className="space-y-8">
-            <h2 className="text-4xl font-bold text-white mb-6">Открываем...</h2>
+            <h2 className="text-4xl font-bold text-white mb-6">Определяем выигрыш...</h2>
             
             <div className="relative">
               <div className="w-40 h-40 mx-auto">
@@ -339,9 +383,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
               
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-48 h-48 border-4 border-transparent border-t-yellow-400 border-r-yellow-400 rounded-full animate-spin"></div>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-56 h-56 border-4 border-transparent border-b-orange-400 border-l-orange-400 rounded-full animate-spin" style={{animationDirection: 'reverse'}}></div>
               </div>
             </div>
             
@@ -363,6 +404,10 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                     src={wonSkin.image_url} 
                     alt={wonSkin.name}
                     className="max-w-full max-h-full object-contain animate-fade-in"
+                    onError={(e) => {
+                      console.log('Image failed to load:', wonSkin.image_url);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 ) : (
                   <span className="text-8xl animate-bounce">🎯</span>
@@ -371,13 +416,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                 <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent animate-pulse"></div>
               </div>
               
-              <h3 className="text-white font-bold text-3xl mb-3">{wonSkin.name}</h3>
-              <p className="text-white/90 text-xl mb-2">{wonSkin.weapon_type}</p>
-              <p className="text-white/70 text-lg uppercase tracking-wider mb-4">{wonSkin.rarity}</p>
+              <h3 className="text-white font-bold text-3xl mb-3">{wonSkin.name || 'Неизвестный скин'}</h3>
+              <p className="text-white/90 text-xl mb-2">{wonSkin.weapon_type || 'Оружие'}</p>
+              <p className="text-white/70 text-lg uppercase tracking-wider mb-4">{wonSkin.rarity || 'Common'}</p>
               
               <div className="flex items-center justify-center space-x-2 mb-6">
                 <Coins className="w-6 h-6 text-yellow-400" />
-                <span className="text-yellow-400 font-bold text-2xl">{wonSkin.price} монет</span>
+                <span className="text-yellow-400 font-bold text-2xl">{wonSkin.price || 0} монет</span>
               </div>
             </div>
             
@@ -385,7 +430,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
               <button
                 onClick={addToInventory}
                 disabled={isProcessing}
-                className="flex items-center space-x-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg shadow-lg hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
+                className="flex items-center space-x-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg shadow-lg hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105 disabled:transform-none"
               >
                 <ShoppingBag className="w-5 h-5" />
                 <span>{isProcessing ? "Добавляем..." : "Забрать в инвентарь"}</span>
@@ -394,10 +439,10 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
               <button
                 onClick={sellDirectly}
                 disabled={isProcessing}
-                className="flex items-center space-x-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg shadow-lg hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-105"
+                className="flex items-center space-x-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg shadow-lg hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-105 disabled:transform-none"
               >
                 <Coins className="w-5 h-5" />
-                <span>{isProcessing ? "Продаем..." : `Продать за ${wonSkin.price}`}</span>
+                <span>{isProcessing ? "Продаем..." : `Продать за ${wonSkin.price || 0}`}</span>
               </button>
             </div>
             
@@ -405,18 +450,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes spin-items {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-160px); }
-        }
-        
-        @keyframes spin-slow {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-4000px); }
-        }
-      `}</style>
     </div>
   );
 };

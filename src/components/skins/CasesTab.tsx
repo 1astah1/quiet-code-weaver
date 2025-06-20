@@ -21,63 +21,140 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [openingCase, setOpeningCase] = useState<any>(null);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
-  // Получаем случаи
-  const { data: cases = [], isLoading } = useQuery({
+  // Получаем случаи с защитой от ошибок
+  const { data: cases = [], isLoading, error } = useQuery({
     queryKey: ['cases'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cases')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    }
+      try {
+        console.log('Loading cases...');
+        const { data, error } = await supabase
+          .from('cases')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Cases fetch error:', error);
+          throw error;
+        }
+        
+        console.log('Cases loaded:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('Error in cases query:', error);
+        throw error;
+      }
+    },
+    retry: 3,
+    retryDelay: 1000
   });
 
-  // Получаем информацию о последнем бесплатном открытии
+  // Получаем информацию о последнем бесплатном открытии с защитой от ошибок
   const { data: userData } = useQuery({
-    queryKey: ['user-free-case-timer', currentUser.id],
+    queryKey: ['user-free-case-timer', currentUser?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('last_free_case_notification')
-        .eq('id', currentUser.id)
-        .single();
-      if (error) throw error;
-      return data;
-    }
+      if (!currentUser?.id) {
+        console.log('No user ID for free case timer');
+        return null;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('last_free_case_notification')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (error) {
+          console.error('User data fetch error:', error);
+          return null;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        return null;
+      }
+    },
+    enabled: !!currentUser?.id,
+    retry: 2
   });
 
-  // Получаем скины для выбранного кейса
+  // Получаем скины для выбранного кейса с защитой от ошибок
   const { data: caseSkins = [] } = useQuery({
     queryKey: ['case-skins', selectedCase?.id],
     queryFn: async () => {
       if (!selectedCase?.id) return [];
-      const { data, error } = await supabase
-        .from('case_skins')
-        .select(`
-          probability,
-          never_drop,
-          custom_probability,
-          skins (*)
-        `)
-        .eq('case_id', selectedCase.id);
-      if (error) throw error;
-      return data;
+      
+      try {
+        console.log('Loading case skins for:', selectedCase.name);
+        const { data, error } = await supabase
+          .from('case_skins')
+          .select(`
+            probability,
+            never_drop,
+            custom_probability,
+            skins (*)
+          `)
+          .eq('case_id', selectedCase.id);
+        
+        if (error) {
+          console.error('Case skins fetch error:', error);
+          throw error;
+        }
+        
+        console.log('Case skins loaded:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('Error in case skins query:', error);
+        return [];
+      }
     },
-    enabled: !!selectedCase?.id
+    enabled: !!selectedCase?.id,
+    retry: 2
   });
 
   const updateLastFreeCase = async () => {
-    await supabase
-      .from('users')
-      .update({ last_free_case_notification: new Date().toISOString() })
-      .eq('id', currentUser.id);
+    if (!currentUser?.id) return;
+    
+    try {
+      await supabase
+        .from('users')
+        .update({ last_free_case_notification: new Date().toISOString() })
+        .eq('id', currentUser.id);
+    } catch (error) {
+      console.error('Error updating last free case:', error);
+    }
   };
 
   const handleCaseOpen = (caseData: any) => {
+    if (!caseData || !currentUser) {
+      console.error('Invalid case data or user for opening');
+      return;
+    }
+    console.log('Opening case:', caseData.name);
     setOpeningCase(caseData);
   };
+
+  const handleCaseSelect = (caseData: any) => {
+    if (!caseData) {
+      console.error('Invalid case data for selection');
+      return;
+    }
+    console.log('Selecting case for preview:', caseData.name);
+    setSelectedCase(caseData);
+  };
+
+  if (error) {
+    console.error('Cases tab error:', error);
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-2">Ошибка загрузки кейсов</div>
+          <div className="text-gray-400 text-sm">Попробуйте обновить страницу</div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -87,8 +164,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     );
   }
 
-  const freeCases = cases.filter(caseItem => caseItem.is_free);
-  const paidCases = cases.filter(caseItem => !caseItem.is_free);
+  const freeCases = cases.filter(caseItem => caseItem?.is_free) || [];
+  const paidCases = cases.filter(caseItem => !caseItem?.is_free) || [];
 
   return (
     <div className="space-y-6">
@@ -142,7 +219,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         </div>
       )}
 
-      {cases.length === 0 && (
+      {cases.length === 0 && !isLoading && (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📦</div>
           <h3 className="text-xl font-semibold text-white mb-2">Пока нет кейсов</h3>
@@ -158,7 +235,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         />
       )}
 
-      {openingCase && (
+      {openingCase && currentUser && (
         <CaseOpeningAnimation
           caseItem={openingCase}
           onClose={() => setOpeningCase(null)}

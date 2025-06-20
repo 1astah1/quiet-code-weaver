@@ -30,30 +30,40 @@ export const useUserInventory = (userId: string) => {
         return [];
       }
 
-      // Проверяем аутентификацию перед запросом
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || session.user.id !== userId) {
-        console.error('User not authenticated or ID mismatch');
+      try {
+        // Проверяем аутентификацию перед запросом
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session || session.user.id !== userId) {
+          console.error('User not authenticated or ID mismatch');
+          return [];
+        }
+
+        console.log('Loading inventory for user:', userId);
+
+        const { data, error } = await supabase
+          .from('user_inventory')
+          .select(`
+            *,
+            skins (*)
+          `)
+          .eq('user_id', userId)
+          .eq('is_sold', false)
+          .order('obtained_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error loading inventory:', error);
+          throw error;
+        }
+        
+        console.log('Inventory loaded:', data?.length || 0, 'items');
+        return (data || []) as InventoryItem[];
+      } catch (error) {
+        console.error('Inventory query error:', error);
         return [];
       }
-
-      const { data, error } = await supabase
-        .from('user_inventory')
-        .select(`
-          *,
-          skins (*)
-        `)
-        .eq('user_id', userId)
-        .eq('is_sold', false)
-        .order('obtained_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error loading inventory:', error);
-        throw error;
-      }
-      return data as InventoryItem[];
     },
-    enabled: !!userId && isValidUUID(userId)
+    enabled: !!userId && isValidUUID(userId),
+    retry: 2
   });
 };
 
