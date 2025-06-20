@@ -20,16 +20,22 @@ export type Screen = "main" | "skins" | "tasks" | "quiz" | "admin" | "settings";
 const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [appInitialized, setAppInitialized] = useState(false);
   const { user, isLoading, isAuthenticated, signOut, updateUserCoins } = useAuth();
   const { toast } = useToast();
 
-  // Clear cache on app start (only once)
+  // Инициализация приложения (очистка кэша только один раз)
   useEffect(() => {
-    const hasCleared = sessionStorage.getItem('cache-cleared');
-    if (!hasCleared) {
-      clearAllCache();
-      sessionStorage.setItem('cache-cleared', 'true');
-    }
+    const initializeApp = () => {
+      const hasCleared = sessionStorage.getItem('cache-cleared');
+      if (!hasCleared) {
+        clearAllCache();
+        sessionStorage.setItem('cache-cleared', 'true');
+      }
+      setAppInitialized(true);
+    };
+
+    initializeApp();
   }, []);
 
   // Обновляем монеты пользователя в базе данных
@@ -76,23 +82,26 @@ const MainApp = () => {
     }
   };
 
-  // Показываем загрузку
-  if (isLoading) {
+  // Показываем загрузку только если приложение не инициализировано или идет загрузка аутентификации
+  if (!appInitialized || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
-          <p className="text-white text-lg">Загрузка...</p>
+          <p className="text-white text-lg">
+            {!appInitialized ? "Инициализация..." : "Загрузка..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Показываем экран авторизации
-  if (!isAuthenticated || !user) {
+  // Показываем экран авторизации если пользователь не авторизован
+  if (!isAuthenticated) {
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
+  // Показываем основное приложение
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800">
       {/* Background Pattern */}
