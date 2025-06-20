@@ -98,6 +98,16 @@ const BannerManagement = () => {
       const fileName = `banner_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `banners/${fileName}`;
 
+      console.log('Uploading banner image:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+
+      // Сначала проверим, существует ли bucket
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      console.log('Available buckets:', buckets);
+      
+      if (bucketsError) {
+        console.error('Error fetching buckets:', bucketsError);
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('banner-images')
         .upload(filePath, file, {
@@ -113,6 +123,8 @@ const BannerManagement = () => {
       const { data: { publicUrl } } = supabase.storage
         .from('banner-images')
         .getPublicUrl(filePath);
+
+      console.log('Generated public URL:', publicUrl);
 
       toast({ title: "Изображение загружено успешно" });
       return publicUrl;
@@ -130,6 +142,7 @@ const BannerManagement = () => {
   };
 
   const handleSave = (bannerData: BannerInsert) => {
+    console.log('Saving banner data:', bannerData);
     if (isCreating) {
       createBannerMutation.mutate(bannerData);
     } else if (editingBanner) {
@@ -185,6 +198,9 @@ const BannerManagement = () => {
                             <Image className="w-6 h-6 text-gray-400" />
                           </div>
                         }
+                        onError={() => {
+                          console.error('Image failed to load:', banner.image_url);
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-600">
@@ -200,6 +216,7 @@ const BannerManagement = () => {
                     <p className="text-gray-500 text-xs">Кнопка: {banner.button_text}</p>
                     <p className="text-gray-500 text-xs">Действие: {banner.button_action}</p>
                     <p className="text-gray-500 text-xs">Порядок: {banner.order_index}</p>
+                    <p className="text-gray-500 text-xs">URL изображения: {banner.image_url || 'Не установлено'}</p>
                     <p className={`text-xs ${banner.is_active ? 'text-green-400' : 'text-red-400'}`}>
                       {banner.is_active ? 'Активен' : 'Неактивен'}
                     </p>
@@ -250,6 +267,7 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted with data:', formData);
     onSave(formData);
   };
 
@@ -257,7 +275,9 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
     const file = e.target.files?.[0];
     if (file) {
       try {
+        console.log('File selected for upload:', { name: file.name, size: file.size, type: file.type });
         const imageUrl = await onImageUpload(file);
+        console.log('Upload successful, URL:', imageUrl);
         setFormData({ ...formData, image_url: imageUrl });
       } catch (error) {
         console.error('Failed to upload image:', error);
@@ -310,6 +330,9 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
                       <Image className="w-8 h-8 text-gray-400" />
                     </div>
                   }
+                  onError={() => {
+                    console.error('Preview image failed to load:', formData.image_url);
+                  }}
                 />
                 <button
                   type="button"
@@ -319,6 +342,7 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
                   <X className="w-4 h-4" />
                 </button>
               </div>
+              <p className="text-gray-400 text-xs mt-1">URL: {formData.image_url}</p>
             </div>
           )}
 
