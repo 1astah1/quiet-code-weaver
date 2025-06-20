@@ -31,6 +31,7 @@ const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
   const [showSettings, setShowSettings] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [isAuth, setIsAuth] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -74,9 +75,10 @@ const MainApp = () => {
         return;
       }
 
+      // Query only existing columns based on the schema
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, username, coins, quiz_lives, quiz_streak, is_premium, is_admin, avatar_url, referral_code')
+        .select('id, username, coins, quiz_lives, quiz_streak, is_admin, avatar_url, referral_code, premium_until')
         .eq('auth_id', userId)
         .single();
 
@@ -91,13 +93,15 @@ const MainApp = () => {
       }
 
       if (user) {
+        const isPremium = user.premium_until ? new Date(user.premium_until) > new Date() : false;
+        
         setCurrentUser({
           id: user.id,
           username: user.username || 'Пользователь',
           coins: user.coins || 0,
           quiz_lives: user.quiz_lives || 3,
           quiz_streak: user.quiz_streak || 0,
-          isPremium: user.is_premium || false,
+          isPremium,
           isAdmin: user.is_admin || false,
           avatar_url: user.avatar_url,
           referralCode: user.referral_code,
@@ -117,6 +121,13 @@ const MainApp = () => {
     if (currentUser && typeof newCoins === 'number' && newCoins >= 0) {
       setCurrentUser({ ...currentUser, coins: newCoins });
     }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setCurrentScreen('main');
+    setSidebarOpen(false);
   };
 
   const renderCurrentScreen = () => {
@@ -153,25 +164,30 @@ const MainApp = () => {
           isPremium: currentUser?.isPremium || false,
           avatar_url: currentUser?.avatar_url
         }}
+        onMenuClick={() => setSidebarOpen(true)}
+      />
+
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        currentUser={{
+          username: currentUser?.username || 'Пользователь',
+          coins: currentUser?.coins || 0,
+          isPremium: currentUser?.isPremium || false,
+          isAdmin: currentUser?.isAdmin || false,
+          avatar_url: currentUser?.avatar_url
+        }}
+        onScreenChange={(screen: Screen) => {
+          setCurrentScreen(screen);
+          setSidebarOpen(false);
+        }}
+        onSignOut={handleSignOut}
+        currentScreen={currentScreen}
         onShowSettings={() => setShowSettings(true)}
         onShowReferral={() => setShowReferralModal(true)}
       />
 
       <div className="container mx-auto flex py-6">
-        <Sidebar
-          currentScreen={currentScreen}
-          onScreenChange={setCurrentScreen}
-          onShowSettings={() => setShowSettings(true)}
-          onShowReferral={() => setShowReferralModal(true)}
-          currentUser={{
-            username: currentUser?.username || 'Пользователь',
-            coins: currentUser?.coins || 0,
-            isPremium: currentUser?.isPremium || false,
-            isAdmin: currentUser?.isAdmin || false,
-            avatar_url: currentUser?.avatar_url
-          }}
-        />
-
         <main className="flex-1 p-4">
           {renderCurrentScreen()}
         </main>

@@ -1,4 +1,5 @@
-import { Settings, Coins } from "lucide-react";
+
+import { Menu, Coins } from "lucide-react";
 
 interface HeaderProps {
   currentUser: {
@@ -19,7 +20,7 @@ const Header = ({ currentUser, onMenuClick }: HeaderProps) => {
           onClick={onMenuClick}
           className="p-2 rounded-lg bg-gray-800/50 border border-orange-500/30 hover:bg-orange-500/20 transition-all"
         >
-          <Settings className="w-5 h-5 text-orange-400" />
+          <Menu className="w-5 h-5 text-orange-400" />
         </button>
 
         {/* Logo */}
