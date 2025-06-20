@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,12 +43,15 @@ const AdminPanel = () => {
     enabled: activeTable === 'cases'
   });
 
-  const handleImageUpload = async (file: File, isEdit = false, itemId?: string) => {
+  const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
     setUploadingImage(true);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `case-covers/${fileName}`;
+      
+      // Choose folder based on table type
+      const folder = activeTable === 'cases' ? 'case-covers' : 'skin-images';
+      const filePath = `${folder}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('case-images')
@@ -64,12 +66,12 @@ const AdminPanel = () => {
       if (isEdit && itemId) {
         const { error } = await supabase
           .from(activeTable)
-          .update({ cover_image_url: publicUrl })
+          .update({ [fieldName]: publicUrl })
           .eq('id', itemId);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: [activeTable] });
       } else {
-        setNewItem({ ...newItem, cover_image_url: publicUrl });
+        setNewItem({ ...newItem, [fieldName]: publicUrl });
       }
 
       toast({ title: "Изображение загружено успешно" });
@@ -138,7 +140,7 @@ const AdminPanel = () => {
       case "cases":
         return ['name', 'description', 'price', 'is_free', 'cover_image_url'];
       case "skins":
-        return ['name', 'weapon_type', 'rarity', 'price'];
+        return ['name', 'weapon_type', 'rarity', 'price', 'image_url'];
       case "users":
         return ['username', 'email', 'coins', 'is_admin'];
       case "tasks":
@@ -231,14 +233,14 @@ const AdminPanel = () => {
             {fields.map(field => (
               <div key={field}>
                 <label className="block text-gray-300 text-sm mb-1">{field}</label>
-                {field === 'cover_image_url' ? (
+                {(field === 'cover_image_url' || field === 'image_url') ? (
                   <div className="space-y-2">
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleImageUpload(file);
+                        if (file) handleImageUpload(file, false, undefined, field);
                       }}
                       className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                       disabled={uploadingImage}
@@ -311,7 +313,7 @@ const AdminPanel = () => {
                     onSave={(updatedData) => handleUpdate(item.id, updatedData)}
                     onCancel={() => setEditingId(null)}
                     onDelete={() => handleDelete(item.id)}
-                    onImageUpload={(file) => handleImageUpload(file, true, item.id)}
+                    onImageUpload={(file, fieldName) => handleImageUpload(file, true, item.id, fieldName)}
                     uploadingImage={uploadingImage}
                   />
                 ))}
@@ -374,14 +376,14 @@ const TableRow = ({
       <tr className="border-t border-gray-700">
         {fields.map((field: string) => (
           <td key={field} className="p-3">
-            {field === 'cover_image_url' ? (
+            {(field === 'cover_image_url' || field === 'image_url') ? (
               <div className="space-y-2">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) onImageUpload(file);
+                    if (file) onImageUpload(file, field);
                   }}
                   className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
                   disabled={uploadingImage}
@@ -444,7 +446,7 @@ const TableRow = ({
     <tr className="border-t border-gray-700 hover:bg-gray-750">
       {fields.map((field: string) => (
         <td key={field} className="p-3 text-gray-300">
-          {field === 'cover_image_url' && item[field] ? (
+          {(field === 'cover_image_url' || field === 'image_url') && item[field] ? (
             <img 
               src={item[field]} 
               alt="Cover" 
