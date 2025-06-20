@@ -1,198 +1,134 @@
 
 import { useState } from "react";
-import { Coins, Heart, Play, Lock, Star, Eye } from "lucide-react";
+import { Coins, Eye, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useCases } from "@/hooks/useCases";
 import { useToast } from "@/hooks/use-toast";
+import CasePreviewModal from "@/components/skins/CasePreviewModal";
 
 interface CaseCardProps {
-  caseData: {
+  caseItem: {
     id: string;
     name: string;
-    description?: string;
+    description: string;
     price: number;
-    cover_image_url?: string;
-    likes_count?: number;
-    is_free?: boolean;
+    is_free: boolean;
+    image_url: string | null;
+    cover_image_url?: string | null;
+    likes_count: number;
   };
   currentUser: {
     id: string;
     username: string;
     coins: number;
   };
-  onCaseSelect: (caseData: any) => void;
+  onOpen: (caseItem: any) => void;
   onCoinsUpdate: (newCoins: number) => void;
-  onPreview?: (caseData: any) => void;
-  disabled?: boolean;
-  onFreeOpen?: () => void;
 }
 
-const CaseCard = ({ 
-  caseData, 
-  currentUser, 
-  onCaseSelect, 
-  onCoinsUpdate,
-  onPreview,
-  disabled = false,
-  onFreeOpen
-}: CaseCardProps) => {
-  const [isLiked, setIsLiked] = useState(false);
+const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProps) => {
+  const [showPreview, setShowPreview] = useState(false);
+  const { caseSkins } = useCases();
   const { toast } = useToast();
 
-  const handleCaseClick = () => {
-    if (disabled && caseData.is_free) {
+  const handleOpen = () => {
+    if (!caseItem.is_free && currentUser.coins < caseItem.price) {
       toast({
-        title: "Кейс недоступен",
-        description: "Подождите до окончания таймера",
-        variant: "destructive"
+        title: "Недостаточно монет",
+        description: `Для открытия кейса нужно ${caseItem.price} монет`,
+        variant: "destructive",
       });
       return;
     }
 
-    if (caseData.is_free && onFreeOpen) {
-      onFreeOpen();
-    }
-    
-    onCaseSelect(caseData);
+    onOpen(caseItem);
   };
 
-  const handlePreview = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onPreview) {
-      onPreview(caseData);
-    }
+  const handlePreview = () => {
+    setShowPreview(true);
   };
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsLiked(!isLiked);
-  };
-
-  const canAfford = currentUser.coins >= caseData.price;
-  const isClickable = !disabled && (caseData.is_free || canAfford);
+  const caseSkinsData = caseSkins?.filter(skin => skin.case_id === caseItem.id) || [];
 
   return (
-    <div className={`group relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-xl border border-slate-700/50 overflow-hidden transition-all duration-300 backdrop-blur-sm ${
-      isClickable 
-        ? 'hover:scale-[1.02] hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10' 
-        : 'opacity-60'
-    }`}>
-      {/* Compact Cover Image */}
-      <div className="relative h-28 bg-gradient-to-br from-slate-700 to-slate-800">
-        {caseData.cover_image_url ? (
-          <img 
-            src={caseData.cover_image_url} 
-            alt={caseData.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-3xl opacity-30">📦</div>
-          </div>
-        )}
-        
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
-        {/* Compact badges */}
-        <div className="absolute top-2 right-2 flex gap-1">
-          {caseData.is_free ? (
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
-              {disabled ? <Lock className="w-3 h-3" /> : <Star className="w-3 h-3" />}
-              <span className="hidden sm:inline">FREE</span>
-            </div>
+    <>
+      <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-600/50 overflow-hidden hover:border-orange-500/50 transition-all duration-300 group">
+        {/* Case Image */}
+        <div className="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-800 overflow-hidden">
+          {caseItem.image_url ? (
+            <img
+              src={caseItem.image_url}
+              alt={caseItem.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
           ) : (
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
-              <Star className="w-3 h-3" />
-              <span className="hidden sm:inline">VIP</span>
+            <div className="flex items-center justify-center h-full">
+              <Package className="w-12 h-12 sm:w-16 sm:h-16 text-slate-500" />
             </div>
           )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="absolute top-2 left-2 flex gap-1">
-          <button
-            onClick={handleLike}
-            className="bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white p-1.5 rounded-full transition-all duration-200 hover:scale-110"
-          >
-            <Heart className={`w-3 h-3 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
-          </button>
           
-          {onPreview && (
-            <button
-              onClick={handlePreview}
-              className="bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white p-1.5 rounded-full transition-all duration-200 hover:scale-110"
-            >
-              <Eye className="w-3 h-3" />
-            </button>
+          {/* Free badge */}
+          {caseItem.is_free && (
+            <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-lg text-xs font-bold">
+              БЕСПЛАТНО
+            </div>
           )}
         </div>
 
-        {/* Play overlay */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="bg-white/20 backdrop-blur-sm rounded-full p-2">
-            <Play className="w-4 h-4 text-white" />
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Content */}
-      <div className="p-3">
-        {/* Title */}
-        <h3 className="text-sm font-bold text-white mb-1 group-hover:text-orange-400 transition-colors truncate" title={caseData.name}>
-          {caseData.name}
-        </h3>
-
-        {/* Stats row */}
-        <div className="flex items-center justify-between mb-2">
+        {/* Case Info */}
+        <div className="p-3 sm:p-4">
+          <h3 className="text-white font-bold text-sm sm:text-lg mb-2 line-clamp-2">{caseItem.name}</h3>
+          
           {/* Price */}
-          <div className="flex items-center space-x-1">
-            {caseData.is_free ? (
-              <span className="text-green-400 font-bold text-xs">БЕСПЛАТНО</span>
-            ) : (
-              <>
-                <Coins className="w-3 h-3 text-orange-400" />
-                <span className={`font-bold text-xs ${canAfford ? 'text-orange-400' : 'text-red-400'}`}>
-                  {caseData.price}
-                </span>
-              </>
-            )}
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center space-x-1 sm:space-x-2">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">₽</span>
+              </div>
+              <span className="text-orange-400 font-bold text-sm sm:text-base">
+                {caseItem.is_free ? 'Бесплатно' : caseItem.price}
+              </span>
+            </div>
+            
+            {/* Stats */}
+            <div className="flex items-center space-x-2 text-slate-400 text-xs">
+              <span>❤️ {caseItem.likes_count}</span>
+            </div>
           </div>
 
-          {/* Likes */}
-          <div className="flex items-center space-x-1 text-slate-400">
-            <Heart className="w-3 h-3" />
-            <span className="text-xs">{caseData.likes_count || 0}</span>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={handleOpen}
+              disabled={!caseItem.is_free && currentUser.coins < caseItem.price}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 text-xs sm:text-sm py-2 sm:py-3"
+            >
+              <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              Открыть
+            </Button>
+            
+            <Button
+              onClick={handlePreview}
+              variant="outline"
+              className="flex-1 sm:flex-none border-slate-600 text-slate-300 hover:text-white hover:border-orange-500/50 text-xs sm:text-sm py-2 sm:py-3"
+            >
+              <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Содержимое</span>
+              <span className="sm:hidden">👁️</span>
+            </Button>
           </div>
         </div>
-
-        {/* Compact open button */}
-        <button
-          onClick={handleCaseClick}
-          disabled={!isClickable}
-          className={`w-full py-2 rounded-lg font-bold text-white transition-all duration-300 text-xs flex items-center justify-center gap-1 ${
-            isClickable
-              ? caseData.is_free
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-md'
-                : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-md'
-              : 'bg-gray-600 cursor-not-allowed'
-          }`}
-        >
-          {disabled ? (
-            <>
-              <Lock className="w-3 h-3" />
-              <span>Заблокировано</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3 h-3" />
-              <span>Открыть</span>
-            </>
-          )}
-        </button>
       </div>
 
-      {/* Subtle glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 via-orange-500/0 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-xl" />
-    </div>
+      {/* Preview Modal */}
+      {showPreview && (
+        <CasePreviewModal
+          caseItem={caseItem}
+          caseSkins={caseSkinsData}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </>
   );
 };
 
