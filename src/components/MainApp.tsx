@@ -56,9 +56,9 @@ const MainApp = () => {
         id: userData.id,
         username: userData.username || 'Пользователь',
         coins: userData.coins || 0,
-        lives: userData.lives || 5,
-        streak: userData.streak || 0,
-        isPremium: userData.is_premium || false,
+        lives: userData.quiz_lives || 5,
+        streak: userData.quiz_streak || 0,
+        isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
         isAdmin: userData.is_admin || false,
         avatar_url: userData.avatar_url
       });
@@ -101,6 +101,10 @@ const MainApp = () => {
     setCurrentScreen('main');
   };
 
+  const handleAuthSuccess = () => {
+    loadUserData();
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -113,7 +117,7 @@ const MainApp = () => {
   }
 
   if (!user || !currentUser) {
-    return <AuthScreen />;
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
 
   const renderScreen = () => {
@@ -122,22 +126,27 @@ const MainApp = () => {
         return (
           <MainScreen 
             currentUser={currentUser}
-            onCaseOpen={setOpeningCase}
             onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
           />
         );
       case 'skins':
         return (
           <SkinsScreen 
             currentUser={currentUser}
-            onCaseOpen={setOpeningCase}
             onCoinsUpdate={handleCoinsUpdate}
           />
         );
       case 'quiz':
         return (
           <QuizScreen 
-            currentUser={currentUser}
+            currentUser={{
+              id: currentUser.id,
+              username: currentUser.username,
+              coins: currentUser.coins,
+              quiz_lives: currentUser.lives,
+              quiz_streak: currentUser.streak
+            }}
             onCoinsUpdate={handleCoinsUpdate}
             onBack={() => setCurrentScreen('main')}
             onLivesUpdate={handleLivesUpdate}
@@ -159,15 +168,21 @@ const MainApp = () => {
           />
         );
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'admin':
-        return currentUser.isAdmin ? <AdminPanel /> : <MainScreen currentUser={currentUser} onCaseOpen={setOpeningCase} onCoinsUpdate={handleCoinsUpdate} />;
+        return currentUser.isAdmin ? <AdminPanel /> : (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
       default:
         return (
           <MainScreen 
             currentUser={currentUser}
-            onCaseOpen={setOpeningCase}
             onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
           />
         );
     }

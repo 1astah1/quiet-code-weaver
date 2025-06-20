@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -183,13 +184,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             {freeCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
-                caseData={caseItem}
+                caseItem={caseItem}
                 currentUser={currentUser}
-                onCaseSelect={handleCaseOpen}
-                onPreview={handleCasePreview}
+                onOpen={handleCaseOpen}
                 onCoinsUpdate={onCoinsUpdate}
-                disabled={!canOpenFreeCase}
-                onFreeOpen={updateLastFreeCase}
               />
             ))}
           </div>
@@ -208,10 +206,9 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             {paidCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
-                caseData={caseItem}
+                caseItem={caseItem}
                 currentUser={currentUser}
-                onCaseSelect={handleCaseOpen}
-                onPreview={handleCasePreview}
+                onOpen={handleCaseOpen}
                 onCoinsUpdate={onCoinsUpdate}
               />
             ))}

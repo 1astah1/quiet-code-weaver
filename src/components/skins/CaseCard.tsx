@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Coins, Eye, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCases } from "@/hooks/useCases";
 import { useToast } from "@/hooks/use-toast";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
 
@@ -28,7 +27,6 @@ interface CaseCardProps {
 
 const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProps) => {
   const [showPreview, setShowPreview] = useState(false);
-  const { caseSkins } = useCases();
   const { toast } = useToast();
 
   const handleOpen = () => {
@@ -47,8 +45,6 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const handlePreview = () => {
     setShowPreview(true);
   };
-
-  const caseSkinsData = caseSkins?.filter(skin => skin.case_id === caseItem.id) || [];
 
   return (
     <>
@@ -124,7 +120,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
       {showPreview && (
         <CasePreviewModal
           caseItem={caseItem}
-          caseSkins={caseSkinsData}
+          caseSkins={[]}
           onClose={() => setShowPreview(false)}
         />
       )}
