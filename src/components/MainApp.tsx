@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,54 +13,75 @@ import RankingsScreen from "./screens/RankingsScreen";
 import SettingsScreen from "./settings/SettingsScreen";
 import ReferralModal from "./ReferralModal";
 
+export type Screen = 'main' | 'skins' | 'inventory' | 'quiz' | 'tasks' | 'rankings';
+
+interface CurrentUser {
+  id: string;
+  username: string;
+  coins: number;
+  quiz_lives?: number;
+  quiz_streak?: number;
+  isPremium?: boolean;
+  isAdmin?: boolean;
+  avatar_url?: string;
+  referralCode?: string | null;
+}
+
 const MainApp = () => {
-  const [currentScreen, setCurrentScreen] = useState('main');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('main');
   const [showSettings, setShowSettings] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
 
   const [isAuth, setIsAuth] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    username: string;
-    coins: number;
-  } | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const { toast } = useToast();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      setIsAuth(!!session);
+        setIsAuth(!!session);
 
-      if (session?.user) {
-        loadUserData(session.user.id);
+        if (session?.user) {
+          await loadUserData(session.user.id);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
       }
     };
 
     checkAuth();
 
-    supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setIsAuth(!!session);
 
       if (session?.user) {
-        loadUserData(session.user.id);
+        await loadUserData(session.user.id);
       } else {
         setCurrentUser(null);
       }
     });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   const loadUserData = async (userId: string) => {
     try {
+      if (!userId) {
+        console.error("Invalid user ID");
+        return;
+      }
+
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, username, coins')
-        .eq('id', userId)
+        .select('id, username, coins, quiz_lives, quiz_streak, is_premium, is_admin, avatar_url, referral_code')
+        .eq('auth_id', userId)
         .single();
 
       if (error) {
-        console.error("Ошибка при загрузке данных пользователя:", error);
+        console.error("Error loading user data:", error);
         toast({
           variant: "destructive",
           title: "Ошибка",
@@ -68,13 +90,21 @@ const MainApp = () => {
         return;
       }
 
-      setCurrentUser({
-        id: user.id,
-        username: user.username,
-        coins: user.coins,
-      });
+      if (user) {
+        setCurrentUser({
+          id: user.id,
+          username: user.username || 'Пользователь',
+          coins: user.coins || 0,
+          quiz_lives: user.quiz_lives || 3,
+          quiz_streak: user.quiz_streak || 0,
+          isPremium: user.is_premium || false,
+          isAdmin: user.is_admin || false,
+          avatar_url: user.avatar_url,
+          referralCode: user.referral_code,
+        });
+      }
     } catch (error) {
-      console.error("Ошибка при загрузке данных пользователя:", error);
+      console.error("Error loading user data:", error);
       toast({
         variant: "destructive",
         title: "Ошибка",
@@ -84,7 +114,7 @@ const MainApp = () => {
   };
 
   const handleCoinsUpdate = (newCoins: number) => {
-    if (currentUser) {
+    if (currentUser && typeof newCoins === 'number' && newCoins >= 0) {
       setCurrentUser({ ...currentUser, coins: newCoins });
     }
   };
@@ -104,7 +134,7 @@ const MainApp = () => {
       case 'rankings':
         return <RankingsScreen currentUser={currentUser} />;
       default:
-        return <MainScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return <MainScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
     }
   };
 
@@ -117,7 +147,12 @@ const MainApp = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <Header
-        currentUser={currentUser}
+        currentUser={{
+          username: currentUser?.username || 'Пользователь',
+          coins: currentUser?.coins || 0,
+          isPremium: currentUser?.isPremium || false,
+          avatar_url: currentUser?.avatar_url
+        }}
         onShowSettings={() => setShowSettings(true)}
         onShowReferral={() => setShowReferralModal(true)}
       />
@@ -128,7 +163,13 @@ const MainApp = () => {
           onScreenChange={setCurrentScreen}
           onShowSettings={() => setShowSettings(true)}
           onShowReferral={() => setShowReferralModal(true)}
-          currentUser={currentUser}
+          currentUser={{
+            username: currentUser?.username || 'Пользователь',
+            coins: currentUser?.coins || 0,
+            isPremium: currentUser?.isPremium || false,
+            isAdmin: currentUser?.isAdmin || false,
+            avatar_url: currentUser?.avatar_url
+          }}
         />
 
         <main className="flex-1 p-4">
@@ -136,18 +177,25 @@ const MainApp = () => {
         </main>
       </div>
 
-      {showSettings && (
+      {showSettings && currentUser && (
         <SettingsScreen
-          onClose={() => setShowSettings(false)}
-          currentUser={currentUser}
+          currentUser={{
+            username: currentUser.username,
+            coins: currentUser.coins,
+            isPremium: currentUser.isPremium || false,
+            isAdmin: currentUser.isAdmin || false,
+            avatar_url: currentUser.avatar_url
+          }}
           onCoinsUpdate={handleCoinsUpdate}
         />
       )}
 
-      {showReferralModal && (
+      {showReferralModal && currentUser && (
         <ReferralModal
+          isOpen={showReferralModal}
           onClose={() => setShowReferralModal(false)}
           currentUser={currentUser}
+          onCoinsUpdate={handleCoinsUpdate}
         />
       )}
     </div>

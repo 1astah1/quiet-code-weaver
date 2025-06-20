@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { generateUUID } from "@/utils/uuid";
+import { generateUUID, isValidUUID } from "@/utils/uuid";
 
 interface UseCaseOpeningProps {
   caseItem: any;
@@ -34,8 +34,13 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     try {
       console.log('Starting case opening for:', caseItem?.name);
 
-      if (!currentUser?.id) {
+      // Валидация входных данных
+      if (!currentUser?.id || !isValidUUID(currentUser.id)) {
         throw new Error('Пользователь не найден');
+      }
+
+      if (!caseItem?.id || !isValidUUID(caseItem.id)) {
+        throw new Error('Некорректный кейс');
       }
 
       const { data: fetchedCaseSkins, error: caseSkinsError } = await supabase
@@ -62,14 +67,19 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       console.log('Case skins loaded:', fetchedCaseSkins.length);
 
       const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
-        return sum + (item.custom_probability || item.probability || 0.01);
+        const probability = item.custom_probability || item.probability || 0.01;
+        return sum + Math.max(0, Math.min(1, probability)); // Ограничиваем вероятность от 0 до 1
       }, 0);
+      
+      if (totalProbability <= 0) {
+        throw new Error('Некорректные вероятности в кейсе');
+      }
       
       let random = Math.random() * totalProbability;
       let selectedSkin = fetchedCaseSkins[0];
 
       for (const skin of fetchedCaseSkins) {
-        const probability = skin.custom_probability || skin.probability || 0.01;
+        const probability = Math.max(0, Math.min(1, skin.custom_probability || skin.probability || 0.01));
         random -= probability;
         if (random <= 0) {
           selectedSkin = skin;
@@ -83,13 +93,11 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       console.log('Selected skin:', selectedSkin.skins.name);
 
-      // Увеличенное время для новой анимации открытия (3 секунды)
       setTimeout(() => {
         setAnimationPhase('revealing');
         setWonSkin(selectedSkin.skins);
       }, 3000);
       
-      // Общее время анимации увеличено до 8 секунд
       setTimeout(() => {
         setAnimationPhase('complete');
         setIsComplete(true);
@@ -119,6 +127,15 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     setIsProcessing(true);
     try {
       console.log('Adding to inventory:', wonSkin.name);
+
+      // Валидация данных
+      if (!isValidUUID(currentUser.id)) {
+        throw new Error('Некорректный ID пользователя');
+      }
+
+      if (!isValidUUID(wonSkin.id)) {
+        throw new Error('Некорректный ID скина');
+      }
 
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -163,9 +180,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
 
       // Списываем монеты только для платных кейсов
-      if (!caseItem.is_free) {
-        const newCoins = userData.coins - caseItem.price;
-        if (newCoins < 0) {
+      if (!caseItem.is_free && caseItem.price > 0) {
+        const newCoins = Math.max(0, userData.coins - caseItem.price);
+        
+        if (userData.coins < caseItem.price) {
           throw new Error('Недостаточно монет');
         }
 
@@ -182,10 +200,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         onCoinsUpdate(newCoins);
       }
 
-      // ВАЖНО: Инвалидируем кеш инвентаря
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
-      
-      // Принудительно обновляем данные
       await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
 
       console.log('Successfully added to inventory and invalidated cache');
@@ -214,6 +229,11 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     try {
       console.log('Selling directly:', wonSkin.name);
 
+      // Валидация данных
+      if (!isValidUUID(currentUser.id)) {
+        throw new Error('Некорректный ID пользователя');
+      }
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, coins')
@@ -225,13 +245,13 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Пользователь не найден');
       }
 
-      const sellPrice = wonSkin.price || 0;
-      let newCoins = userData.coins + sellPrice;
+      const sellPrice = Math.max(0, wonSkin.price || 0);
+      let newCoins = Math.max(0, userData.coins + sellPrice);
       
       // Списываем монеты за кейс только для платных кейсов
-      if (!caseItem.is_free) {
-        newCoins -= caseItem.price;
-        if (newCoins < 0) {
+      if (!caseItem.is_free && caseItem.price > 0) {
+        newCoins = Math.max(0, newCoins - caseItem.price);
+        if (userData.coins < caseItem.price) {
           throw new Error('Недостаточно монет для покупки кейса');
         }
       }
@@ -242,7 +262,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         .eq('id', currentUser.id);
 
       if (coinsError) {
-        console.error('Coins update error:', coinsError);
+        console.error('Error updating coins:', coinsError);
         throw new Error('Не удалось обновить баланс');
       }
 

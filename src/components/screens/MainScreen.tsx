@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +5,7 @@ import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-r
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
 import BannerCarousel from "@/components/BannerCarousel";
-import { Screen } from "@/components/MainApp";
+import type { Screen } from "@/components/MainApp";
 
 interface MainScreenProps {
   currentUser: {
@@ -40,6 +39,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
   const { data: favoriteSkins } = useQuery({
     queryKey: ['user-favorites', currentUser.id],
     queryFn: async () => {
+      if (!currentUser?.id) return [];
+      
       const { data, error } = await supabase
         .from('user_favorites')
         .select(`
@@ -55,7 +56,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         .limit(3);
       if (error) throw error;
       return data?.map(item => item.skins).filter(Boolean) || [];
-    }
+    },
+    enabled: !!currentUser?.id
   });
 
   const handleBannerAction = (action: Screen) => {
@@ -64,6 +66,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
 
   const handleTaskClick = async (task: any) => {
     try {
+      if (!task || !currentUser?.id) return;
+      
       if (task.task_url === '#ad') {
         setShowAdModal(true);
         return;
@@ -71,11 +75,14 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         window.open(task.task_url, '_blank');
       }
       
-      const newCoins = currentUser.coins + task.reward_coins;
-      await supabase
+      const newCoins = Math.max(0, currentUser.coins + (task.reward_coins || 0));
+      
+      const { error } = await supabase
         .from('users')
         .update({ coins: newCoins })
         .eq('id', currentUser.id);
+        
+      if (error) throw error;
       onCoinsUpdate(newCoins);
     } catch (error) {
       console.error('Task completion error:', error);
@@ -83,15 +90,24 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
   };
 
   const handleAdWatch = async () => {
-    setTimeout(async () => {
-      const newCoins = currentUser.coins + 3;
-      await supabase
-        .from('users')
-        .update({ coins: newCoins })
-        .eq('id', currentUser.id);
-      onCoinsUpdate(newCoins);
-      setShowAdModal(false);
-    }, 3000);
+    try {
+      if (!currentUser?.id) return;
+      
+      setTimeout(async () => {
+        const newCoins = Math.max(0, currentUser.coins + 3);
+        
+        const { error } = await supabase
+          .from('users')
+          .update({ coins: newCoins })
+          .eq('id', currentUser.id);
+          
+        if (error) throw error;
+        onCoinsUpdate(newCoins);
+        setShowAdModal(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Ad watch error:', error);
+    }
   };
 
   return (

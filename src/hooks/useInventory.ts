@@ -57,10 +57,9 @@ export const useUserInventory = (userId: string) => {
     },
     enabled: !!userId && isValidUUID(userId),
     retry: 2,
-    // Добавляем более агрессивное обновление
     refetchOnWindowFocus: true,
-    refetchInterval: 10000, // Обновляем каждые 10 секунд
-    staleTime: 2000 // Данные считаются устаревшими через 2 секунды
+    refetchInterval: 10000,
+    staleTime: 2000
   });
 };
 
@@ -81,8 +80,13 @@ export const useSellSkin = () => {
       try {
         console.log('Starting sell process:', { inventoryId, userId, sellPrice });
         
+        // Валидация входных параметров
         if (!isValidUUID(userId) || !isValidUUID(inventoryId)) {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
+        }
+
+        if (sellPrice < 0 || !Number.isInteger(sellPrice)) {
+          throw new Error('Некорректная цена продажи');
         }
 
         // Проверяем существование пользователя и получаем его текущий баланс
@@ -122,7 +126,7 @@ export const useSellSkin = () => {
         console.log('Inventory item found:', inventoryItem);
 
         const currentCoins = userData.coins || 0;
-        const newCoins = currentCoins + sellPrice;
+        const newCoins = Math.max(0, currentCoins + sellPrice);
         
         console.log('Coin calculation - Current:', currentCoins, 'Adding:', sellPrice, 'New total:', newCoins);
 
@@ -136,7 +140,7 @@ export const useSellSkin = () => {
           })
           .eq('id', inventoryId)
           .eq('user_id', userId)
-          .eq('is_sold', false); // Дополнительная проверка
+          .eq('is_sold', false);
 
         if (sellError) {
           console.error('Error marking skin as sold:', sellError);
@@ -174,7 +178,6 @@ export const useSellSkin = () => {
     },
     onSuccess: async (data, variables) => {
       console.log('Sell successful, invalidating queries...');
-      // Принудительно обновляем инвентарь
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] });
       await queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] });
       
