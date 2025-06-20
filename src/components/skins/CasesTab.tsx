@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
+import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
 import FreeCaseTimer from "@/components/FreeCaseTimer";
 
 interface CasesTabProps {
@@ -17,6 +18,7 @@ interface CasesTabProps {
 
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [selectedCase, setSelectedCase] = useState<any>(null);
+  const [openingCase, setOpeningCase] = useState<any>(null);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
   // Получаем случаи
@@ -73,6 +75,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       .eq('id', currentUser.id);
   };
 
+  const handleCaseOpen = (caseData: any) => {
+    setOpeningCase(caseData);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -105,7 +111,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 key={caseItem.id}
                 caseData={caseItem}
                 currentUser={currentUser}
-                onCaseSelect={setSelectedCase}
+                onCaseSelect={handleCaseOpen}
                 onCoinsUpdate={onCoinsUpdate}
                 disabled={!canOpenFreeCase}
                 onFreeOpen={updateLastFreeCase}
@@ -128,7 +134,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
                 key={caseItem.id}
                 caseData={caseItem}
                 currentUser={currentUser}
-                onCaseSelect={setSelectedCase}
+                onCaseSelect={handleCaseOpen}
                 onCoinsUpdate={onCoinsUpdate}
               />
             ))}
@@ -149,6 +155,15 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
           caseItem={selectedCase}
           caseSkins={caseSkins}
           onClose={() => setSelectedCase(null)}
+        />
+      )}
+
+      {openingCase && (
+        <CaseOpeningAnimation
+          caseItem={openingCase}
+          onClose={() => setOpeningCase(null)}
+          currentUser={currentUser}
+          onCoinsUpdate={onCoinsUpdate}
         />
       )}
     </div>

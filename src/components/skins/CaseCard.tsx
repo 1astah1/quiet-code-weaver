@@ -61,14 +61,11 @@ const CaseCard = ({
   const isClickable = !disabled && (caseData.is_free || canAfford);
 
   return (
-    <div 
-      onClick={handleCaseClick}
-      className={`group relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden transition-all duration-300 ${
-        isClickable 
-          ? 'cursor-pointer hover:scale-105 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/20' 
-          : 'cursor-not-allowed opacity-50'
-      }`}
-    >
+    <div className={`group relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden transition-all duration-300 ${
+      isClickable 
+        ? 'hover:scale-105 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/20' 
+        : 'opacity-50'
+    }`}>
       {/* Cover Image */}
       <div className="relative h-48 bg-gradient-to-br from-slate-700 to-slate-800">
         {caseData.cover_image_url ? (
@@ -128,7 +125,7 @@ const CaseCard = ({
         )}
 
         {/* Stats */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           {/* Price */}
           <div className="flex items-center space-x-2">
             {caseData.is_free ? (
@@ -150,12 +147,30 @@ const CaseCard = ({
           </div>
         </div>
 
-        {/* Action hint */}
-        <div className="mt-4 text-center">
-          <span className="text-slate-500 text-xs group-hover:text-orange-400 transition-colors">
-            {disabled ? "Заблокировано" : "Нажмите, чтобы открыть"}
-          </span>
-        </div>
+        {/* Open button */}
+        <button
+          onClick={handleCaseClick}
+          disabled={!isClickable}
+          className={`w-full py-3 rounded-xl font-bold text-white transition-all duration-300 ${
+            isClickable
+              ? caseData.is_free
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-green-500/25'
+                : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg hover:shadow-orange-500/25'
+              : 'bg-gray-600 cursor-not-allowed'
+          }`}
+        >
+          {disabled ? (
+            <span className="flex items-center justify-center">
+              <Lock className="w-4 h-4 mr-2" />
+              Заблокировано
+            </span>
+          ) : (
+            <span className="flex items-center justify-center">
+              <Play className="w-4 h-4 mr-2" />
+              Открыть кейс
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Glow effect */}
