@@ -182,7 +182,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             onTimerComplete={() => setCanOpenFreeCase(true)}
           />
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+          {/* Компактная горизонтальная сетка для бесплатных кейсов */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
             {freeCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
@@ -205,7 +206,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             <span className="mr-2">💎</span>
             Премиум кейсы
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Более плотная сетка для премиум кейсов */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {paidCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}

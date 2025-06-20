@@ -272,8 +272,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-gray-800/50 rounded-lg h-32 animate-pulse"></div>
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="bg-gray-800/50 rounded-lg h-24 animate-pulse"></div>
         ))}
       </div>
     );
@@ -307,7 +307,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* Улучшенная сетка для скинов - более компактная */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {currentSkins.map((skin) => (
           <ShopSkinCard
             key={skin.id}
