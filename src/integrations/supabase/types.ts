@@ -9,42 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      achievements: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          icon: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          requirement_type: string | null
-          requirement_value: number | null
-          reward_coins: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          requirement_type?: string | null
-          requirement_value?: number | null
-          reward_coins?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          requirement_type?: string | null
-          requirement_value?: number | null
-          reward_coins?: number | null
-        }
-        Relationships: []
-      }
       banners: {
         Row: {
           button_action: string
@@ -180,66 +144,6 @@ export type Database = {
           is_active?: boolean | null
           order_index?: number | null
           question?: string
-        }
-        Relationships: []
-      }
-      freebies: {
-        Row: {
-          cooldown_hours: number | null
-          created_at: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          reward_item_id: string | null
-          reward_type: string
-          reward_value: number | null
-        }
-        Insert: {
-          cooldown_hours?: number | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          reward_item_id?: string | null
-          reward_type: string
-          reward_value?: number | null
-        }
-        Update: {
-          cooldown_hours?: number | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          reward_item_id?: string | null
-          reward_type?: string
-          reward_value?: number | null
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string | null
-          id: number
-          role: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: never
-          role?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: never
-          role?: string | null
-          updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -403,56 +307,6 @@ export type Database = {
           },
         ]
       }
-      reviews: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          is_completed: boolean | null
-          is_hot: boolean | null
-          platform: string
-          platform_logo: string | null
-          rating: number | null
-          reward_coins: number | null
-          title: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_completed?: boolean | null
-          is_hot?: boolean | null
-          platform: string
-          platform_logo?: string | null
-          rating?: number | null
-          reward_coins?: number | null
-          title: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_completed?: boolean | null
-          is_hot?: boolean | null
-          platform?: string
-          platform_logo?: string | null
-          rating?: number | null
-          reward_coins?: number | null
-          title?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       skins: {
         Row: {
           created_at: string | null
@@ -486,27 +340,6 @@ export type Database = {
         }
         Relationships: []
       }
-      supported_languages: {
-        Row: {
-          code: string
-          flag_emoji: string | null
-          is_active: boolean | null
-          name: string
-        }
-        Insert: {
-          code: string
-          flag_emoji?: string | null
-          is_active?: boolean | null
-          name: string
-        }
-        Update: {
-          code?: string
-          flag_emoji?: string | null
-          is_active?: boolean | null
-          name?: string
-        }
-        Relationships: []
-      }
       tasks: {
         Row: {
           created_at: string | null
@@ -537,42 +370,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_achievements: {
-        Row: {
-          achievement_id: string | null
-          earned_at: string | null
-          id: string
-          user_id: string | null
-        }
-        Insert: {
-          achievement_id?: string | null
-          earned_at?: string | null
-          id?: string
-          user_id?: string | null
-        }
-        Update: {
-          achievement_id?: string | null
-          earned_at?: string | null
-          id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_achievements_achievement_id_fkey"
-            columns: ["achievement_id"]
-            isOneToOne: false
-            referencedRelation: "achievements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_achievements_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_favorites: {
         Row: {
           case_id: string | null
@@ -602,90 +399,6 @@ export type Database = {
           },
           {
             foreignKeyName: "user_favorites_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_freebie_claims: {
-        Row: {
-          claimed_at: string | null
-          freebie_id: string | null
-          id: string
-          next_available_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          claimed_at?: string | null
-          freebie_id?: string | null
-          id?: string
-          next_available_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          claimed_at?: string | null
-          freebie_id?: string | null
-          id?: string
-          next_available_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_freebie_claims_freebie_id_fkey"
-            columns: ["freebie_id"]
-            isOneToOne: false
-            referencedRelation: "freebies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_freebie_claims_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_goals: {
-        Row: {
-          created_at: string | null
-          current_progress: number | null
-          id: string
-          is_achieved: boolean | null
-          skin_id: string | null
-          target_price: number
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          current_progress?: number | null
-          id?: string
-          is_achieved?: boolean | null
-          skin_id?: string | null
-          target_price: number
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          current_progress?: number | null
-          id?: string
-          is_achieved?: boolean | null
-          skin_id?: string | null
-          target_price?: number
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_goals_skin_id_fkey"
-            columns: ["skin_id"]
-            isOneToOne: false
-            referencedRelation: "skins"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_goals_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -809,47 +522,6 @@ export type Database = {
           },
         ]
       }
-      user_settings: {
-        Row: {
-          created_at: string | null
-          id: string
-          language_code: string | null
-          profile_private: boolean | null
-          sound_enabled: boolean | null
-          updated_at: string | null
-          user_id: string | null
-          vibration_enabled: boolean | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          language_code?: string | null
-          profile_private?: boolean | null
-          sound_enabled?: boolean | null
-          updated_at?: string | null
-          user_id?: string | null
-          vibration_enabled?: boolean | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          language_code?: string | null
-          profile_private?: boolean | null
-          sound_enabled?: boolean | null
-          updated_at?: string | null
-          user_id?: string | null
-          vibration_enabled?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_settings_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_steam_settings: {
         Row: {
           connected_at: string | null
@@ -890,6 +562,7 @@ export type Database = {
       }
       users: {
         Row: {
+          auth_id: string | null
           coins: number | null
           created_at: string | null
           email: string | null
@@ -910,6 +583,7 @@ export type Database = {
           vibration_enabled: boolean | null
         }
         Insert: {
+          auth_id?: string | null
           coins?: number | null
           created_at?: string | null
           email?: string | null
@@ -930,6 +604,7 @@ export type Database = {
           vibration_enabled?: boolean | null
         }
         Update: {
+          auth_id?: string | null
           coins?: number | null
           created_at?: string | null
           email?: string | null

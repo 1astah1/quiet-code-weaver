@@ -26,16 +26,28 @@ const MainApp = () => {
 
   // Инициализация приложения
   useEffect(() => {
-    const initializeApp = () => {
-      console.log('Initializing app...');
-      const hasCleared = sessionStorage.getItem('cache-cleared');
-      if (!hasCleared) {
-        console.log('Clearing cache on first load');
-        clearAllCache();
-        sessionStorage.setItem('cache-cleared', 'true');
+    const initializeApp = async () => {
+      console.log('🚀 Initializing app...');
+      
+      try {
+        // Очищаем кэш только при первом запуске
+        const hasCleared = sessionStorage.getItem('cache-cleared-v2');
+        if (!hasCleared) {
+          console.log('🧹 Clearing cache on first load');
+          clearAllCache();
+          sessionStorage.setItem('cache-cleared-v2', 'true');
+        }
+
+        // Небольшая задержка для стабилизации
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        setAppInitialized(true);
+        console.log('✅ App initialized successfully');
+        
+      } catch (error) {
+        console.error('❌ App initialization error:', error);
+        setAppInitialized(true); // Все равно продолжаем работу
       }
-      setAppInitialized(true);
-      console.log('App initialized');
     };
 
     initializeApp();
@@ -43,19 +55,29 @@ const MainApp = () => {
 
   // Обновляем монеты пользователя в базе данных
   const handleCoinsUpdate = async (newCoins: number) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('⚠️ No user found for coins update');
+      return;
+    }
 
     try {
+      console.log('💰 Updating coins:', { userId: user.id, newCoins });
+      
       const { error } = await supabase
         .from('users')
         .update({ coins: newCoins })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error updating coins:', error);
+        throw error;
+      }
 
       updateUserCoins(newCoins);
+      console.log('✅ Coins updated successfully');
+      
     } catch (error) {
-      console.error('Error updating coins:', error);
+      console.error('❌ Error updating coins:', error);
       toast({
         title: "Ошибка",
         description: "Не удалось обновить баланс",
@@ -85,9 +107,15 @@ const MainApp = () => {
     }
   };
 
-  console.log('MainApp render - appInitialized:', appInitialized, 'isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
+  console.log('🎯 MainApp render state:', { 
+    appInitialized, 
+    isLoading, 
+    isAuthenticated, 
+    hasUser: !!user,
+    username: user?.username 
+  });
 
-  // Показываем загрузку только если приложение не инициализировано или идет загрузка аутентификации
+  // Показываем экран загрузки
   if (!appInitialized || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center">
@@ -101,13 +129,13 @@ const MainApp = () => {
     );
   }
 
-  // Показываем экран авторизации если пользователь не авторизован
+  // Показываем экран авторизации
   if (!isAuthenticated || !user) {
-    console.log('Showing auth screen - isAuthenticated:', isAuthenticated, 'user:', !!user);
+    console.log('🔐 Showing auth screen');
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
-  console.log('Showing main app for user:', user.username);
+  console.log('🎮 Showing main app for user:', user.username);
 
   // Показываем основное приложение
   return (
