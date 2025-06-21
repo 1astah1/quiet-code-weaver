@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useCriticalImagePreloader } from "@/hooks/useImagePreloader";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -37,6 +38,9 @@ interface CurrentUser {
 
 const MainApp = () => {
   console.log('🚀 [MAIN_APP] Component mounting/rendering');
+  
+  // Предзагружаем критические изображения
+  useCriticalImagePreloader();
   
   const { user, isLoading: authLoading, signOut } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
