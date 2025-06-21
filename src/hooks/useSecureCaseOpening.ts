@@ -60,8 +60,8 @@ export const useSecureCaseOpening = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        // Type assertion for the returned data
-        const result = data as CaseOpeningResult;
+        // Proper type assertion with unknown first
+        const result = data as unknown as CaseOpeningResult;
         await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: result.skin });
         console.log('Case opened successfully:', result);
         
