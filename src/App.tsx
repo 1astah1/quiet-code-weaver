@@ -1,36 +1,34 @@
 
 import { useState, useEffect } from "react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
-import OptimizedLoadingScreen from "@/components/OptimizedLoadingScreen";
+import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
-import ConnectionStatus from "@/components/ui/ConnectionStatus";
-import { createOptimizedQueryClient } from "@/utils/queryOptimization";
 
-// Создаем оптимизированный QueryClient один раз
-const queryClient = createOptimizedQueryClient();
+// Простой QueryClient без избыточных оптимизаций
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleLoadingComplete = () => {
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    // Предзагрузка критических стилей
-    const preloadStyles = () => {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.href = '/index.css';
-      link.as = 'style';
-      link.onload = () => link.remove();
-      document.head.appendChild(link);
-    };
+    // Простая загрузка без сложных оптимизаций
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500); // Фиксированное быстрое время загрузки
 
-    preloadStyles();
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -38,9 +36,8 @@ const App = () => {
       <TooltipProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-black overflow-hidden">
-            <ConnectionStatus />
             {isLoading ? (
-              <OptimizedLoadingScreen onLoadingComplete={handleLoadingComplete} />
+              <LoadingScreen />
             ) : (
               <MainApp />
             )}
