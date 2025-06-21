@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Package, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
 import FreeCaseTimer from "@/components/FreeCaseTimer";
 
@@ -29,28 +30,66 @@ interface CaseCardProps {
 
 const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProps) => {
   const [showPreview, setShowPreview] = useState(false);
-  const [canOpenFreeCase, setCanOpenFreeCase] = useState(true);
+  const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const { toast } = useToast();
 
-  const handleOpen = () => {
-    if (caseItem.is_free && !canOpenFreeCase) {
-      toast({
-        title: "Кейс недоступен",
-        description: "Бесплатный кейс можно открыть только раз в 2 часа",
-        variant: "destructive",
-      });
-      return;
+  const handleOpen = async () => {
+    if (isOpening) return;
+
+    // Для бесплатных кейсов проверяем таймер
+    if (caseItem.is_free) {
+      if (!canOpenFreeCase) {
+        toast({
+          title: "Кейс недоступен",
+          description: "Бесплатный кейс можно открыть только раз в 2 часа",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Обновляем время последнего открытия бесплатного кейса
+      try {
+        setIsOpening(true);
+        
+        const { error } = await supabase
+          .from('users')
+          .update({ 
+            last_free_case_notification: new Date().toISOString()
+          })
+          .eq('id', currentUser.id);
+
+        if (error) {
+          console.error('Error updating free case timer:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось обновить таймер",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Сбрасываем возможность открытия
+        setCanOpenFreeCase(false);
+        
+      } catch (error) {
+        console.error('Free case timer error:', error);
+        setIsOpening(false);
+        return;
+      }
+    } else {
+      // Для платных кейсов проверяем монеты
+      if (currentUser.coins < caseItem.price) {
+        toast({
+          title: "Недостаточно монет",
+          description: `Для открытия кейса нужно ${caseItem.price} монет`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
-    if (!caseItem.is_free && currentUser.coins < caseItem.price) {
-      toast({
-        title: "Недостаточно монет",
-        description: `Для открытия кейса нужно ${caseItem.price} монет`,
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setIsOpening(false);
     onOpen(caseItem);
   };
 
@@ -62,12 +101,12 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setCanOpenFreeCase(true);
   };
 
-  const handleTimerStart = () => {
-    setCanOpenFreeCase(false);
-  };
-
   // Используем cover_image_url если есть, иначе image_url
   const imageUrl = caseItem.cover_image_url || caseItem.image_url;
+
+  const isDisabled = (!caseItem.is_free && currentUser.coins < caseItem.price) || 
+                     (caseItem.is_free && !canOpenFreeCase) || 
+                     isOpening;
 
   return (
     <>
@@ -121,24 +160,25 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
 
           {/* Timer for free case */}
           {caseItem.is_free && (
-            <div className="mb-3">
-              <FreeCaseTimer
-                lastOpenTime={caseItem.last_free_open || null}
-                onTimerComplete={handleTimerComplete}
-                isDisabled={!canOpenFreeCase}
-              />
-            </div>
+            <FreeCaseTimer
+              lastOpenTime={caseItem.last_free_open || null}
+              onTimerComplete={handleTimerComplete}
+              isDisabled={!canOpenFreeCase}
+              userId={currentUser.id}
+              caseId={caseItem.id}
+            />
           )}
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               onClick={handleOpen}
-              disabled={(!caseItem.is_free && currentUser.coins < caseItem.price) || (caseItem.is_free && !canOpenFreeCase)}
+              disabled={isDisabled}
               className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 text-xs sm:text-sm py-2 sm:py-3 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed"
             >
               <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              {caseItem.is_free && !canOpenFreeCase ? 'Ожидание' : 'Открыть'}
+              {isOpening ? 'Открываем...' : 
+               caseItem.is_free && !canOpenFreeCase ? 'Ожидание' : 'Открыть'}
             </Button>
             
             <Button

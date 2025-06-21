@@ -1,38 +1,69 @@
 
 import { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FreeCaseTimerProps {
   lastOpenTime: string | null;
   onTimerComplete: () => void;
   isDisabled?: boolean;
+  userId: string;
+  caseId: string;
 }
 
-const FreeCaseTimer = ({ lastOpenTime, onTimerComplete, isDisabled = false }: FreeCaseTimerProps) => {
+const FreeCaseTimer = ({ 
+  lastOpenTime, 
+  onTimerComplete, 
+  isDisabled = false, 
+  userId, 
+  caseId 
+}: FreeCaseTimerProps) => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isAvailable, setIsAvailable] = useState(false);
+  const [lastFreeOpen, setLastFreeOpen] = useState<string | null>(lastOpenTime);
 
   useEffect(() => {
-    if (!lastOpenTime) {
-      setIsAvailable(true);
-      onTimerComplete();
-      return;
-    }
+    const checkTimer = async () => {
+      try {
+        // Проверяем последнее время открытия бесплатного кейса на сервере
+        const { data, error } = await supabase
+          .from('users')
+          .select('last_free_case_notification')
+          .eq('id', userId)
+          .single();
 
-    const checkTimer = () => {
-      const lastOpen = new Date(lastOpenTime);
-      const now = new Date();
-      const timeDiff = now.getTime() - lastOpen.getTime();
-      const twoHours = 2 * 60 * 60 * 1000; // 2 часа в миллисекундах
+        if (error) {
+          console.error('Error fetching user data:', error);
+          return;
+        }
 
-      if (timeDiff >= twoHours) {
-        setIsAvailable(true);
-        setTimeLeft(0);
-        onTimerComplete();
-      } else {
-        setIsAvailable(false);
-        const remaining = twoHours - timeDiff;
-        setTimeLeft(remaining);
+        const serverLastOpen = data?.last_free_case_notification;
+        
+        if (!serverLastOpen) {
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+          return;
+        }
+
+        const lastOpen = new Date(serverLastOpen);
+        const now = new Date();
+        const timeDiff = now.getTime() - lastOpen.getTime();
+        const twoHours = 2 * 60 * 60 * 1000; // 2 часа в миллисекундах
+
+        if (timeDiff >= twoHours) {
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+        } else {
+          setIsAvailable(false);
+          const remaining = twoHours - timeDiff;
+          setTimeLeft(remaining);
+        }
+
+        setLastFreeOpen(serverLastOpen);
+      } catch (error) {
+        console.error('Timer check error:', error);
       }
     };
 
@@ -40,7 +71,7 @@ const FreeCaseTimer = ({ lastOpenTime, onTimerComplete, isDisabled = false }: Fr
     const interval = setInterval(checkTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [lastOpenTime, onTimerComplete]);
+  }, [userId, onTimerComplete]);
 
   const formatTime = (milliseconds: number) => {
     const hours = Math.floor(milliseconds / (1000 * 60 * 60));
@@ -56,12 +87,12 @@ const FreeCaseTimer = ({ lastOpenTime, onTimerComplete, isDisabled = false }: Fr
 
   if (isDisabled || !isAvailable) {
     return (
-      <div className="flex items-center justify-center space-x-2 text-gray-400 text-sm font-medium">
+      <div className="flex items-center justify-center space-x-2 text-gray-400 text-sm font-medium mb-2">
         <Clock className="w-4 h-4" />
         <span>
-          {isDisabled 
+          {timeLeft > 0 
             ? `Следующий бесплатный кейс через: ${formatTime(timeLeft)}`
-            : `Ожидание: ${formatTime(timeLeft)}`
+            : 'Загрузка...'
           }
         </span>
       </div>
