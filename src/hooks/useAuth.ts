@@ -106,7 +106,15 @@ export const useAuth = () => {
       console.log('🔄 Processing user sign in for:', authUser.id);
       setIsLoading(true);
       
-      // Ищем пользователя только по auth_id, чтобы избежать дубликатов
+      // Благодаря новым уникальным ограничениям и триггерам, 
+      // можем безопасно создавать или обновлять пользователя
+      const displayName = authUser.user_metadata?.full_name || 
+                         authUser.user_metadata?.name || 
+                         authUser.user_metadata?.display_name ||
+                         authUser.email?.split('@')[0] || 
+                         'User';
+
+      // Пытаемся найти существующего пользователя
       let { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
@@ -115,7 +123,6 @@ export const useAuth = () => {
 
       if (fetchError) {
         console.error('❌ Error fetching user:', fetchError);
-        // Продолжаем выполнение, попробуем создать пользователя
       }
 
       let userData: AuthUser;
@@ -123,12 +130,6 @@ export const useAuth = () => {
       if (!existingUser) {
         console.log('👤 Creating new user profile in database');
         
-        const displayName = authUser.user_metadata?.full_name || 
-                           authUser.user_metadata?.name || 
-                           authUser.user_metadata?.display_name ||
-                           authUser.email?.split('@')[0] || 
-                           'User';
-
         const newUserData = {
           auth_id: authUser.id,
           username: displayName,
@@ -141,7 +142,7 @@ export const useAuth = () => {
           created_at: new Date().toISOString()
         };
 
-        // Попытаемся создать пользователя с обработкой дубликатов
+        // Благодаря триггеру prevent_user_duplicates, дубликаты будут автоматически предотвращены
         const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUserData)
@@ -151,23 +152,19 @@ export const useAuth = () => {
         if (createError) {
           console.error('❌ Error creating user:', createError);
           
-          // Если ошибка связана с дубликатом, попробуем найти снова
-          if (createError.code === '23505') { // unique violation
-            console.log('🔄 Duplicate detected, trying to find existing user...');
-            const { data: retriedUser, error: retryError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('auth_id', authUser.id)
-              .maybeSingle();
+          // Если произошла ошибка, попробуем найти пользователя снова
+          // (возможно, триггер уже обновил существующую запись)
+          const { data: retriedUser, error: retryError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .maybeSingle();
 
-            if (retryError || !retriedUser) {
-              throw new Error('Не удалось найти или создать профиль пользователя');
-            }
-            
-            existingUser = retriedUser;
-          } else {
-            throw new Error('Не удалось создать профиль пользователя');
+          if (retryError || !retriedUser) {
+            throw new Error('Не удалось найти или создать профиль пользователя');
           }
+          
+          existingUser = retriedUser;
         } else if (createdUser) {
           existingUser = createdUser;
           toast({

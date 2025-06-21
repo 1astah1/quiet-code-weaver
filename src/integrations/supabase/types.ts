@@ -872,6 +872,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_duplicate_users: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       is_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean

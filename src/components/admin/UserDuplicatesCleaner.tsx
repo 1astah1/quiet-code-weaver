@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Trash2, Users, CheckCircle } from "lucide-react";
 
 interface DuplicateGroup {
   key: string;
@@ -77,7 +77,11 @@ const UserDuplicatesCleaner = () => {
           field: 'Email',
           value: email,
           count: users.length,
-          users: users
+          users: users.sort((a, b) => {
+            if (a.is_admin && !b.is_admin) return -1;
+            if (!a.is_admin && b.is_admin) return 1;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          })
         });
       }
     });
@@ -89,7 +93,11 @@ const UserDuplicatesCleaner = () => {
           field: 'Username',
           value: username,
           count: users.length,
-          users: users
+          users: users.sort((a, b) => {
+            if (a.is_admin && !b.is_admin) return -1;
+            if (!a.is_admin && b.is_admin) return 1;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          })
         });
       }
     });
@@ -101,61 +109,40 @@ const UserDuplicatesCleaner = () => {
           field: 'Auth ID',
           value: authId,
           count: users.length,
-          users: users
+          users: users.sort((a, b) => {
+            if (a.is_admin && !b.is_admin) return -1;
+            if (!a.is_admin && b.is_admin) return 1;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          })
         });
       }
     });
   }
 
   const cleanupDuplicates = async () => {
-    if (!duplicateGroups.length) return;
-
     setIsProcessing(true);
     try {
-      let deletedCount = 0;
+      // Используем новую функцию из базы данных для очистки дубликатов
+      const { data, error } = await supabase.rpc('cleanup_duplicate_users');
 
-      for (const group of duplicateGroups) {
-        if (group.users.length > 1) {
-          // Сортируем: админы первыми, затем по дате создания (старые первыми)
-          group.users.sort((a, b) => {
-            if (a.is_admin && !b.is_admin) return -1;
-            if (!a.is_admin && b.is_admin) return 1;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          });
-
-          // Оставляем первого (старейшего или админа), удаляем остальных
-          const toDelete = group.users.slice(1);
-          
-          for (const user of toDelete) {
-            try {
-              const { error } = await supabase
-                .from('users')
-                .delete()
-                .eq('id', user.id);
-              
-              if (error) {
-                console.error(`Ошибка удаления пользователя ${user.id}:`, error);
-                toast({
-                  title: "Ошибка удаления",
-                  description: `Не удалось удалить пользователя ${user.username}: ${error.message}`,
-                  variant: "destructive",
-                });
-              } else {
-                deletedCount++;
-                console.log(`Удален пользователь ${user.username} (${user.id})`);
-              }
-            } catch (err) {
-              console.error(`Ошибка при удалении пользователя ${user.id}:`, err);
-            }
-          }
-        }
+      if (error) {
+        console.error('Ошибка очистки дубликатов:', error);
+        toast({
+          title: "Ошибка",
+          description: `Не удалось очистить дубликаты: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
       }
+
+      const deletedCount = data || 0;
 
       toast({
         title: "Очистка завершена",
         description: `Удалено ${deletedCount} дублирующихся записей`,
       });
 
+      // Обновляем данные
       queryClient.invalidateQueries({ queryKey: ['all_users_for_duplicates'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
 
@@ -195,7 +182,10 @@ const UserDuplicatesCleaner = () => {
           Управление дубликатами пользователей
         </CardTitle>
         <CardDescription>
-          Найдено {duplicateGroups.length} групп дублирующихся пользователей
+          {duplicateGroups.length > 0 
+            ? `Найдено ${duplicateGroups.length} групп дублирующихся пользователей`
+            : "Дубликаты автоматически предотвращаются базой данных"
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -267,11 +257,38 @@ const UserDuplicatesCleaner = () => {
             </p>
           </>
         ) : (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-            <p className="text-green-400 text-sm">
-              ✅ Дубликаты пользователей не найдены
-            </p>
-          </div>
+          <>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-400 mb-2">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-medium">Дубликаты не найдены</span>
+              </div>
+              <p className="text-sm text-gray-300">
+                В системе установлены уникальные ограничения, которые автоматически предотвращают создание дубликатов пользователей.
+              </p>
+            </div>
+            
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <p className="text-sm text-blue-300">
+                <strong>Автоматическая защита включена:</strong>
+              </p>
+              <ul className="text-xs text-gray-300 mt-2 space-y-1">
+                <li>• Уникальные ограничения по Auth ID, Email и Username</li>
+                <li>• Триггер для предотвращения дубликатов при создании</li>
+                <li>• Автоматическое обновление существующих записей</li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={cleanupDuplicates}
+              disabled={isProcessing}
+              variant="secondary"
+              className="w-full"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isProcessing ? 'Проверка...' : 'Проверить и очистить дубликаты'}
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>
