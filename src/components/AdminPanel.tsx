@@ -51,8 +51,10 @@ const AdminPanel = () => {
       let folder = 'case-covers';
       if (activeTable === 'skins') folder = 'skin-images';
       if (activeTable === 'quiz_questions') folder = 'quiz-images';
+      if (activeTable === 'tasks') folder = 'task-images';
       if (fieldName === 'cover_image_url') folder = 'case-covers';
       if (fieldName === 'image_url' && activeTable === 'skins') folder = 'skin-images';
+      if (fieldName === 'image_url' && activeTable === 'tasks') folder = 'task-images';
       
       const filePath = `${folder}/${fileName}`;
 
@@ -211,6 +213,9 @@ const AdminPanel = () => {
     }
     if (fieldName === 'image_url' && activeTable === 'quiz_questions') {
       return "Рекомендуемый размер: 600x400px, форматы: JPG, PNG, WebP, максимум 5MB";
+    }
+    if (fieldName === 'image_url' && activeTable === 'tasks') {
+      return "Рекомендуемый размер: 400x300px, форматы: JPG, PNG, WebP, максимум 5MB";
     }
     return "Форматы: JPG, PNG, WebP, максимум 5MB";
   };

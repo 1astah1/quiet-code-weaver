@@ -21,6 +21,7 @@ interface Task {
   reward_coins: number;
   task_url: string;
   is_active: boolean;
+  image_url?: string;
 }
 
 const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
@@ -108,6 +109,19 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
               }`}
             >
               <div className="flex items-center justify-between">
+                {task.image_url && (
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 mr-3 sm:mr-4 flex-shrink-0">
+                    <img
+                      src={task.image_url}
+                      alt={task.title}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">
                     <h3 className="text-white font-semibold text-sm sm:text-base truncate">{task.title}</h3>
@@ -150,7 +164,7 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
         })}
       </div>
 
-      {/* Daily Tasks Section */}
+      {/* Daily Tasks Section - будет переработана в следующем обновлении */}
       <div className="mt-6 sm:mt-8">
         <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Ежедневные задания</h2>
         <div className="bg-gradient-to-r from-purple-800/50 to-pink-800/50 rounded-lg p-3 sm:p-4 border border-purple-500/30">

@@ -38,6 +38,37 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Пользователь не найден');
       }
 
+      // Сначала списываем монеты для платных кейсов
+      if (!caseItem.is_free) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('coins')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (userError) {
+          console.error('User check error:', userError);
+          throw new Error('Пользователь не найден');
+        }
+
+        if (userData.coins < caseItem.price) {
+          throw new Error('Недостаточно монет');
+        }
+
+        const newCoins = userData.coins - caseItem.price;
+        const { error: coinsError } = await supabase
+          .from('users')
+          .update({ coins: newCoins })
+          .eq('id', currentUser.id);
+
+        if (coinsError) {
+          console.error('Coins update error:', coinsError);
+          throw new Error('Не удалось списать монеты');
+        }
+        
+        onCoinsUpdate(newCoins);
+      }
+
       const { data: fetchedCaseSkins, error: caseSkinsError } = await supabase
         .from('case_skins')
         .select(`
@@ -120,17 +151,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     try {
       console.log('Adding to inventory:', wonSkin.name);
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, coins')
-        .eq('id', currentUser.id)
-        .single();
-
-      if (userError) {
-        console.error('User check error:', userError);
-        throw new Error('Пользователь не найден');
-      }
-
       // Добавляем в инвентарь
       const { error: inventoryError } = await supabase
         .from('user_inventory')
@@ -160,26 +180,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           });
       } catch (error) {
         console.error('Recent win error (non-critical):', error);
-      }
-
-      // Списываем монеты только для платных кейсов
-      if (!caseItem.is_free) {
-        const newCoins = userData.coins - caseItem.price;
-        if (newCoins < 0) {
-          throw new Error('Недостаточно монет');
-        }
-
-        const { error: coinsError } = await supabase
-          .from('users')
-          .update({ coins: newCoins })
-          .eq('id', currentUser.id);
-
-        if (coinsError) {
-          console.error('Coins update error:', coinsError);
-          throw new Error('Не удалось списать монеты');
-        }
-        
-        onCoinsUpdate(newCoins);
       }
 
       // ВАЖНО: Инвалидируем кеш инвентаря
@@ -216,7 +216,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, coins')
+        .select('coins')
         .eq('id', currentUser.id)
         .single();
 
@@ -226,15 +226,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
 
       const sellPrice = wonSkin.price || 0;
-      let newCoins = userData.coins + sellPrice;
-      
-      // Списываем монеты за кейс только для платных кейсов
-      if (!caseItem.is_free) {
-        newCoins -= caseItem.price;
-        if (newCoins < 0) {
-          throw new Error('Недостаточно монет для покупки кейса');
-        }
-      }
+      const newCoins = userData.coins + sellPrice;
 
       const { error: coinsError } = await supabase
         .from('users')

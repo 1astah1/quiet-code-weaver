@@ -113,7 +113,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             <Button
               onClick={handlePreview}
               variant="outline"
-              className="flex-1 sm:flex-none border-slate-600 text-slate-300 hover:text-white hover:border-orange-500/50 text-xs sm:text-sm py-2 sm:py-3"
+              className="flex-1 sm:flex-none border-blue-500 bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:border-blue-400 hover:bg-blue-500/20 text-xs sm:text-sm py-2 sm:py-3"
             >
               <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Содержимое</span>

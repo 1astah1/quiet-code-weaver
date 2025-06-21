@@ -33,7 +33,7 @@ const AdminTable = ({
       case "users":
         return ['username', 'email', 'coins', 'is_admin'];
       case "tasks":
-        return ['title', 'description', 'reward_coins', 'task_url', 'is_active'];
+        return ['title', 'description', 'reward_coins', 'task_url', 'image_url', 'is_active'];
       case "quiz_questions":
         return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
       default:
@@ -152,6 +152,8 @@ const TableRow = ({
                 value={editData[field] || ''}
                 onChange={(e) => setEditData({...editData, [field]: parseInt(e.target.value) || 0})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm w-20"
+                min="0"
+                step="1"
               />
             ) : (
               <input
