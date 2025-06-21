@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,20 +39,53 @@ const MainApp = () => {
   const { toast } = useToast();
 
   const loadUserData = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       console.log('Loading user data for:', user.id);
       
-      const { data: userData, error } = await supabase
+      // Пытаемся найти пользователя сначала по внутреннему ID
+      let { data: userData, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_id', user.id) // Используем auth_id для безопасности
-        .single();
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // Если не найден по внутреннему ID, ищем по auth_id
+      if (!userData && user.id) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: userByAuthId, error: authError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .maybeSingle();
+          
+          if (!authError && userByAuthId) {
+            userData = userByAuthId;
+            error = null;
+          }
+        }
+      }
 
       if (error) {
         console.error('Error loading user data:', error);
         await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!userData) {
+        console.error('User data not found in database');
+        toast({
+          title: "Ошибка",
+          description: "Данные пользователя не найдены. Попробуйте перезайти.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
         return;
       }
 

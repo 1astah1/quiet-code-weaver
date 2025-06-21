@@ -31,7 +31,6 @@ export const useAuth = () => {
       try {
         console.log('🔄 Initializing auth...');
         
-        // Добавляем небольшую задержку для стабилизации
         await new Promise(resolve => setTimeout(resolve, 100));
         
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -62,7 +61,6 @@ export const useAuth = () => {
       }
     };
 
-    // Устанавливаем слушатель изменений состояния аутентификации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.id);
@@ -71,7 +69,6 @@ export const useAuth = () => {
 
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in event');
-          // Небольшая задержка для предотвращения конфликтов
           setTimeout(() => {
             if (mounted) {
               handleUserSignIn(session.user);
@@ -82,7 +79,6 @@ export const useAuth = () => {
           handleUserSignOut();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('🔄 Token refreshed event');
-          // Обновляем данные пользователя при обновлении токена
           setTimeout(() => {
             if (mounted) {
               handleUserSignIn(session.user);
@@ -92,7 +88,6 @@ export const useAuth = () => {
       }
     );
 
-    // Инициализируем аутентификацию с небольшой задержкой
     initTimeout = setTimeout(() => {
       if (mounted) {
         initializeAuth();
@@ -111,8 +106,8 @@ export const useAuth = () => {
       console.log('🔄 Processing user sign in for:', authUser.id);
       setIsLoading(true);
       
-      // Проверяем существование пользователя в новой структуре БД
-      const { data: existingUser, error: fetchError } = await supabase
+      // Сначала проверяем существующего пользователя
+      let { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
@@ -120,7 +115,7 @@ export const useAuth = () => {
 
       if (fetchError) {
         console.error('❌ Error fetching user:', fetchError);
-        throw fetchError;
+        // Не выбрасываем ошибку, попробуем создать пользователя
       }
 
       let userData: AuthUser;
@@ -128,7 +123,6 @@ export const useAuth = () => {
       if (!existingUser) {
         console.log('👤 Creating new user profile in database');
         
-        // Получаем имя пользователя из метаданных
         const displayName = authUser.user_metadata?.full_name || 
                            authUser.user_metadata?.name || 
                            authUser.user_metadata?.display_name ||
@@ -147,34 +141,53 @@ export const useAuth = () => {
           created_at: new Date().toISOString()
         };
 
+        // Попытаемся создать пользователя
         const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUserData)
           .select()
-          .single();
+          .maybeSingle();
 
         if (createError) {
           console.error('❌ Error creating user:', createError);
-          throw createError;
+          
+          // Если не удалось создать, попробуем найти снова (возможно, триггер сработал)
+          const { data: retriedUser, error: retryError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .maybeSingle();
+
+          if (retryError || !retriedUser) {
+            throw new Error('Не удалось создать или найти профиль пользователя');
+          }
+          
+          existingUser = retriedUser;
+        } else if (createdUser) {
+          existingUser = createdUser;
         }
 
-        userData = {
-          id: createdUser.id,
-          username: createdUser.username,
-          email: createdUser.email || '',
-          coins: createdUser.coins || 1000,
-          isPremium: createdUser.premium_until ? new Date(createdUser.premium_until) > new Date() : false,
-          isAdmin: createdUser.is_admin || false,
-          referralCode: createdUser.referral_code,
-          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
-          quiz_lives: createdUser.quiz_lives || 3,
-          quiz_streak: createdUser.quiz_streak || 0
-        };
+        if (existingUser) {
+          userData = {
+            id: existingUser.id,
+            username: existingUser.username,
+            email: existingUser.email || '',
+            coins: existingUser.coins || 1000,
+            isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
+            isAdmin: existingUser.is_admin || false,
+            referralCode: existingUser.referral_code,
+            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+            quiz_lives: existingUser.quiz_lives || 3,
+            quiz_streak: existingUser.quiz_streak || 0
+          };
 
-        toast({
-          title: "Добро пожаловать!",
-          description: "Вы получили 1000 стартовых монет!",
-        });
+          toast({
+            title: "Добро пожаловать!",
+            description: "Вы получили 1000 стартовых монет!",
+          });
+        } else {
+          throw new Error('Не удалось создать профиль пользователя');
+        }
       } else {
         console.log('👤 Using existing user profile');
         userData = {
