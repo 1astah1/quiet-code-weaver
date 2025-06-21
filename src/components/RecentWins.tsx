@@ -8,23 +8,41 @@ const RecentWins = () => {
     queryFn: async () => {
       try {
         console.log('Loading recent wins...');
-        const { data, error } = await supabase
+        // Получаем последние выигрыши с данными скинов
+        const { data: winsData, error: winsError } = await supabase
           .from('recent_wins')
           .select(`
             *,
-            users(username),
             skins(name, weapon_type, rarity)
           `)
           .order('won_at', { ascending: false })
           .limit(10);
         
-        if (error) {
-          console.error('Error loading recent wins:', error);
-          throw error;
+        if (winsError) {
+          console.error('Error loading recent wins:', winsError);
+          throw winsError;
         }
+
+        // Отдельно получаем информацию о пользователях
+        const userIds = winsData?.map(win => win.user_id).filter(Boolean) || [];
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, username')
+          .in('id', userIds);
+
+        if (usersError) {
+          console.error('Error loading users:', usersError);
+          // Если не удалось загрузить пользователей, продолжаем без них
+        }
+
+        // Объединяем данные
+        const enrichedWins = winsData?.map(win => ({
+          ...win,
+          users: usersData?.find(user => user.id === win.user_id) || null
+        })) || [];
         
-        console.log('Recent wins loaded:', data);
-        return data || [];
+        console.log('Recent wins loaded:', enrichedWins);
+        return enrichedWins;
       } catch (error) {
         console.error('Recent wins query error:', error);
         throw error;
@@ -84,7 +102,7 @@ const RecentWins = () => {
                     </span>
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">{win.users?.username || 'Неизвестный игрок'}</p>
+                    <p className="text-white text-sm font-medium">{win.users?.username || 'Игрок'}</p>
                     <p className="text-gray-400 text-xs">выиграл</p>
                   </div>
                 </div>
