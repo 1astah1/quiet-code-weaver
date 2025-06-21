@@ -11,6 +11,7 @@ interface LazyImageProps {
   priority?: boolean;
   placeholder?: string;
   sizes?: string;
+  timeout?: number;
 }
 
 const LazyImage = ({ 
@@ -21,14 +22,15 @@ const LazyImage = ({
   onError,
   priority = false,
   placeholder,
-  sizes = "100vw"
+  sizes = "100vw",
+  timeout = 8000
 }: LazyImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
-  const [hasError, setHasError] = useState(false);
+  const [localError, setLocalError] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   
-  const { cachedUrl, isLoading: isCaching } = useImageCache(isInView ? src : '');
+  const { cachedUrl, isLoading, hasError } = useImageCache(isInView ? src : '', timeout);
 
   useEffect(() => {
     if (priority || !imgRef.current) return;
@@ -43,7 +45,7 @@ const LazyImage = ({
       },
       { 
         threshold: 0.1,
-        rootMargin: '100px' // Начинаем загрузку за 100px
+        rootMargin: '100px'
       }
     );
 
@@ -59,7 +61,7 @@ const LazyImage = ({
 
   const handleError = () => {
     console.error('❌ [LAZY_IMAGE] Image error:', src);
-    setHasError(true);
+    setLocalError(true);
     onError?.();
   };
 
@@ -74,21 +76,23 @@ const LazyImage = ({
     return originalSrc;
   };
 
-  if (hasError && fallback) {
+  const showError = hasError || localError;
+
+  if (showError && fallback) {
     return <>{fallback}</>;
   }
 
   return (
     <div ref={imgRef} className={`relative overflow-hidden ${className}`}>
       {/* Skeleton loader */}
-      {!isLoaded && (isInView || isCaching) && (
+      {!isLoaded && (isInView && isLoading) && (
         <div className="absolute inset-0 bg-gradient-to-r from-slate-800/50 via-slate-700/70 to-slate-800/50 animate-pulse rounded-lg">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer"></div>
         </div>
       )}
 
       {/* Placeholder */}
-      {placeholder && !isLoaded && (
+      {placeholder && !isLoaded && !showError && (
         <img
           src={placeholder}
           alt=""
@@ -98,7 +102,7 @@ const LazyImage = ({
       )}
       
       {/* Main image */}
-      {(isInView && cachedUrl) && (
+      {(isInView && cachedUrl && !showError) && (
         <img
           src={cachedUrl}
           srcSet={`
@@ -108,7 +112,7 @@ const LazyImage = ({
           `}
           sizes={sizes}
           alt={alt}
-          className={`w-full h-full object-cover transition-all duration-700 ${
+          className={`w-full h-full object-cover transition-all duration-500 ${
             isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
           }`}
           onLoad={handleLoad}
@@ -119,9 +123,19 @@ const LazyImage = ({
       )}
       
       {/* Loading indicator */}
-      {!isLoaded && !hasError && (isInView || isCaching) && (
+      {!isLoaded && !showError && (isInView && isLoading) && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {showError && !fallback && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-800/50 rounded-lg">
+          <div className="text-center">
+            <div className="text-xl mb-1">🖼️</div>
+            <p className="text-xs text-gray-400">Ошибка загрузки</p>
+          </div>
         </div>
       )}
     </div>

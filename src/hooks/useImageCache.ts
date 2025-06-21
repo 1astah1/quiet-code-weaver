@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface ImageCacheEntry {
   url: string;
@@ -9,8 +9,8 @@ interface ImageCacheEntry {
 
 class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
-  private maxSize = 50; // Максимальное количество изображений в кэше
-  private maxAge = 30 * 60 * 1000; // 30 минут
+  private maxSize = 30; // Уменьшаем размер кэша
+  private maxAge = 20 * 60 * 1000; // 20 минут
 
   async get(url: string): Promise<string | null> {
     const entry = this.cache.get(url);
@@ -54,13 +54,20 @@ class ImageCache {
     });
     this.cache.clear();
   }
+
+  getSize() {
+    return this.cache.size;
+  }
 }
 
 const imageCache = new ImageCache();
 
-export const useImageCache = (src: string) => {
+export const useImageCache = (src: string, timeout: number = 8000) => {
   const [cachedUrl, setCachedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!src) return;
@@ -68,6 +75,14 @@ export const useImageCache = (src: string) => {
     const loadImage = async () => {
       try {
         setIsLoading(true);
+        setHasError(false);
+        
+        // Отменяем предыдущий запрос
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        
+        abortControllerRef.current = new AbortController();
         
         // Проверяем кэш
         const cached = await imageCache.get(src);
@@ -78,19 +93,48 @@ export const useImageCache = (src: string) => {
           return;
         }
 
+        // Устанавливаем таймаут
+        timeoutRef.current = setTimeout(() => {
+          console.warn('⏰ [IMAGE_CACHE] Fetch timeout:', src);
+          abortControllerRef.current?.abort();
+          setHasError(true);
+          setIsLoading(false);
+        }, timeout);
+
         // Загружаем изображение
         console.log('📥 [IMAGE_CACHE] Fetching image:', src);
-        const response = await fetch(src);
+        const response = await fetch(src, {
+          signal: abortControllerRef.current.signal,
+          headers: {
+            'Cache-Control': 'max-age=3600'
+          }
+        });
         
-        if (!response.ok) throw new Error('Failed to fetch image');
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const blob = await response.blob();
         const objectUrl = await imageCache.set(src, blob);
         
         console.log('✅ [IMAGE_CACHE] Image cached:', src);
         setCachedUrl(objectUrl);
-      } catch (error) {
+      } catch (error: any) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        
+        if (error.name === 'AbortError') {
+          console.log('🛑 [IMAGE_CACHE] Request aborted:', src);
+          return;
+        }
+        
         console.error('❌ [IMAGE_CACHE] Failed to load image:', error);
+        setHasError(true);
         setCachedUrl(src); // Fallback к оригинальному URL
       } finally {
         setIsLoading(false);
@@ -98,9 +142,18 @@ export const useImageCache = (src: string) => {
     };
 
     loadImage();
-  }, [src]);
 
-  return { cachedUrl, isLoading };
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [src, timeout]);
+
+  return { cachedUrl, isLoading, hasError };
 };
 
 export { imageCache };

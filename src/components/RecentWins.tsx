@@ -1,8 +1,7 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface RecentWinsProps {
   currentLanguage?: string;
@@ -194,10 +193,12 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 flex-shrink-0">
                       {win.skins?.image_url ? (
-                        <OptimizedImage
+                        <LazyImage
                           src={win.skins.image_url}
                           alt={win.skins.name || t('unknownItem')}
                           className="w-full h-full object-cover rounded-lg border border-gray-600"
+                          timeout={3000}
+                          priority={index < 3}
                           fallback={
                             <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
                               <span className="text-lg">🎯</span>

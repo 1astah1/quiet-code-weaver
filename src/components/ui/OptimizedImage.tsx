@@ -7,9 +7,10 @@ interface OptimizedImageProps {
   className?: string;
   fallback?: React.ReactNode;
   onError?: () => void;
-  priority?: boolean; // Для критических изображений
-  placeholder?: string; // Base64 placeholder
-  sizes?: string; // Для адаптивных изображений
+  priority?: boolean;
+  placeholder?: string;
+  sizes?: string;
+  timeout?: number; // Добавляем таймаут
 }
 
 const OptimizedImage = ({ 
@@ -20,20 +21,20 @@ const OptimizedImage = ({
   onError,
   priority = false,
   placeholder,
-  sizes = "100vw"
+  sizes = "100vw",
+  timeout = 10000 // 10 секунд таймаут по умолчанию
 }: OptimizedImageProps) => {
-  console.log('🖼️ [OPTIMIZED_IMAGE] Component mounting:', { src, alt, priority });
-  
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isInView, setIsInView] = useState(priority); // Если priority=true, загружаем сразу
+  const [isInView, setIsInView] = useState(priority);
   const [hasError, setHasError] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string>(placeholder || '');
+  const [isLoading, setIsLoading] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const imgElementRef = useRef<HTMLImageElement | null>(null);
 
   // Создаем адаптивные URL для разных размеров
   const createResponsiveUrl = (originalSrc: string, width: number, quality: number = 80) => {
-    // Если это Supabase Storage URL, добавляем параметры трансформации
     if (originalSrc.includes('supabase') && originalSrc.includes('storage')) {
       const url = new URL(originalSrc);
       url.searchParams.set('width', width.toString());
@@ -51,14 +52,14 @@ const OptimizedImage = ({
     observerRef.current = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          console.log('📱 [OPTIMIZED_IMAGE] Image in viewport:', src);
+          console.log('🖼️ [OPTIMIZED_IMAGE] Image in viewport:', src);
           setIsInView(true);
           observerRef.current?.disconnect();
         }
       },
       { 
         threshold: 0.1,
-        rootMargin: '50px' // Начинаем загрузку за 50px до появления
+        rootMargin: '50px'
       }
     );
 
@@ -69,86 +70,84 @@ const OptimizedImage = ({
     };
   }, [src, priority]);
 
-  // Загрузка изображения когда оно попадает в viewport
+  // Загрузка изображения с таймаутом
   useEffect(() => {
     if (!isInView || isLoaded || hasError) return;
 
     console.log('🚀 [OPTIMIZED_IMAGE] Starting image load:', src);
+    setIsLoading(true);
     
     const img = new Image();
+    imgElementRef.current = img;
     
-    // Создаем srcset для адаптивных изображений
-    const srcset = [
-      `${createResponsiveUrl(src, 400)} 400w`,
-      `${createResponsiveUrl(src, 800)} 800w`,
-      `${createResponsiveUrl(src, 1200)} 1200w`
-    ].join(', ');
+    // Настройка таймаута
+    timeoutRef.current = setTimeout(() => {
+      console.warn('⏰ [OPTIMIZED_IMAGE] Image load timeout:', src);
+      img.onload = null;
+      img.onerror = null;
+      setHasError(true);
+      setIsLoading(false);
+      onError?.();
+    }, timeout);
 
-    img.srcset = srcset;
-    img.src = createResponsiveUrl(src, 800); // Fallback URL
-    img.sizes = sizes;
-    
     img.onload = () => {
       console.log('✅ [OPTIMIZED_IMAGE] Image loaded successfully:', src);
-      setImageUrl(img.src);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       setIsLoaded(true);
+      setIsLoading(false);
     };
     
     img.onerror = () => {
       console.error('❌ [OPTIMIZED_IMAGE] Image failed to load:', src);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       setHasError(true);
+      setIsLoading(false);
       onError?.();
     };
 
-    // Cleanup
+    // Устанавливаем src последним для начала загрузки
+    img.src = createResponsiveUrl(src, 800);
+
     return () => {
-      img.onload = null;
-      img.onerror = null;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (imgElementRef.current) {
+        imgElementRef.current.onload = null;
+        imgElementRef.current.onerror = null;
+      }
     };
-  }, [isInView, src, sizes]);
+  }, [isInView, src, timeout, onError]);
 
-  // Предзагрузка критических изображений
+  // Cleanup при размонтировании
   useEffect(() => {
-    if (priority && src) {
-      console.log('⚡ [OPTIMIZED_IMAGE] Preloading priority image:', src);
-      
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = createResponsiveUrl(src, 800);
-      link.type = 'image/webp';
-      document.head.appendChild(link);
-
-      return () => {
-        document.head.removeChild(link);
-      };
-    }
-  }, [priority, src]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      observerRef.current?.disconnect();
+    };
+  }, []);
 
   if (hasError && fallback) {
-    console.log('🔄 [OPTIMIZED_IMAGE] Showing fallback for:', src);
     return <>{fallback}</>;
   }
-
-  console.log('🎨 [OPTIMIZED_IMAGE] Rendering image:', { 
-    src, 
-    isLoaded, 
-    hasError, 
-    isInView,
-    hasImageUrl: !!imageUrl 
-  });
 
   return (
     <div ref={imgRef} className={`relative overflow-hidden ${className}`}>
       {/* Skeleton loader */}
-      {!isLoaded && isInView && (
+      {!isLoaded && isLoading && (
         <div className="absolute inset-0 bg-gradient-to-r from-slate-700/30 via-slate-600/50 to-slate-700/30 animate-pulse">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
         </div>
       )}
       
       {/* Placeholder blur */}
-      {placeholder && !isLoaded && (
+      {placeholder && !isLoaded && !hasError && (
         <img
           src={placeholder}
           alt=""
@@ -158,9 +157,9 @@ const OptimizedImage = ({
       )}
       
       {/* Main image */}
-      {isInView && (
+      {isInView && !hasError && (
         <img
-          src={imageUrl || createResponsiveUrl(src, 800)}
+          src={createResponsiveUrl(src, 800)}
           srcSet={`
             ${createResponsiveUrl(src, 400)} 400w,
             ${createResponsiveUrl(src, 800)} 800w,
@@ -168,23 +167,30 @@ const OptimizedImage = ({
           `}
           sizes={sizes}
           alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-500 ${
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
-          onLoad={() => setIsLoaded(true)}
+          onLoad={() => {
+            setIsLoaded(true);
+            setIsLoading(false);
+          }}
           onError={() => {
             setHasError(true);
+            setIsLoading(false);
             onError?.();
           }}
         />
       )}
       
-      {/* Loading indicator */}
-      {!isLoaded && !hasError && isInView && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      {/* Error state */}
+      {hasError && !fallback && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-700/50">
+          <div className="text-center">
+            <div className="text-2xl mb-2">🖼️</div>
+            <p className="text-xs text-gray-400">Не удалось загрузить</p>
+          </div>
         </div>
       )}
     </div>
