@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +57,7 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
+      // Более быстрая загрузка данных пользователя
       let { data: userData, error } = await supabase
         .from('users')
         .select('*')
@@ -82,7 +82,6 @@ const MainApp = () => {
 
       if (error) {
         console.error('Error loading user data:', error);
-        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
         setIsLoading(false);
         return;
       }
@@ -116,10 +115,10 @@ const MainApp = () => {
       };
 
       setCurrentUser(userProfile);
-      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
+      // Убираем лишние логи для ускорения
+      console.log('User data loaded successfully');
     } catch (error) {
       console.error('Error loading user data:', error);
-      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
     } finally {
       setIsLoading(false);
     }
@@ -175,12 +174,13 @@ const MainApp = () => {
     setCurrentScreen(screen as Screen);
   };
 
+  // Упрощенный лоадер без задержек
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">{t('loading')}</p>
+          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-white text-sm">{t('loading')}</p>
         </div>
       </div>
     );
