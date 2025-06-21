@@ -44,6 +44,15 @@ export const en = {
   faq: 'Frequently Asked Questions',
   findAnswers: 'Find answers to questions',
   
+  // Sidebar
+  menu: 'Menu',
+  adminPanel: 'Admin Panel',
+  signOut: 'Sign Out',
+  
+  // Auth
+  authError: 'Authentication Error',
+  userDataNotFound: 'User data not found. Please try to log in again.',
+  
   // Toasts
   languageChanged: 'Language changed',
   languageSettingsSaved: 'Language settings saved successfully',
@@ -55,4 +64,5 @@ export const en = {
   
   // Common
   accountManagement: 'Account and preferences management',
+  user: 'User',
 };

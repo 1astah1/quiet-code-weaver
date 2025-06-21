@@ -1,5 +1,6 @@
 
 import { Settings, Coins } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface HeaderProps {
   currentUser: {
@@ -7,11 +8,14 @@ interface HeaderProps {
     coins: number;
     isPremium: boolean;
     avatar_url?: string;
+    language_code?: string;
   };
   onMenuClick: () => void;
 }
 
 const Header = ({ currentUser, onMenuClick }: HeaderProps) => {
+  const { t } = useTranslation(currentUser.language_code);
+
   return (
     <header className="relative z-30 bg-gray-900/90 backdrop-blur-sm border-b border-orange-500/30 px-4 sm:px-6 md:px-8 lg:px-10">
       <div className="max-w-7xl mx-auto flex items-center justify-between py-3">

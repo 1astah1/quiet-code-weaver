@@ -44,6 +44,15 @@ export const ru = {
   faq: 'Часто задаваемые вопросы',
   findAnswers: 'Найдите ответы на вопросы',
   
+  // Sidebar
+  menu: 'Меню',
+  adminPanel: 'Админ панель',
+  signOut: 'Выйти',
+  
+  // Auth
+  authError: 'Ошибка авторизации',
+  userDataNotFound: 'Данные пользователя не найдены. Попробуйте перезайти.',
+  
   // Toasts
   languageChanged: 'Язык изменен',
   languageSettingsSaved: 'Настройки языка успешно сохранены',
@@ -55,4 +64,5 @@ export const ru = {
   
   // Common
   accountManagement: 'Управление аккаунтом и предпочтениями',
+  user: 'Пользователь',
 };

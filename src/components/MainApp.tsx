@@ -16,6 +16,7 @@ import SecurityMonitor from "@/components/security/SecurityMonitor";
 import { useToast } from "@/hooks/use-toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -42,6 +43,7 @@ const MainApp = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
+  const { t } = useTranslation(currentUser?.language_code);
 
   const loadUserData = async () => {
     if (!user?.id) {
@@ -86,8 +88,8 @@ const MainApp = () => {
       if (!userData) {
         console.error('User data not found in database');
         toast({
-          title: "Ошибка",
-          description: "Данные пользователя не найдены. Попробуйте перезайти.",
+          title: t('error'),
+          description: t('userDataNotFound'),
           variant: "destructive",
         });
         setIsLoading(false);
@@ -99,7 +101,7 @@ const MainApp = () => {
 
       const userProfile = {
         id: userData.id,
-        username: userData.username || 'Пользователь',
+        username: userData.username || t('user'),
         coins: userData.coins || 0,
         lives: userData.quiz_lives || 5,
         streak: userData.quiz_streak || 0,
@@ -177,7 +179,7 @@ const MainApp = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Загрузка...</p>
+          <p className="text-white">{t('loading')}</p>
         </div>
       </div>
     );

@@ -44,6 +44,15 @@ export const es = {
   faq: 'Preguntas Frecuentes',
   findAnswers: 'Encuentra respuestas a preguntas',
   
+  // Sidebar
+  menu: 'Menú',
+  adminPanel: 'Panel de Administrador',
+  signOut: 'Cerrar Sesión',
+  
+  // Auth
+  authError: 'Error de Autenticación',
+  userDataNotFound: 'Datos de usuario no encontrados. Intenta iniciar sesión de nuevo.',
+  
   // Toasts
   languageChanged: 'Idioma cambiado',
   languageSettingsSaved: 'Configuración de idioma guardada exitosamente',
@@ -55,4 +64,5 @@ export const es = {
   
   // Common
   accountManagement: 'Gestión de cuenta y preferencias',
+  user: 'Usuario',
 };
