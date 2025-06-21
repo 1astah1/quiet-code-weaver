@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,13 +25,16 @@ export const useUserInventory = (userId: string) => {
   return useQuery({
     queryKey: ['user-inventory', userId],
     queryFn: async () => {
+      console.log('🔄 [INVENTORY] Starting inventory query for user:', userId);
+      
       if (!isValidUUID(userId)) {
-        console.error('Invalid user ID format:', userId);
+        console.error('❌ [INVENTORY] Invalid user ID format:', userId);
         return [];
       }
 
       try {
-        console.log('Loading inventory for user:', userId);
+        console.log('📡 [INVENTORY] Making Supabase request...');
+        const startTime = Date.now();
 
         const { data, error } = await supabase
           .from('user_inventory')
@@ -54,36 +58,73 @@ export const useUserInventory = (userId: string) => {
           .eq('is_sold', false)
           .order('obtained_at', { ascending: false });
         
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ [INVENTORY] Query completed in ${duration}ms`);
+        
         if (error) {
-          console.error('Error loading inventory:', error);
+          console.error('❌ [INVENTORY] Supabase error:', error);
+          console.error('❌ [INVENTORY] Error details:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
           throw error;
         }
         
-        console.log('Raw inventory data loaded:', data);
+        console.log('✅ [INVENTORY] Raw data received:', {
+          itemCount: data?.length || 0,
+          hasData: !!data,
+          firstItem: data?.[0] || null
+        });
         
         // Проверяем и логируем каждый элемент инвентаря
-        const inventoryItems = (data || []).map(item => {
-          console.log('Processing inventory item:', {
+        const inventoryItems = (data || []).map((item, index) => {
+          console.log(`📦 [INVENTORY] Processing item ${index + 1}:`, {
             id: item.id,
-            skinData: item.skins,
+            skinId: item.skin_id,
+            skinName: item.skins?.name,
             hasImage: !!item.skins?.image_url,
-            imageUrl: item.skins?.image_url
+            imageUrl: item.skins?.image_url,
+            rarity: item.skins?.rarity,
+            price: item.skins?.price
           });
           return item;
         });
         
-        console.log('Processed inventory items:', inventoryItems.length, 'items');
+        console.log('✅ [INVENTORY] Processing complete:', {
+          totalProcessed: inventoryItems.length,
+          withImages: inventoryItems.filter(item => item.skins?.image_url).length,
+          withoutImages: inventoryItems.filter(item => !item.skins?.image_url).length
+        });
+        
         return inventoryItems as InventoryItem[];
       } catch (error) {
-        console.error('Inventory query error:', error);
+        console.error('💥 [INVENTORY] Unexpected error:', error);
+        console.error('💥 [INVENTORY] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         return [];
       }
     },
     enabled: !!userId && isValidUUID(userId),
-    retry: 2,
-    refetchOnWindowFocus: true,
-    refetchInterval: 10000,
-    staleTime: 2000
+    retry: (failureCount, error) => {
+      console.log(`🔄 [INVENTORY] Retry attempt ${failureCount}:`, error);
+      return failureCount < 2;
+    },
+    refetchOnWindowFocus: (query) => {
+      console.log('👁️ [INVENTORY] Window focus refetch triggered');
+      return true;
+    },
+    refetchInterval: (data, query) => {
+      console.log('⏰ [INVENTORY] Interval refetch triggered');
+      return 10000;
+    },
+    staleTime: 2000,
+    onError: (error) => {
+      console.error('🚨 [INVENTORY] Query error callback:', error);
+    },
+    onSuccess: (data) => {
+      console.log('🎉 [INVENTORY] Query success callback:', data?.length || 0, 'items loaded');
+    }
   });
 };
 
@@ -102,13 +143,15 @@ export const useSellSkin = () => {
       sellPrice: number;
     }) => {
       try {
-        console.log('Starting sell process:', { inventoryId, userId, sellPrice });
+        console.log('💰 [SELL] Starting sell process:', { inventoryId, userId, sellPrice });
+        const startTime = Date.now();
         
         if (!isValidUUID(userId) || !isValidUUID(inventoryId)) {
+          console.error('❌ [SELL] Invalid UUID format:', { userId, inventoryId });
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем существование пользователя и получаем его текущий баланс
+        console.log('👤 [SELL] Checking user existence...');
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id, coins')
@@ -116,16 +159,16 @@ export const useSellSkin = () => {
           .single();
 
         if (userError) {
-          console.error('Error getting user:', userError);
+          console.error('❌ [SELL] User check error:', userError);
           if (userError.code === 'PGRST116') {
             throw new Error('Пользователь не найден');
           }
           throw new Error('Не удалось получить данные пользователя');
         }
 
-        console.log('User data found:', userData);
+        console.log('✅ [SELL] User found:', { id: userData.id, coins: userData.coins });
 
-        // Проверяем существование предмета в инвентаре
+        console.log('📦 [SELL] Checking inventory item...');
         const { data: inventoryItem, error: inventoryCheckError } = await supabase
           .from('user_inventory')
           .select('*')
@@ -135,21 +178,25 @@ export const useSellSkin = () => {
           .single();
 
         if (inventoryCheckError) {
-          console.error('Error checking inventory item:', inventoryCheckError);
+          console.error('❌ [SELL] Inventory check error:', inventoryCheckError);
           if (inventoryCheckError.code === 'PGRST116') {
             throw new Error('Предмет не найден в инвентаре или уже продан');
           }
           throw new Error('Ошибка проверки инвентаря');
         }
 
-        console.log('Inventory item found:', inventoryItem);
+        console.log('✅ [SELL] Inventory item found:', inventoryItem);
 
         const currentCoins = userData.coins || 0;
         const newCoins = currentCoins + sellPrice;
         
-        console.log('Coin calculation - Current:', currentCoins, 'Adding:', sellPrice, 'New total:', newCoins);
+        console.log('💰 [SELL] Coin calculation:', { 
+          current: currentCoins, 
+          adding: sellPrice, 
+          newTotal: newCoins 
+        });
 
-        // Начинаем транзакцию: сначала помечаем предмет как проданный
+        console.log('🔄 [SELL] Marking item as sold...');
         const { error: sellError } = await supabase
           .from('user_inventory')
           .update({
@@ -159,24 +206,24 @@ export const useSellSkin = () => {
           })
           .eq('id', inventoryId)
           .eq('user_id', userId)
-          .eq('is_sold', false); // Дополнительная проверка
+          .eq('is_sold', false);
 
         if (sellError) {
-          console.error('Error marking skin as sold:', sellError);
+          console.error('❌ [SELL] Mark as sold error:', sellError);
           throw new Error('Не удалось продать скин');
         }
 
-        console.log('Item marked as sold successfully');
+        console.log('✅ [SELL] Item marked as sold');
 
-        // Затем обновляем баланс пользователя
+        console.log('💰 [SELL] Updating user balance...');
         const { error: coinsError } = await supabase
           .from('users')
           .update({ coins: newCoins })
           .eq('id', userId);
 
         if (coinsError) {
-          console.error('Error updating coins:', coinsError);
-          // Откатываем продажу предмета
+          console.error('❌ [SELL] Coins update error:', coinsError);
+          console.log('🔄 [SELL] Rolling back item sale...');
           await supabase
             .from('user_inventory')
             .update({
@@ -188,18 +235,29 @@ export const useSellSkin = () => {
           throw new Error('Не удалось обновить баланс');
         }
 
-        console.log('Coins updated successfully to:', newCoins);
+        const duration = Date.now() - startTime;
+        console.log(`🎉 [SELL] Sale completed successfully in ${duration}ms:`, {
+          inventoryId,
+          sellPrice,
+          newBalance: newCoins
+        });
+        
         return { newCoins };
       } catch (error) {
-        console.error('Sell skin error:', error);
+        console.error('💥 [SELL] Sell operation failed:', error);
+        console.error('💥 [SELL] Error details:', error instanceof Error ? error.stack : 'No stack trace');
         throw error;
       }
     },
     onSuccess: async (data, variables) => {
-      console.log('Sell successful, invalidating queries...');
-      // Принудительно обновляем инвентарь
+      console.log('🎉 [SELL] Mutation success, invalidating queries...');
+      const startTime = Date.now();
+      
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] });
       await queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] });
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [SELL] Queries invalidated in ${duration}ms`);
       
       toast({
         title: "Скин продан!",
@@ -208,7 +266,7 @@ export const useSellSkin = () => {
       return data.newCoins;
     },
     onError: (error: any) => {
-      console.error('Sell skin mutation error:', error);
+      console.error('🚨 [SELL] Mutation error callback:', error);
       toast({
         title: "Ошибка продажи",
         description: error.message || "Не удалось продать скин",
