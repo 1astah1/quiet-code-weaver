@@ -1,62 +1,122 @@
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SecurityRateLimiter, auditLog } from "@/utils/security";
 import { isValidUUID } from "@/utils/uuid";
 
-interface QuizAnswer {
-  questionId: string;
-  selectedAnswer: string;
-  correctAnswer: string;
-  timeSpent: number;
+interface QuizQuestion {
+  id: string;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: string;
+  category: string;
+  image_url?: string;
 }
 
-export const useSecureQuiz = () => {
-  const queryClient = useQueryClient();
+interface QuizProgress {
+  id: string;
+  questions_answered: number;
+  correct_answers: number;
+  completed: boolean;
+}
+
+export const useSecureQuiz = (userId: string) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const submitAnswer = useMutation({
-    mutationFn: async ({ 
-      userId, 
-      answer 
-    }: { 
-      userId: string; 
-      answer: QuizAnswer;
-    }) => {
-      // Rate limiting для викторины
-      if (!SecurityRateLimiter.canPerformAction(userId, 'quiz_answer')) {
-        throw new Error('Слишком быстрые ответы на вопросы викторины');
+  const { data: questions = [], isLoading: questionsLoading } = useQuery({
+    queryKey: ['quiz-questions'],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quiz_questions')
+          .select('*')
+          .eq('is_active', true)
+          .limit(10);
+
+        if (error) {
+          console.error('Error loading quiz questions:', error);
+          throw error;
+        }
+
+        return (data || []) as QuizQuestion[];
+      } catch (error) {
+        console.error('Quiz questions query error:', error);
+        return [];
       }
+    },
+    retry: 2,
+    staleTime: 300000 // 5 минут
+  });
 
-      if (!isValidUUID(userId) || !isValidUUID(answer.questionId)) {
-        await auditLog(userId, 'quiz_invalid_params', answer, false);
-        throw new Error('Неверные параметры викторины');
-      }
-
-      // Проверка времени ответа (защита от ботов)
-      if (answer.timeSpent < 1000) { // Меньше 1 секунды подозрительно
-        await auditLog(userId, 'quiz_suspicious_timing', { 
-          questionId: answer.questionId, 
-          timeSpent: answer.timeSpent 
-        }, false);
-        throw new Error('Подозрительно быстрый ответ');
+  const { data: progress, isLoading: progressLoading } = useQuery({
+    queryKey: ['quiz-progress', userId],
+    queryFn: async () => {
+      if (!isValidUUID(userId)) {
+        console.error('Invalid user ID format:', userId);
+        return null;
       }
 
       try {
-        const isCorrect = answer.selectedAnswer === answer.correctAnswer;
-        
-        // Логируем ответ
-        await auditLog(userId, 'quiz_answer_submitted', {
-          questionId: answer.questionId,
-          isCorrect,
-          timeSpent: answer.timeSpent
-        });
-
-        // Обновляем прогресс пользователя через прямые запросы к базе
         const today = new Date().toISOString().split('T')[0];
         
-        // Получаем или создаем запись прогресса на сегодня
+        const { data, error } = await supabase
+          .from('user_quiz_progress')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('date', today)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error loading quiz progress:', error);
+          return null;
+        }
+
+        return data as QuizProgress | null;
+      } catch (error) {
+        console.error('Quiz progress query error:', error);
+        return null;
+      }
+    },
+    enabled: !!userId && isValidUUID(userId),
+    retry: 2
+  });
+
+  const answerQuestion = useMutation({
+    mutationFn: async ({ 
+      questionId, 
+      selectedAnswer, 
+      isCorrect 
+    }: { 
+      questionId: string; 
+      selectedAnswer: string; 
+      isCorrect: boolean;
+    }) => {
+      if (!SecurityRateLimiter.canPerformAction(userId, 'quiz_answer')) {
+        const remaining = SecurityRateLimiter.getRemainingTime(userId, 'quiz_answer');
+        throw new Error(`Слишком быстрые ответы. Попробуйте через ${Math.ceil(remaining / 1000)} секунд`);
+      }
+
+      if (!isValidUUID(userId) || !isValidUUID(questionId)) {
+        await auditLog(userId, 'quiz_answer_invalid_params', { questionId }, false);
+        throw new Error('Неверные параметры запроса');
+      }
+
+      // Проверяем валидность ответа
+      if (!['a', 'b', 'c', 'd'].includes(selectedAnswer.toLowerCase())) {
+        await auditLog(userId, 'quiz_answer_invalid_option', { selectedAnswer }, false);
+        throw new Error('Неверный вариант ответа');
+      }
+
+      try {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Проверяем существующий прогресс
         const { data: existingProgress } = await supabase
           .from('user_quiz_progress')
           .select('*')
@@ -64,120 +124,94 @@ export const useSecureQuiz = () => {
           .eq('date', today)
           .single();
 
+        let newProgress;
         if (existingProgress) {
-          // Обновляем существующую запись
-          const { error } = await supabase
+          // Обновляем прогресс
+          const newQuestionsAnswered = existingProgress.questions_answered + 1;
+          const newCorrectAnswers = existingProgress.correct_answers + (isCorrect ? 1 : 0);
+          const isCompleted = newQuestionsAnswered >= 10;
+
+          const { data, error } = await supabase
             .from('user_quiz_progress')
             .update({
-              questions_answered: (existingProgress.questions_answered || 0) + 1,
-              correct_answers: (existingProgress.correct_answers || 0) + (isCorrect ? 1 : 0)
+              questions_answered: newQuestionsAnswered,
+              correct_answers: newCorrectAnswers,
+              completed: isCompleted
             })
-            .eq('id', existingProgress.id);
+            .eq('id', existingProgress.id)
+            .select()
+            .single();
 
           if (error) {
-            await auditLog(userId, 'quiz_progress_update_failed', { error: error.message }, false);
-            throw error;
+            console.error('Error updating quiz progress:', error);
+            throw new Error('Не удалось обновить прогресс викторины');
           }
+
+          newProgress = data;
         } else {
-          // Создаем новую запись
-          const { error } = await supabase
+          // Создаем новый прогресс
+          const { data, error } = await supabase
             .from('user_quiz_progress')
             .insert({
               user_id: userId,
               questions_answered: 1,
               correct_answers: isCorrect ? 1 : 0,
-              date: today
-            });
+              date: today,
+              completed: false
+            })
+            .select()
+            .single();
 
           if (error) {
-            await auditLog(userId, 'quiz_progress_create_failed', { error: error.message }, false);
-            throw error;
+            console.error('Error creating quiz progress:', error);
+            throw new Error('Не удалось создать прогресс викторины');
           }
+
+          newProgress = data;
         }
 
-        return { isCorrect, timeSpent: answer.timeSpent };
+        await auditLog(userId, 'quiz_answer_success', { 
+          questionId, 
+          selectedAnswer, 
+          isCorrect,
+          progress: newProgress 
+        });
+
+        return { isCorrect, progress: newProgress };
       } catch (error) {
-        console.error('Quiz answer submission error:', error);
+        console.error('Quiz answer error:', error);
         throw error;
       }
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quiz-progress', variables.userId] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['quiz-progress', userId] });
       
       if (data.isCorrect) {
         toast({
           title: "Правильно!",
-          description: "Вы ответили правильно",
+          description: "Отличный ответ!",
         });
       } else {
         toast({
           title: "Неправильно",
-          description: "Попробуйте еще раз",
+          description: "Попробуйте еще раз!",
           variant: "destructive",
         });
       }
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка викторины",
+        title: "Ошибка",
         description: error.message || "Не удалось отправить ответ",
         variant: "destructive",
       });
     }
   });
 
-  const restoreLives = useMutation({
-    mutationFn: async (userId: string) => {
-      if (!SecurityRateLimiter.canPerformAction(userId, 'restore_lives')) {
-        throw new Error('Слишком частые попытки восстановления жизней');
-      }
-
-      try {
-        // Проверяем временные ограничения через базу данных
-        const { data: canRestore, error: checkError } = await supabase.rpc('check_time_limit', {
-          p_user_id: userId,
-          p_action_type: 'life_restore',
-          p_interval_minutes: 120
-        });
-
-        if (checkError) {
-          throw checkError;
-        }
-
-        if (!canRestore) {
-          throw new Error('Жизни можно восстанавливать только раз в 2 часа');
-        }
-
-        const { error } = await supabase
-          .from('users')
-          .update({ 
-            quiz_lives: 5,
-            last_life_restore: new Date().toISOString()
-          })
-          .eq('id', userId);
-
-        if (error) {
-          await auditLog(userId, 'life_restore_failed', { error: error.message }, false);
-          throw error;
-        }
-
-        await auditLog(userId, 'life_restore_success', {});
-        return { lives: 5 };
-      } catch (error) {
-        console.error('Life restoration error:', error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: "Жизни восстановлены!",
-        description: "Вы получили 5 жизней",
-      });
-    }
-  });
-
   return {
-    submitAnswer,
-    restoreLives
+    questions,
+    progress,
+    isLoading: questionsLoading || progressLoading,
+    answerQuestion
   };
 };
