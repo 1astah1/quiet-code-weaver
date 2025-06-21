@@ -40,20 +40,20 @@ const ShopSkinCard = ({ skin, canAfford, onPurchase, isPurchasing }: ShopSkinCar
           <LazyImage
             src={skin.image_url}
             alt={skin.name}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
             fallback={
-              <div className="w-full h-full flex items-center justify-center text-lg sm:text-xl">
+              <div className="w-full h-full flex items-center justify-center text-lg sm:text-xl text-slate-400">
                 🔫
               </div>
             }
             onError={() => console.log('Failed to load image for:', skin.name)}
           />
         ) : (
-          <div className="text-lg sm:text-xl">🔫</div>
+          <div className="text-lg sm:text-xl text-slate-400">🔫</div>
         )}
         
         {/* Rarity badge */}
-        <div className={`absolute top-1 right-1 px-1 py-0.5 rounded text-[9px] sm:text-xs font-medium ${getRarityColor(skin.rarity).split(' ')[1]} border ${getRarityColor(skin.rarity).split(' ')[0]}`}>
+        <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] sm:text-xs font-medium ${getRarityColor(skin.rarity).split(' ')[1]} border ${getRarityColor(skin.rarity).split(' ')[0]}`}>
           {skin.rarity.split(' ')[0]}
         </div>
       </div>
