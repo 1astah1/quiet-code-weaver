@@ -36,6 +36,8 @@ const AdminTable = ({
         return ['title', 'description', 'reward_coins', 'task_url', 'image_url', 'is_active'];
       case "quiz_questions":
         return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
+      case "daily_rewards":
+        return ['day_number', 'reward_coins', 'reward_type', 'reward_item_id', 'is_active'];
       default:
         return [];
     }
@@ -146,7 +148,17 @@ const TableRow = ({
                 <option value="C">C</option>
                 <option value="D">D</option>
               </select>
-            ) : field === 'price' || field === 'coins' || field === 'reward_coins' ? (
+            ) : field === 'reward_type' ? (
+              <select
+                value={editData[field] || 'coins'}
+                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
+                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
+              >
+                <option value="coins">Монеты</option>
+                <option value="case">Кейс</option>
+                <option value="skin">Скин</option>
+              </select>
+            ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'day_number' ? (
               <input
                 type="number"
                 value={editData[field] || ''}

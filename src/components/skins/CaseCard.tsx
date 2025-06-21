@@ -4,6 +4,7 @@ import { Package, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
+import FreeCaseTimer from "@/components/FreeCaseTimer";
 
 interface CaseCardProps {
   caseItem: {
@@ -15,6 +16,7 @@ interface CaseCardProps {
     image_url: string | null;
     cover_image_url?: string | null;
     likes_count: number;
+    last_free_open?: string | null;
   };
   currentUser: {
     id: string;
@@ -27,9 +29,19 @@ interface CaseCardProps {
 
 const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProps) => {
   const [showPreview, setShowPreview] = useState(false);
+  const [canOpenFreeCase, setCanOpenFreeCase] = useState(true);
   const { toast } = useToast();
 
   const handleOpen = () => {
+    if (caseItem.is_free && !canOpenFreeCase) {
+      toast({
+        title: "Кейс недоступен",
+        description: "Бесплатный кейс можно открыть только раз в 2 часа",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!caseItem.is_free && currentUser.coins < caseItem.price) {
       toast({
         title: "Недостаточно монет",
@@ -44,6 +56,14 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
 
   const handlePreview = () => {
     setShowPreview(true);
+  };
+
+  const handleTimerComplete = () => {
+    setCanOpenFreeCase(true);
+  };
+
+  const handleTimerStart = () => {
+    setCanOpenFreeCase(false);
   };
 
   // Используем cover_image_url если есть, иначе image_url
@@ -99,21 +119,32 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             </div>
           </div>
 
+          {/* Timer for free case */}
+          {caseItem.is_free && (
+            <div className="mb-3">
+              <FreeCaseTimer
+                lastOpenTime={caseItem.last_free_open || null}
+                onTimerComplete={handleTimerComplete}
+                isDisabled={!canOpenFreeCase}
+              />
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               onClick={handleOpen}
-              disabled={!caseItem.is_free && currentUser.coins < caseItem.price}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 text-xs sm:text-sm py-2 sm:py-3"
+              disabled={(!caseItem.is_free && currentUser.coins < caseItem.price) || (caseItem.is_free && !canOpenFreeCase)}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 text-xs sm:text-sm py-2 sm:py-3 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed"
             >
               <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Открыть
+              {caseItem.is_free && !canOpenFreeCase ? 'Ожидание' : 'Открыть'}
             </Button>
             
             <Button
               onClick={handlePreview}
               variant="outline"
-              className="flex-1 sm:flex-none border-blue-500 bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:border-blue-400 hover:bg-blue-500/20 text-xs sm:text-sm py-2 sm:py-3"
+              className="flex-1 sm:flex-none border-purple-500 bg-purple-500/10 text-purple-400 hover:text-purple-300 hover:border-purple-400 hover:bg-purple-500/20 text-xs sm:text-sm py-2 sm:py-3"
             >
               <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Содержимое</span>

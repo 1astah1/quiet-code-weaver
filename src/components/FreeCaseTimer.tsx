@@ -5,9 +5,10 @@ import { Clock } from "lucide-react";
 interface FreeCaseTimerProps {
   lastOpenTime: string | null;
   onTimerComplete: () => void;
+  isDisabled?: boolean;
 }
 
-const FreeCaseTimer = ({ lastOpenTime, onTimerComplete }: FreeCaseTimerProps) => {
+const FreeCaseTimer = ({ lastOpenTime, onTimerComplete, isDisabled = false }: FreeCaseTimerProps) => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isAvailable, setIsAvailable] = useState(false);
 
@@ -49,16 +50,25 @@ const FreeCaseTimer = ({ lastOpenTime, onTimerComplete }: FreeCaseTimerProps) =>
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  if (isAvailable) {
+  if (isAvailable && !isDisabled) {
     return null;
   }
 
-  return (
-    <div className="flex items-center justify-center space-x-2 text-orange-400 text-sm font-medium bg-slate-800/50 rounded-lg p-3 border border-orange-500/30">
-      <Clock className="w-4 h-4" />
-      <span>Следующий бесплатный кейс через: {formatTime(timeLeft)}</span>
-    </div>
-  );
+  if (isDisabled || !isAvailable) {
+    return (
+      <div className="flex items-center justify-center space-x-2 text-gray-400 text-sm font-medium">
+        <Clock className="w-4 h-4" />
+        <span>
+          {isDisabled 
+            ? `Следующий бесплатный кейс через: ${formatTime(timeLeft)}`
+            : `Ожидание: ${formatTime(timeLeft)}`
+          }
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default FreeCaseTimer;

@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ExternalLink, Clock, CheckCircle, Gift } from "lucide-react";
+import { ExternalLink, CheckCircle, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import DailyRewardsCalendar from "@/components/DailyRewardsCalendar";
 
 interface TasksScreenProps {
   currentUser: {
@@ -164,21 +165,12 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
         })}
       </div>
 
-      {/* Daily Tasks Section - будет переработана в следующем обновлении */}
+      {/* Daily Rewards Calendar */}
       <div className="mt-6 sm:mt-8">
-        <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Ежедневные задания</h2>
-        <div className="bg-gradient-to-r from-purple-800/50 to-pink-800/50 rounded-lg p-3 sm:p-4 border border-purple-500/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 flex-shrink-0" />
-              <div className="min-w-0">
-                <h3 className="text-white font-semibold text-sm sm:text-base">Ежедневный вход</h3>
-                <p className="text-gray-400 text-xs sm:text-sm truncate">Заходи каждый день и получай бонусы</p>
-              </div>
-            </div>
-            <div className="text-yellow-400 font-bold text-xs sm:text-sm ml-2 flex-shrink-0">+25 монет</div>
-          </div>
-        </div>
+        <DailyRewardsCalendar 
+          currentUser={currentUser}
+          onCoinsUpdate={onCoinsUpdate}
+        />
       </div>
     </div>
   );

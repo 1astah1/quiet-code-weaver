@@ -132,6 +132,36 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_rewards: {
+        Row: {
+          created_at: string | null
+          day_number: number
+          id: string
+          is_active: boolean | null
+          reward_coins: number
+          reward_item_id: string | null
+          reward_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          day_number: number
+          id?: string
+          is_active?: boolean | null
+          reward_coins?: number
+          reward_item_id?: string | null
+          reward_type?: string
+        }
+        Update: {
+          created_at?: string | null
+          day_number?: number
+          id?: string
+          is_active?: boolean | null
+          reward_coins?: number
+          reward_item_id?: string | null
+          reward_type?: string
+        }
+        Relationships: []
+      }
       faq_items: {
         Row: {
           answer: string
@@ -461,6 +491,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_daily_rewards: {
+        Row: {
+          claimed_at: string | null
+          created_at: string | null
+          day_number: number
+          id: string
+          reward_coins: number
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string | null
+          day_number: number
+          id?: string
+          reward_coins?: number
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string | null
+          day_number?: number
+          id?: string
+          reward_coins?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_favorites: {
         Row: {
           case_id: string | null
@@ -691,10 +763,12 @@ export type Database = {
           auth_id: string | null
           coins: number | null
           created_at: string | null
+          daily_streak: number | null
           email: string | null
           id: string
           is_admin: boolean | null
           language_code: string | null
+          last_daily_login: string | null
           last_free_case_notification: string | null
           last_quiz_date: string | null
           most_expensive_skin_value: number | null
@@ -716,10 +790,12 @@ export type Database = {
           auth_id?: string | null
           coins?: number | null
           created_at?: string | null
+          daily_streak?: number | null
           email?: string | null
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_daily_login?: string | null
           last_free_case_notification?: string | null
           last_quiz_date?: string | null
           most_expensive_skin_value?: number | null
@@ -741,10 +817,12 @@ export type Database = {
           auth_id?: string | null
           coins?: number | null
           created_at?: string | null
+          daily_streak?: number | null
           email?: string | null
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_daily_login?: string | null
           last_free_case_notification?: string | null
           last_quiz_date?: string | null
           most_expensive_skin_value?: number | null
