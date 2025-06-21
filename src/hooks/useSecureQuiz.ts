@@ -35,7 +35,7 @@ export const useSecureQuiz = () => {
       }
 
       // Проверка времени ответа (защита от ботов)
-      if (answer.timeSpent < 1000) { // Меньше 1 секунды подозрительно
+      if (answer.timeSpent < 1000) {
         await auditLog(userId, 'quiz_suspicious_timing', { 
           questionId: answer.questionId, 
           timeSpent: answer.timeSpent 
@@ -46,17 +46,14 @@ export const useSecureQuiz = () => {
       try {
         const isCorrect = answer.selectedAnswer === answer.correctAnswer;
         
-        // Логируем ответ
         await auditLog(userId, 'quiz_answer_submitted', {
           questionId: answer.questionId,
           isCorrect,
           timeSpent: answer.timeSpent
         });
 
-        // Обновляем прогресс пользователя через прямые запросы к базе
         const today = new Date().toISOString().split('T')[0];
         
-        // Получаем или создаем запись прогресса на сегодня
         const { data: existingProgress } = await supabase
           .from('user_quiz_progress')
           .select('*')
@@ -65,7 +62,6 @@ export const useSecureQuiz = () => {
           .single();
 
         if (existingProgress) {
-          // Обновляем существующую запись
           const { error } = await supabase
             .from('user_quiz_progress')
             .update({
@@ -79,7 +75,6 @@ export const useSecureQuiz = () => {
             throw error;
           }
         } else {
-          // Создаем новую запись
           const { error } = await supabase
             .from('user_quiz_progress')
             .insert({
@@ -133,8 +128,8 @@ export const useSecureQuiz = () => {
       }
 
       try {
-        // Проверяем временные ограничения через базу данных
-        const { data: canRestore, error: checkError } = await supabase.rpc('check_time_limit', {
+        // Используем новую функцию проверки временных ограничений
+        const { data: canRestore, error: checkError } = await supabase.rpc('check_time_limit_v2', {
           p_user_id: userId,
           p_action_type: 'life_restore',
           p_interval_minutes: 120

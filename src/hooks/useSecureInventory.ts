@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SecurityRateLimiter, auditLog, validateInput } from "@/utils/security";
-import { generateUUID, isValidUUID } from "@/utils/uuid";
+import { isValidUUID } from "@/utils/uuid";
 
 export interface InventoryItem {
   id: string;
@@ -100,8 +100,23 @@ export const useSecureSellSkin = () => {
       try {
         console.log('Starting secure sell process:', { inventoryId, userId, sellPrice });
         
-        // Используем транзакцию для безопасной продажи
-        const { error: updateError } = await supabase
+        // Проверяем существование и владение предметом
+        const { data: inventoryItem, error: checkError } = await supabase
+          .from('user_inventory')
+          .select('*')
+          .eq('id', inventoryId)
+          .eq('user_id', userId)
+          .eq('is_sold', false)
+          .single();
+
+        if (checkError || !inventoryItem) {
+          console.error('Error checking inventory item:', checkError);
+          await auditLog(userId, 'sell_skin_item_not_found', { inventoryId }, false);
+          throw new Error('Предмет не найден в инвентаре или уже продан');
+        }
+
+        // Выполняем транзакцию продажи
+        const { error: sellError } = await supabase
           .from('user_inventory')
           .update({
             is_sold: true,
@@ -112,19 +127,33 @@ export const useSecureSellSkin = () => {
           .eq('user_id', userId)
           .eq('is_sold', false);
 
-        if (updateError) {
-          console.error('Error updating inventory:', updateError);
-          await auditLog(userId, 'sell_skin_failed', { error: updateError.message, inventoryId, sellPrice }, false);
-          throw new Error(updateError.message || 'Не удалось продать скин');
+        if (sellError) {
+          console.error('Error marking skin as sold:', sellError);
+          await auditLog(userId, 'sell_skin_update_failed', { error: sellError.message, inventoryId }, false);
+          throw new Error('Не удалось продать скин');
         }
 
-        // Обновляем монеты пользователя
-        if (!await supabase.rpc('safe_update_coins', {
+        // Обновляем баланс пользователя используя новую функцию
+        const { error: coinsError } = await supabase.rpc('safe_update_coins_v3', {
           p_user_id: userId,
           p_coin_change: sellPrice,
           p_operation_type: 'skin_sell'
-        })) {
-          throw new Error('Не удалось добавить монеты');
+        });
+
+        if (coinsError) {
+          console.error('Error updating coins:', coinsError);
+          // Откатываем продажу предмета
+          await supabase
+            .from('user_inventory')
+            .update({
+              is_sold: false,
+              sold_at: null,
+              sold_price: null
+            })
+            .eq('id', inventoryId);
+          
+          await auditLog(userId, 'sell_skin_coins_failed', { error: coinsError.message, inventoryId }, false);
+          throw new Error('Не удалось обновить баланс');
         }
 
         await auditLog(userId, 'sell_skin_success', { inventoryId, sellPrice });

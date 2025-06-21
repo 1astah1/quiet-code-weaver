@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { SecurityRateLimiter, auditLog, validateInput } from "@/utils/security";
+import { SecurityRateLimiter, auditLog } from "@/utils/security";
 import { isValidUUID } from "@/utils/uuid";
 
 interface CaseOpeningParams {
@@ -46,8 +46,8 @@ export const useSecureCaseOpening = () => {
       try {
         console.log('Opening case securely:', { userId, caseId, skinId, isFree });
         
-        // Используем безопасную функцию открытия кейса
-        const { data, error } = await supabase.rpc('safe_open_case', {
+        // Используем новую улучшенную функцию открытия кейса
+        const { data, error } = await supabase.rpc('safe_open_case_v2', {
           p_user_id: userId,
           p_case_id: caseId,
           p_skin_id: skinId,
@@ -60,7 +60,6 @@ export const useSecureCaseOpening = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        // Proper type assertion with unknown first
         const result = data as unknown as CaseOpeningResult;
         await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: result.skin });
         console.log('Case opened successfully:', result);
