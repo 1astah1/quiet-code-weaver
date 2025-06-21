@@ -6,9 +6,16 @@ import { Button } from "@/components/ui/button";
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
+  currentUser: {
+    id: string;
+    username: string;
+    coins: number;
+    isPremium: boolean;
+  };
+  onCoinsUpdate: (newCoins: number) => void;
 }
 
-const PremiumModal = ({ isOpen, onClose }: PremiumModalProps) => {
+const PremiumModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PremiumModalProps) => {
   const [isFreeTrial, setIsFreeTrial] = useState(true);
 
   if (!isOpen) return null;
