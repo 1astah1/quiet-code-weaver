@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,9 +52,9 @@ export const useCases = () => {
         throw error;
       }
     },
-    retry: 2,
-    retryDelay: 1000,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+    retryDelay: 2000,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false
   });
 };
@@ -92,35 +91,27 @@ export const useCaseSkins = (caseId: string | null) => {
     },
     enabled: !!caseId && isValidUUID(caseId),
     retry: 1,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false
   });
 };
 
-export const useUserFavorites = (userId: string) => {
+export const useUserFavorites = (userId: string | null) => {
   return useQuery({
     queryKey: ['user-favorites', userId],
     queryFn: async () => {
-      // Предотвращаем запрос для невалидного userId
       if (!userId || !isValidUUID(userId)) {
         console.log('Invalid user ID for favorites:', userId);
         return [];
       }
       
       try {
-        // Проверяем сессию только один раз
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          console.log('Session error for favorites:', sessionError);
-          return [];
-        }
-        
-        if (!session?.user) {
+        if (sessionError || !session?.user) {
           console.log('No valid session for favorites');
           return [];
         }
 
-        // Проверяем, что userId совпадает с текущим пользователем
         if (session.user.id !== userId) {
           console.log('User ID mismatch for favorites');
           return [];
@@ -130,7 +121,7 @@ export const useUserFavorites = (userId: string) => {
           .from('user_favorites')
           .select('case_id')
           .eq('user_id', userId)
-          .limit(100); // Ограничиваем количество
+          .limit(50);
         
         if (error) {
           console.error('Error loading favorites:', error);
@@ -145,7 +136,7 @@ export const useUserFavorites = (userId: string) => {
     },
     enabled: !!userId && isValidUUID(userId),
     retry: 1,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchInterval: false
   });

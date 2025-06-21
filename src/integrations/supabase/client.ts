@@ -6,7 +6,7 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://tskvrnrctesqmctyncad.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRza3ZybnJjdGVzcW1jdHluY2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MTgzNjMsImV4cCI6MjA2NDA5NDM2M30.w8FwPznqG_vo_ADXnM6LxpWGDbn3cogR8AaRF5ajYQ0";
 
-// Настраиваем клиент с правильными API ключами
+// Настраиваем клиент с минимальной конфигурацией
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
@@ -19,13 +19,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     params: {
       eventsPerSecond: 2
     }
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'cs-case-opening@1.0.0',
-      'apikey': SUPABASE_PUBLISHABLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
-    },
   },
   db: {
     schema: 'public'
