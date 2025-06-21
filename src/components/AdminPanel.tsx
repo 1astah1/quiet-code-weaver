@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +7,7 @@ import CaseManagement from "./admin/CaseManagement";
 import BannerManagement from "./admin/BannerManagement";
 import AddItemForm from "./admin/AddItemForm";
 import AdminTable from "./admin/AdminTable";
+import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
 import { TableName } from "@/types/admin";
 
 const AdminPanel = () => {
@@ -234,6 +234,10 @@ const AdminPanel = () => {
       />
 
       <div className="space-y-4">
+        {activeTable === 'users' && (
+          <UserDuplicatesCleaner />
+        )}
+
         {activeTable === 'banners' && (
           <BannerManagement />
         )}

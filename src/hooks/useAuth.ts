@@ -106,7 +106,7 @@ export const useAuth = () => {
       console.log('🔄 Processing user sign in for:', authUser.id);
       setIsLoading(true);
       
-      // Сначала проверяем существующего пользователя
+      // Ищем пользователя только по auth_id, чтобы избежать дубликатов
       let { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
@@ -115,7 +115,7 @@ export const useAuth = () => {
 
       if (fetchError) {
         console.error('❌ Error fetching user:', fetchError);
-        // Не выбрасываем ошибку, попробуем создать пользователя
+        // Продолжаем выполнение, попробуем создать пользователя
       }
 
       let userData: AuthUser;
@@ -141,7 +141,7 @@ export const useAuth = () => {
           created_at: new Date().toISOString()
         };
 
-        // Попытаемся создать пользователя
+        // Попытаемся создать пользователя с обработкой дубликатов
         const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUserData)
@@ -151,58 +151,50 @@ export const useAuth = () => {
         if (createError) {
           console.error('❌ Error creating user:', createError);
           
-          // Если не удалось создать, попробуем найти снова (возможно, триггер сработал)
-          const { data: retriedUser, error: retryError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', authUser.id)
-            .maybeSingle();
+          // Если ошибка связана с дубликатом, попробуем найти снова
+          if (createError.code === '23505') { // unique violation
+            console.log('🔄 Duplicate detected, trying to find existing user...');
+            const { data: retriedUser, error: retryError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('auth_id', authUser.id)
+              .maybeSingle();
 
-          if (retryError || !retriedUser) {
-            throw new Error('Не удалось создать или найти профиль пользователя');
+            if (retryError || !retriedUser) {
+              throw new Error('Не удалось найти или создать профиль пользователя');
+            }
+            
+            existingUser = retriedUser;
+          } else {
+            throw new Error('Не удалось создать профиль пользователя');
           }
-          
-          existingUser = retriedUser;
         } else if (createdUser) {
           existingUser = createdUser;
-        }
-
-        if (existingUser) {
-          userData = {
-            id: existingUser.id,
-            username: existingUser.username,
-            email: existingUser.email || '',
-            coins: existingUser.coins || 1000,
-            isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
-            isAdmin: existingUser.is_admin || false,
-            referralCode: existingUser.referral_code,
-            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
-            quiz_lives: existingUser.quiz_lives || 3,
-            quiz_streak: existingUser.quiz_streak || 0
-          };
-
           toast({
             title: "Добро пожаловать!",
             description: "Вы получили 1000 стартовых монет!",
           });
-        } else {
+        }
+
+        if (!existingUser) {
           throw new Error('Не удалось создать профиль пользователя');
         }
       } else {
         console.log('👤 Using existing user profile');
-        userData = {
-          id: existingUser.id,
-          username: existingUser.username,
-          email: existingUser.email || '',
-          coins: existingUser.coins || 0,
-          isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
-          isAdmin: existingUser.is_admin || false,
-          referralCode: existingUser.referral_code,
-          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
-          quiz_lives: existingUser.quiz_lives || 3,
-          quiz_streak: existingUser.quiz_streak || 0
-        };
       }
+
+      userData = {
+        id: existingUser.id,
+        username: existingUser.username,
+        email: existingUser.email || '',
+        coins: existingUser.coins || 0,
+        isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
+        isAdmin: existingUser.is_admin || false,
+        referralCode: existingUser.referral_code,
+        avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+        quiz_lives: existingUser.quiz_lives || 3,
+        quiz_streak: existingUser.quiz_streak || 0
+      };
 
       console.log('✅ Setting user data:', userData.username);
       setUser(userData);
