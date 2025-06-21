@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,6 @@ import SecurityMonitor from "@/components/security/SecurityMonitor";
 import BottomNavigation from "@/components/BottomNavigation";
 import LazyWrapper from "@/components/ui/LazyWrapper";
 import { useToast } from "@/hooks/use-toast";
-import { auditLog } from "@/utils/security";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
   LazyMainScreen,
@@ -57,21 +57,22 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
-      // Более быстрая загрузка данных пользователя
+      // Быстрая загрузка данных пользователя без дополнительных проверок
       let { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle();
+        .single();
 
-      if (!userData && user.id) {
+      if (error && error.code === 'PGRST116') {
+        // Пользователь не найден, попробуем найти по auth_id
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
           const { data: userByAuthId, error: authError } = await supabase
             .from('users')
             .select('*')
             .eq('auth_id', authUser.id)
-            .maybeSingle();
+            .single();
           
           if (!authError && userByAuthId) {
             userData = userByAuthId;
@@ -80,14 +81,8 @@ const MainApp = () => {
         }
       }
 
-      if (error) {
-        console.error('Error loading user data:', error);
-        setIsLoading(false);
-        return;
-      }
-
-      if (!userData) {
-        console.error('User data not found in database');
+      if (error || !userData) {
+        console.error('User data not found');
         toast({
           title: t('error'),
           description: t('userDataNotFound'),
@@ -115,10 +110,14 @@ const MainApp = () => {
       };
 
       setCurrentUser(userProfile);
-      // Убираем лишние логи для ускорения
-      console.log('User data loaded successfully');
+      console.log('User data loaded');
     } catch (error) {
       console.error('Error loading user data:', error);
+      toast({
+        title: t('error'),
+        description: "Ошибка загрузки данных пользователя",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -135,28 +134,22 @@ const MainApp = () => {
   const handleCoinsUpdate = async (newCoins: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
-      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
     }
   };
 
   const handleLivesUpdate = async (newLives: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
-      await auditLog(currentUser.id, 'lives_updated', { newLives });
     }
   };
 
   const handleStreakUpdate = async (newStreak: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
-      await auditLog(currentUser.id, 'streak_updated', { newStreak });
     }
   };
 
   const handleSignOut = async () => {
-    if (currentUser) {
-      await auditLog(currentUser.id, 'user_signed_out', {});
-    }
     await signOut();
     setCurrentUser(null);
     setCurrentScreen('main');
@@ -174,7 +167,7 @@ const MainApp = () => {
     setCurrentScreen(screen as Screen);
   };
 
-  // Упрощенный лоадер без задержек
+  // Минимальный лоадер
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
