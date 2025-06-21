@@ -1,6 +1,8 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 
 interface RecentWinsProps {
   currentLanguage?: string;
@@ -19,7 +21,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
           .from('recent_wins')
           .select(`
             *,
-            skins(name, weapon_type, rarity)
+            skins(name, weapon_type, rarity, image_url)
           `)
           .order('won_at', { ascending: false })
           .limit(10);
@@ -124,11 +126,28 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
                     <p className="text-gray-400 text-xs">{t('won')}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
-                    {win.skins?.name || t('unknownItem')}
-                  </p>
-                  <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
+                <div className="flex items-center space-x-3">
+                  {win.skins?.image_url && (
+                    <div className="w-10 h-10 flex-shrink-0">
+                      <OptimizedImage
+                        src={win.skins.image_url}
+                        alt={win.skins.name || t('unknownItem')}
+                        className="w-full h-full object-cover rounded-lg"
+                        fallback={
+                          <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
+                            <span className="text-lg">🎯</span>
+                          </div>
+                        }
+                        onError={() => console.log('Failed to load skin image for recent win:', win.skins?.name)}
+                      />
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
+                      {win.skins?.name || t('unknownItem')}
+                    </p>
+                    <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
+                  </div>
                 </div>
               </div>
             ))}
