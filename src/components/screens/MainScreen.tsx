@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-react";
-import { useOptimizedQuery } from "@/hooks/useOptimizedQueries";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
@@ -23,8 +23,8 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
   const [showReferral, setShowReferral] = useState(false);
   const [showAdModal, setShowAdModal] = useState(false);
   
-  // Оптимизированные запросы с приоритетами
-  const { data: tasks } = useOptimizedQuery({
+  // Standard queries with simple caching
+  const { data: tasks } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -35,12 +35,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
       if (error) throw error;
       return data;
     },
-    priority: 'medium',
-    enableBatching: true,
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: favoriteSkins } = useOptimizedQuery({
+  const { data: favoriteSkins } = useQuery({
     queryKey: ['user-favorites', currentUser.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -59,8 +57,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
       if (error) throw error;
       return data?.map(item => item.skins).filter(Boolean) || [];
     },
-    priority: 'low',
-    enableBatching: true,
     staleTime: 15 * 60 * 1000,
   });
 
