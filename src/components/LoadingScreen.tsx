@@ -8,9 +8,9 @@ const LoadingScreen = () => {
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) return 100;
-        return prev + 50; // Очень быстрое увеличение
+        return prev + 100; // Мгновенное заполнение
       });
-    }, 20); // Частые обновления для плавности
+    }, 10); // Очень быстрые обновления
 
     return () => clearInterval(interval);
   }, []);
@@ -28,11 +28,11 @@ const LoadingScreen = () => {
           </h2>
         </div>
 
-        {/* Быстрая загрузочная полоса */}
+        {/* Мгновенная загрузочная полоса */}
         <div className="w-64 sm:w-72 mx-auto mb-3">
           <div className="bg-gray-800 rounded-full h-2 overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-50"
+              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-100"
               style={{ width: `${progress}%` }}
             />
           </div>

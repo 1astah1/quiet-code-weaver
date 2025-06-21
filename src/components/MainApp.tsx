@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,7 @@ const MainApp = () => {
   const { toast } = useToast();
   const { t } = useTranslation(currentUser?.language_code);
 
+  // Оптимизированная загрузка пользователя с минимальными запросами
   const loadUserData = async () => {
     if (!user?.id) {
       setIsLoading(false);
@@ -60,26 +62,25 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
-      // Максимально быстрая загрузка без лишних проверок
+      // Один запрос с максимально быстрой загрузкой
       const { data: userData, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, username, coins, quiz_lives, quiz_streak, premium_until, is_admin, language_code, sound_enabled, vibration_enabled, profile_private')
         .eq('id', user.id)
-        .maybeSingle();
+        .single();
 
-      if (error || !userData) {
-        // Быстрая попытка поиска по auth_id
+      if (error && error.code === 'PGRST116') {
+        // Пользователь не найден по ID, ищем по auth_id
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
           const { data: userByAuthId } = await supabase
             .from('users')
-            .select('*')
+            .select('id, username, coins, quiz_lives, quiz_streak, premium_until, is_admin, language_code, sound_enabled, vibration_enabled, profile_private')
             .eq('auth_id', authUser.id)
-            .maybeSingle();
+            .single();
           
           if (userByAuthId) {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            const userProfile = {
+            setCurrentUser({
               id: userByAuthId.id,
               username: userByAuthId.username || t('user'),
               coins: userByAuthId.coins || 0,
@@ -92,8 +93,7 @@ const MainApp = () => {
               sound_enabled: userByAuthId.sound_enabled,
               vibration_enabled: userByAuthId.vibration_enabled,
               profile_private: userByAuthId.profile_private
-            };
-            setCurrentUser(userProfile);
+            });
             setIsLoading(false);
             return;
           }
@@ -104,8 +104,16 @@ const MainApp = () => {
         return;
       }
 
+      if (error || !userData) {
+        console.error('Error loading user data:', error);
+        setIsLoading(false);
+        return;
+      }
+
+      // Получаем auth данные только один раз
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      const userProfile = {
+      
+      setCurrentUser({
         id: userData.id,
         username: userData.username || t('user'),
         coins: userData.coins || 0,
@@ -118,9 +126,7 @@ const MainApp = () => {
         sound_enabled: userData.sound_enabled,
         vibration_enabled: userData.vibration_enabled,
         profile_private: userData.profile_private
-      };
-
-      setCurrentUser(userProfile);
+      });
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -136,22 +142,17 @@ const MainApp = () => {
     }
   }, [user, authLoading]);
 
-  const handleCoinsUpdate = async (newCoins: number) => {
-    if (currentUser) {
-      setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
-    }
+  // Оптимизированные обработчики обновления состояния
+  const handleCoinsUpdate = (newCoins: number) => {
+    setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
   };
 
-  const handleLivesUpdate = async (newLives: number) => {
-    if (currentUser) {
-      setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
-    }
+  const handleLivesUpdate = (newLives: number) => {
+    setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
   };
 
-  const handleStreakUpdate = async (newStreak: number) => {
-    if (currentUser) {
-      setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
-    }
+  const handleStreakUpdate = (newStreak: number) => {
+    setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
   };
 
   const handleSignOut = async () => {
@@ -164,15 +165,11 @@ const MainApp = () => {
     loadUserData();
   };
 
-  const handleCaseOpen = (caseItem: any) => {
-    setOpeningCase(caseItem);
-  };
-
   const handleScreenChange = (screen: string) => {
     setCurrentScreen(screen as Screen);
   };
 
-  // Убираем лоадер - мгновенная загрузка
+  // Мгновенная загрузка без лишних проверок
   if (authLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -191,7 +188,6 @@ const MainApp = () => {
       onCoinsUpdate: handleCoinsUpdate
     };
 
-    // Прямой рендер без ленивых оберток для мгновенной работы
     switch (currentScreen) {
       case 'main':
         return (
