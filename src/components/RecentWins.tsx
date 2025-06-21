@@ -102,14 +102,18 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
       const delay = Math.min(1000 * 2 ** attemptIndex, 30000);
       console.log(`⏰ [RECENT_WINS] Retry delay: ${delay}ms`);
       return delay;
-    },
-    onError: (error) => {
-      console.error('🚨 [RECENT_WINS] Query error callback:', error);
-    },
-    onSuccess: (data) => {
-      console.log('🎉 [RECENT_WINS] Query success callback:', data?.length || 0, 'wins loaded');
     }
   });
+
+  // Обрабатываем ошибки отдельно
+  if (error) {
+    console.error('🚨 [RECENT_WINS] Query error:', error);
+  }
+
+  // Обрабатываем успешные запросы отдельно
+  if (recentWins) {
+    console.log('🎉 [RECENT_WINS] Query success:', recentWins?.length || 0, 'wins loaded');
+  }
 
   const getRarityColor = (rarity: string) => {
     const color = (() => {

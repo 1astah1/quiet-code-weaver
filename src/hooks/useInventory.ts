@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -110,21 +109,12 @@ export const useUserInventory = (userId: string) => {
       console.log(`🔄 [INVENTORY] Retry attempt ${failureCount}:`, error);
       return failureCount < 2;
     },
-    refetchOnWindowFocus: (query) => {
-      console.log('👁️ [INVENTORY] Window focus refetch triggered');
-      return true;
-    },
-    refetchInterval: (data, query) => {
+    refetchOnWindowFocus: true,
+    refetchInterval: () => {
       console.log('⏰ [INVENTORY] Interval refetch triggered');
       return 10000;
     },
-    staleTime: 2000,
-    onError: (error) => {
-      console.error('🚨 [INVENTORY] Query error callback:', error);
-    },
-    onSuccess: (data) => {
-      console.log('🎉 [INVENTORY] Query success callback:', data?.length || 0, 'items loaded');
-    }
+    staleTime: 2000
   });
 };
 
