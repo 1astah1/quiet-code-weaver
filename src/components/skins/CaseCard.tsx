@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
 import FreeCaseTimer from "@/components/FreeCaseTimer";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 
 interface CaseCardProps {
   caseItem: {
@@ -114,13 +115,17 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
         {/* Case Image */}
         <div className="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-800 overflow-hidden">
           {imageUrl ? (
-            <img
+            <OptimizedImage
               src={imageUrl}
               alt={caseItem.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
+              fallback={
+                <div className="flex items-center justify-center h-full">
+                  <Package className="w-12 h-12 sm:w-16 sm:h-16 text-slate-500" />
+                </div>
+              }
+              onError={() => {
                 console.error('Error loading case image:', imageUrl);
-                e.currentTarget.style.display = 'none';
               }}
             />
           ) : (
