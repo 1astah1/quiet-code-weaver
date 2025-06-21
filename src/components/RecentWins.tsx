@@ -23,8 +23,12 @@ const RecentWins = () => {
           throw winsError;
         }
 
+        console.log('Wins data loaded:', winsData);
+
         // Отдельно получаем информацию о пользователях
         const userIds = winsData?.map(win => win.user_id).filter(Boolean) || [];
+        console.log('User IDs to fetch:', userIds);
+        
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, username')
@@ -33,13 +37,19 @@ const RecentWins = () => {
         if (usersError) {
           console.error('Error loading users:', usersError);
           // Если не удалось загрузить пользователей, продолжаем без них
+        } else {
+          console.log('Users data loaded:', usersData);
         }
 
         // Объединяем данные
-        const enrichedWins = winsData?.map(win => ({
-          ...win,
-          users: usersData?.find(user => user.id === win.user_id) || null
-        })) || [];
+        const enrichedWins = winsData?.map(win => {
+          const user = usersData?.find(user => user.id === win.user_id);
+          console.log(`Win for user ${win.user_id}: found user:`, user);
+          return {
+            ...win,
+            users: user || null
+          };
+        }) || [];
         
         console.log('Recent wins loaded:', enrichedWins);
         return enrichedWins;
@@ -102,7 +112,9 @@ const RecentWins = () => {
                     </span>
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">{win.users?.username || 'Игрок'}</p>
+                    <p className="text-white text-sm font-medium">
+                      {win.users?.username || 'Игрок'}
+                    </p>
                     <p className="text-gray-400 text-xs">выиграл</p>
                   </div>
                 </div>
