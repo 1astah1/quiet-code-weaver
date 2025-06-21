@@ -1,29 +1,22 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import AuthScreen from "@/components/auth/AuthScreen";
-import SecurityMonitor from "@/components/security/SecurityMonitor";
-import BottomNavigation from "@/components/BottomNavigation";
-import LazyWrapper from "@/components/ui/LazyWrapper";
-import { useToast } from "@/hooks/use-toast";
-import { useTranslation } from "@/hooks/useTranslation";
-
-// Прямые импорты для мгновенной загрузки
 import MainScreen from "@/components/screens/MainScreen";
 import SkinsScreen from "@/components/screens/SkinsScreen";
 import QuizScreen from "@/components/screens/QuizScreen";
 import TasksScreen from "@/components/screens/TasksScreen";
 import InventoryScreen from "@/components/inventory/InventoryScreen";
 import SettingsScreen from "@/components/settings/SettingsScreen";
-
-// Только редко используемые компоненты остаются ленивыми
-import {
-  LazyAdminPanel,
-  LazyCaseOpeningAnimation
-} from "@/utils/lazyComponents";
+import AdminPanel from "@/components/AdminPanel";
+import AuthScreen from "@/components/auth/AuthScreen";
+import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import SecurityMonitor from "@/components/security/SecurityMonitor";
+import { useToast } from "@/hooks/use-toast";
+import { auditLog } from "@/utils/security";
+import BottomNavigation from "@/components/BottomNavigation";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -52,7 +45,6 @@ const MainApp = () => {
   const { toast } = useToast();
   const { t } = useTranslation(currentUser?.language_code);
 
-  // Оптимизированная загрузка пользователя с минимальными запросами
   const loadUserData = async () => {
     if (!user?.id) {
       setIsLoading(false);
@@ -62,58 +54,52 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
-      // Один запрос с максимально быстрой загрузкой
-      const { data: userData, error } = await supabase
+      // Пытаемся найти пользователя сначала по внутреннему ID
+      let { data: userData, error } = await supabase
         .from('users')
-        .select('id, username, coins, quiz_lives, quiz_streak, premium_until, is_admin, language_code, sound_enabled, vibration_enabled, profile_private')
+        .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === 'PGRST116') {
-        // Пользователь не найден по ID, ищем по auth_id
+      // Если не найден по внутреннему ID, ищем по auth_id
+      if (!userData && user.id) {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const { data: userByAuthId } = await supabase
+          const { data: userByAuthId, error: authError } = await supabase
             .from('users')
-            .select('id, username, coins, quiz_lives, quiz_streak, premium_until, is_admin, language_code, sound_enabled, vibration_enabled, profile_private')
+            .select('*')
             .eq('auth_id', authUser.id)
-            .single();
+            .maybeSingle();
           
-          if (userByAuthId) {
-            setCurrentUser({
-              id: userByAuthId.id,
-              username: userByAuthId.username || t('user'),
-              coins: userByAuthId.coins || 0,
-              lives: userByAuthId.quiz_lives || 5,
-              streak: userByAuthId.quiz_streak || 0,
-              isPremium: userByAuthId.premium_until ? new Date(userByAuthId.premium_until) > new Date() : false,
-              isAdmin: userByAuthId.is_admin || false,
-              avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
-              language_code: userByAuthId.language_code || 'ru',
-              sound_enabled: userByAuthId.sound_enabled,
-              vibration_enabled: userByAuthId.vibration_enabled,
-              profile_private: userByAuthId.profile_private
-            });
-            setIsLoading(false);
-            return;
+          if (!authError && userByAuthId) {
+            userData = userByAuthId;
+            error = null;
           }
         }
-        
-        console.error('User data not found');
-        setIsLoading(false);
-        return;
       }
 
-      if (error || !userData) {
+      if (error) {
         console.error('Error loading user data:', error);
+        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
         setIsLoading(false);
         return;
       }
 
-      // Получаем auth данные только один раз
+      if (!userData) {
+        console.error('User data not found in database');
+        toast({
+          title: t('error'),
+          description: t('userDataNotFound'),
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Get auth user data for avatar
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      setCurrentUser({
+
+      const userProfile = {
         id: userData.id,
         username: userData.username || t('user'),
         coins: userData.coins || 0,
@@ -126,9 +112,13 @@ const MainApp = () => {
         sound_enabled: userData.sound_enabled,
         vibration_enabled: userData.vibration_enabled,
         profile_private: userData.profile_private
-      });
+      };
+
+      setCurrentUser(userProfile);
+      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
     } catch (error) {
       console.error('Error loading user data:', error);
+      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
     } finally {
       setIsLoading(false);
     }
@@ -142,20 +132,31 @@ const MainApp = () => {
     }
   }, [user, authLoading]);
 
-  // Оптимизированные обработчики обновления состояния
-  const handleCoinsUpdate = (newCoins: number) => {
-    setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
+  const handleCoinsUpdate = async (newCoins: number) => {
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
+      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
+    }
   };
 
-  const handleLivesUpdate = (newLives: number) => {
-    setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
+  const handleLivesUpdate = async (newLives: number) => {
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
+      await auditLog(currentUser.id, 'lives_updated', { newLives });
+    }
   };
 
-  const handleStreakUpdate = (newStreak: number) => {
-    setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
+  const handleStreakUpdate = async (newStreak: number) => {
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
+      await auditLog(currentUser.id, 'streak_updated', { newStreak });
+    }
   };
 
   const handleSignOut = async () => {
+    if (currentUser) {
+      await auditLog(currentUser.id, 'user_signed_out', {});
+    }
     await signOut();
     setCurrentUser(null);
     setCurrentScreen('main');
@@ -165,15 +166,21 @@ const MainApp = () => {
     loadUserData();
   };
 
+  const handleCaseOpen = (caseItem: any) => {
+    setOpeningCase(caseItem);
+  };
+
   const handleScreenChange = (screen: string) => {
     setCurrentScreen(screen as Screen);
   };
 
-  // Мгновенная загрузка без лишних проверок
-  if (authLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">{t('loading')}</p>
+        </div>
       </div>
     );
   }
@@ -183,21 +190,22 @@ const MainApp = () => {
   }
 
   const renderScreen = () => {
-    const commonProps = {
-      currentUser,
-      onCoinsUpdate: handleCoinsUpdate
-    };
-
     switch (currentScreen) {
       case 'main':
         return (
           <MainScreen 
-            {...commonProps}
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
             onScreenChange={setCurrentScreen}
           />
         );
       case 'skins':
-        return <SkinsScreen {...commonProps} />;
+        return (
+          <SkinsScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
       case 'quiz':
         return (
           <QuizScreen 
@@ -215,21 +223,37 @@ const MainApp = () => {
           />
         );
       case 'tasks':
-        return <TasksScreen {...commonProps} />;
+        return (
+          <TasksScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
       case 'inventory':
-        return <InventoryScreen {...commonProps} />;
+        return (
+          <InventoryScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
       case 'settings':
-        return <SettingsScreen {...commonProps} />;
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'admin':
-        return currentUser.isAdmin ? (
-          <LazyWrapper className="min-h-screen">
-            <LazyAdminPanel />
-          </LazyWrapper>
-        ) : (
-          <MainScreen {...commonProps} onScreenChange={setCurrentScreen} />
+        return currentUser.isAdmin ? <AdminPanel /> : (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
         );
       default:
-        return <MainScreen {...commonProps} onScreenChange={setCurrentScreen} />;
+        return (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
     }
   };
 
@@ -266,14 +290,12 @@ const MainApp = () => {
         />
 
         {openingCase && (
-          <LazyWrapper>
-            <LazyCaseOpeningAnimation
-              caseItem={openingCase}
-              onClose={() => setOpeningCase(null)}
-              currentUser={currentUser}
-              onCoinsUpdate={handleCoinsUpdate}
-            />
-          </LazyWrapper>
+          <CaseOpeningAnimation
+            caseItem={openingCase}
+            onClose={() => setOpeningCase(null)}
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
         )}
       </div>
     </div>

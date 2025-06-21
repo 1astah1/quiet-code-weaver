@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
@@ -29,7 +29,7 @@ interface Skin {
   image_url: string | null;
 }
 
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 24; // Увеличил для лучшего отображения
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
@@ -45,7 +45,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Простой запрос скинов без излишних оптимизаций
   const { data: skins, isLoading } = useQuery({
     queryKey: ['shop-skins'],
     queryFn: async () => {
@@ -59,9 +58,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         throw error;
       }
       return data as Skin[];
-    },
-    staleTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    }
   });
 
   const purchaseMutation = useMutation({
@@ -234,16 +231,17 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   const handlePriceRangeChange = (min: number, max: number) => {
     setPriceRange({ min, max });
-    setCurrentPage(1);
+    setCurrentPage(1); // Сбрасываем на первую страницу при изменении фильтров
   };
 
   const handleSortChange = (sort: string) => {
     setSortBy(sort);
-    setCurrentPage(1);
+    setCurrentPage(1); // Сбрасываем на первую страницу при изменении сортировки
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    // Прокручиваем страницу вверх при смене страницы
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -253,6 +251,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     }
   };
 
+  // Сбрасываем страницу при изменении фильтров
   const handleRarityChange = (rarity: string) => {
     setSelectedRarity(rarity);
     setCurrentPage(1);
@@ -289,6 +288,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         onSortChange={handleSortChange}
       />
 
+      {/* Информация о результатах */}
       <div className="flex justify-between items-center text-xs sm:text-sm text-slate-400 px-1">
         <span>
           Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
@@ -300,6 +300,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         )}
       </div>
 
+      {/* Улучшенная сетка для скинов - более компактная */}
       <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
         {currentSkins.map((skin) => (
           <ShopSkinCard
@@ -314,12 +315,14 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
       {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
 
+      {/* Пагинация */}
       <ShopPagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
       />
 
+      {/* Purchase Success Modal */}
       <PurchaseSuccessModal
         isOpen={purchaseSuccessModal.isOpen}
         onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}

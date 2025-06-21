@@ -1,7 +1,8 @@
+
 import { useState } from "react";
-import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-react";
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
 import BannerCarousel from "@/components/BannerCarousel";
@@ -23,7 +24,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
   const [showReferral, setShowReferral] = useState(false);
   const [showAdModal, setShowAdModal] = useState(false);
   
-  // Standard queries with simple caching
   const { data: tasks } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
@@ -34,8 +34,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         .limit(4);
       if (error) throw error;
       return data;
-    },
-    staleTime: 10 * 60 * 1000,
+    }
   });
 
   const { data: favoriteSkins } = useQuery({
@@ -56,8 +55,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         .limit(3);
       if (error) throw error;
       return data?.map(item => item.skins).filter(Boolean) || [];
-    },
-    staleTime: 15 * 60 * 1000,
+    }
   });
 
   const handleBannerAction = (action: Screen) => {
@@ -100,7 +98,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
     <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
       <BannerCarousel onBannerAction={handleBannerAction} />
 
-      {/* Goals Section */}
+      {/* Goals Section - более компактный на мобильных */}
       <div className="mb-4 sm:mb-6">
         <h3 className="text-lg sm:text-xl font-bold text-white mb-3">Твои цели</h3>
         <div className="bg-gray-800/50 rounded-lg p-3 sm:p-4 border border-orange-500/30">
@@ -124,7 +122,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                         src={skin.image_url} 
                         alt={skin.name}
                         className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-1 sm:mb-2 object-contain"
-                        loading="lazy"
                       />
                     ) : (
                       <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-600 rounded-lg mx-auto mb-1 sm:mb-2 flex items-center justify-center">
@@ -161,7 +158,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         </div>
       </div>
 
-      {/* Easy Coins Section */}
+      {/* Easy Coins Section - более компактная сетка */}
       <div className="mb-4 sm:mb-6">
         <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Легкие монеты</h3>
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -209,7 +206,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         </div>
       </div>
 
-      {/* Tasks Section */}
+      {/* Tasks Section - более компактные задания */}
       <div className="mb-4 sm:mb-6">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h3 className="text-lg sm:text-xl font-bold text-white">Задания</h3>
@@ -248,7 +245,7 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
 
       <RecentWins />
 
-      {/* Ad Modal */}
+      {/* Ad Modal - адаптированный */}
       {showAdModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-sm border border-orange-500/30">

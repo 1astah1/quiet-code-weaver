@@ -1,7 +1,7 @@
 
 import { Heart, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface ShopSkinCardProps {
   skin: {
@@ -37,7 +37,7 @@ const ShopSkinCard = ({ skin, canAfford, onPurchase, isPurchasing }: ShopSkinCar
       {/* Image */}
       <div className="aspect-square bg-slate-700/50 rounded-lg mb-1.5 flex items-center justify-center overflow-hidden relative">
         {skin.image_url ? (
-          <OptimizedImage
+          <LazyImage
             src={skin.image_url}
             alt={skin.name}
             className="w-full h-full object-cover"
