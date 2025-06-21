@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -36,8 +35,20 @@ export const useUserInventory = (userId: string) => {
         const { data, error } = await supabase
           .from('user_inventory')
           .select(`
-            *,
-            skins (*)
+            id,
+            skin_id,
+            is_sold,
+            obtained_at,
+            sold_at,
+            sold_price,
+            skins!inner (
+              id,
+              name,
+              weapon_type,
+              rarity,
+              price,
+              image_url
+            )
           `)
           .eq('user_id', userId)
           .eq('is_sold', false)
@@ -48,8 +59,21 @@ export const useUserInventory = (userId: string) => {
           throw error;
         }
         
-        console.log('Inventory loaded:', data?.length || 0, 'items');
-        return (data || []) as InventoryItem[];
+        console.log('Raw inventory data loaded:', data);
+        
+        // Проверяем и логируем каждый элемент инвентаря
+        const inventoryItems = (data || []).map(item => {
+          console.log('Processing inventory item:', {
+            id: item.id,
+            skinData: item.skins,
+            hasImage: !!item.skins?.image_url,
+            imageUrl: item.skins?.image_url
+          });
+          return item;
+        });
+        
+        console.log('Processed inventory items:', inventoryItems.length, 'items');
+        return inventoryItems as InventoryItem[];
       } catch (error) {
         console.error('Inventory query error:', error);
         return [];
@@ -57,10 +81,9 @@ export const useUserInventory = (userId: string) => {
     },
     enabled: !!userId && isValidUUID(userId),
     retry: 2,
-    // Добавляем более агрессивное обновление
     refetchOnWindowFocus: true,
-    refetchInterval: 10000, // Обновляем каждые 10 секунд
-    staleTime: 2000 // Данные считаются устаревшими через 2 секунды
+    refetchInterval: 10000,
+    staleTime: 2000
   });
 };
 
