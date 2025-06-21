@@ -53,16 +53,46 @@ export const useSecureQuiz = () => {
           timeSpent: answer.timeSpent
         });
 
-        // Обновляем прогресс пользователя
-        const { error } = await supabase.rpc('update_quiz_progress', {
-          p_user_id: userId,
-          p_is_correct: isCorrect,
-          p_time_spent: answer.timeSpent
-        });
+        // Обновляем прогресс пользователя через прямые запросы к базе
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Получаем или создаем запись прогресса на сегодня
+        const { data: existingProgress } = await supabase
+          .from('user_quiz_progress')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('date', today)
+          .single();
 
-        if (error) {
-          await auditLog(userId, 'quiz_progress_update_failed', { error: error.message }, false);
-          throw error;
+        if (existingProgress) {
+          // Обновляем существующую запись
+          const { error } = await supabase
+            .from('user_quiz_progress')
+            .update({
+              questions_answered: (existingProgress.questions_answered || 0) + 1,
+              correct_answers: (existingProgress.correct_answers || 0) + (isCorrect ? 1 : 0)
+            })
+            .eq('id', existingProgress.id);
+
+          if (error) {
+            await auditLog(userId, 'quiz_progress_update_failed', { error: error.message }, false);
+            throw error;
+          }
+        } else {
+          // Создаем новую запись
+          const { error } = await supabase
+            .from('user_quiz_progress')
+            .insert({
+              user_id: userId,
+              questions_answered: 1,
+              correct_answers: isCorrect ? 1 : 0,
+              date: today
+            });
+
+          if (error) {
+            await auditLog(userId, 'quiz_progress_create_failed', { error: error.message }, false);
+            throw error;
+          }
         }
 
         return { isCorrect, timeSpent: answer.timeSpent };

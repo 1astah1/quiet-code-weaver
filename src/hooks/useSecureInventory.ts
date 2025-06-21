@@ -60,9 +60,9 @@ export const useSecureUserInventory = (userId: string) => {
     },
     enabled: !!userId && isValidUUID(userId),
     retry: 2,
-    refetchOnWindowFocus: false, // Уменьшаем частоту обновлений
-    refetchInterval: 30000, // Увеличиваем интервал до 30 секунд
-    staleTime: 10000 // Увеличиваем время устаревания
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000,
+    staleTime: 10000
   });
 };
 
@@ -100,22 +100,36 @@ export const useSecureSellSkin = () => {
       try {
         console.log('Starting secure sell process:', { inventoryId, userId, sellPrice });
         
-        // Используем безопасную функцию продажи из базы данных
-        const { data, error } = await supabase.rpc('safe_sell_skin', {
-          p_user_id: userId,
-          p_inventory_id: inventoryId,
-          p_sell_price: sellPrice
-        });
+        // Используем транзакцию для безопасной продажи
+        const { error: updateError } = await supabase
+          .from('user_inventory')
+          .update({
+            is_sold: true,
+            sold_at: new Date().toISOString(),
+            sold_price: sellPrice
+          })
+          .eq('id', inventoryId)
+          .eq('user_id', userId)
+          .eq('is_sold', false);
 
-        if (error) {
-          console.error('Error selling skin:', error);
-          await auditLog(userId, 'sell_skin_failed', { error: error.message, inventoryId, sellPrice }, false);
-          throw new Error(error.message || 'Не удалось продать скин');
+        if (updateError) {
+          console.error('Error updating inventory:', updateError);
+          await auditLog(userId, 'sell_skin_failed', { error: updateError.message, inventoryId, sellPrice }, false);
+          throw new Error(updateError.message || 'Не удалось продать скин');
+        }
+
+        // Обновляем монеты пользователя
+        if (!await supabase.rpc('safe_update_coins', {
+          p_user_id: userId,
+          p_coin_change: sellPrice,
+          p_operation_type: 'skin_sell'
+        })) {
+          throw new Error('Не удалось добавить монеты');
         }
 
         await auditLog(userId, 'sell_skin_success', { inventoryId, sellPrice });
         console.log('Skin sold successfully');
-        return { newCoins: data };
+        return { newCoins: sellPrice };
       } catch (error) {
         console.error('Sell skin error:', error);
         throw error;

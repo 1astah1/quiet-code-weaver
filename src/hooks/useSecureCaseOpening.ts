@@ -12,6 +12,19 @@ interface CaseOpeningParams {
   isFree?: boolean;
 }
 
+interface CaseOpeningResult {
+  success: boolean;
+  skin: {
+    id: string;
+    name: string;
+    weapon_type: string;
+    rarity: string;
+    price: number;
+    image_url: string | null;
+  };
+  inventory_id: string;
+}
+
 export const useSecureCaseOpening = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -47,10 +60,12 @@ export const useSecureCaseOpening = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: data.skin });
-        console.log('Case opened successfully:', data);
+        // Type assertion for the returned data
+        const result = data as CaseOpeningResult;
+        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: result.skin });
+        console.log('Case opened successfully:', result);
         
-        return data;
+        return result;
       } catch (error) {
         console.error('Case opening error:', error);
         throw error;
