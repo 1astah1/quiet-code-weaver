@@ -36,8 +36,12 @@ const AdminTable = ({
         return ['title', 'description', 'reward_coins', 'task_url', 'image_url', 'is_active'];
       case "quiz_questions":
         return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
-      case "daily_rewards":
-        return ['day_number', 'reward_coins', 'reward_type', 'reward_item_id', 'is_active'];
+      case "banners":
+        return ['title', 'description', 'image_url', 'button_text', 'button_action', 'is_active'];
+      case "promo_codes":
+        return ['code', 'reward_coins', 'max_uses', 'current_uses', 'expires_at', 'is_active'];
+      case "faq_items":
+        return ['question', 'answer', 'order_index', 'is_active'];
       default:
         return [];
     }
@@ -148,17 +152,18 @@ const TableRow = ({
                 <option value="C">C</option>
                 <option value="D">D</option>
               </select>
-            ) : field === 'reward_type' ? (
+            ) : field === 'button_action' ? (
               <select
-                value={editData[field] || 'coins'}
+                value={editData[field] || 'open_case'}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               >
-                <option value="coins">Монеты</option>
-                <option value="case">Кейс</option>
-                <option value="skin">Скин</option>
+                <option value="open_case">Открыть кейс</option>
+                <option value="premium">Премиум</option>
+                <option value="tasks">Задания</option>
+                <option value="quiz">Викторина</option>
               </select>
-            ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'day_number' ? (
+            ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'max_uses' || field === 'current_uses' || field === 'order_index' ? (
               <input
                 type="number"
                 value={editData[field] || ''}
@@ -166,6 +171,13 @@ const TableRow = ({
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm w-20"
                 min="0"
                 step="1"
+              />
+            ) : field === 'expires_at' ? (
+              <input
+                type="datetime-local"
+                value={editData[field] ? new Date(editData[field]).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setEditData({...editData, [field]: e.target.value ? new Date(e.target.value).toISOString() : null})}
+                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               />
             ) : (
               <input
@@ -209,6 +221,8 @@ const TableRow = ({
             />
           ) : typeof item[field] === 'boolean' ? (
             item[field] ? 'Да' : 'Нет'
+          ) : field === 'expires_at' && item[field] ? (
+            new Date(item[field]).toLocaleDateString()
           ) : (
             item[field]?.toString() || '-'
           )}
