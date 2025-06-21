@@ -8,6 +8,7 @@ import BannerManagement from "./admin/BannerManagement";
 import AddItemForm from "./admin/AddItemForm";
 import AdminTable from "./admin/AdminTable";
 import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
+import UserManagement from "./admin/UserManagement";
 import { TableName } from "@/types/admin";
 
 const AdminPanel = () => {
@@ -21,6 +22,11 @@ const AdminPanel = () => {
   const { data: tableData, isLoading } = useQuery({
     queryKey: [activeTable],
     queryFn: async () => {
+      // Для пользователей используем отдельный запрос в UserManagement
+      if (activeTable === 'users') {
+        return [];
+      }
+      
       const { data, error } = await supabase
         .from(activeTable)
         .select('*');
@@ -235,7 +241,10 @@ const AdminPanel = () => {
 
       <div className="space-y-4">
         {activeTable === 'users' && (
-          <UserDuplicatesCleaner />
+          <>
+            <UserManagement />
+            <UserDuplicatesCleaner />
+          </>
         )}
 
         {activeTable === 'banners' && (
@@ -252,7 +261,7 @@ const AdminPanel = () => {
           />
         )}
 
-        {activeTable !== 'cases' && activeTable !== 'banners' && (
+        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'users' && (
           <>
             <AddItemForm
               activeTable={activeTable}

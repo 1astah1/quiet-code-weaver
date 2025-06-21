@@ -1,5 +1,4 @@
 
-import { Button } from "@/components/ui/button";
 import { TableName } from "@/types/admin";
 
 interface AdminTableSelectorProps {
@@ -9,12 +8,12 @@ interface AdminTableSelectorProps {
 
 const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorProps) => {
   const tables: { key: TableName; label: string }[] = [
-    { key: "banners", label: "Банеры" },
     { key: "cases", label: "Кейсы" },
     { key: "skins", label: "Скины" },
     { key: "users", label: "Пользователи" },
     { key: "tasks", label: "Задания" },
     { key: "quiz_questions", label: "Вопросы викторины" },
+    { key: "banners", label: "Баннеры" },
     { key: "daily_rewards", label: "Ежедневные награды" },
   ];
 
@@ -22,18 +21,17 @@ const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorPr
     <div className="mb-6">
       <div className="flex flex-wrap gap-2">
         {tables.map((table) => (
-          <Button
+          <button
             key={table.key}
             onClick={() => onTableChange(table.key)}
-            variant={activeTable === table.key ? "default" : "outline"}
-            className={
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTable === table.key
-                ? "bg-orange-500 hover:bg-orange-600 text-white"
-                : "border-slate-600 text-slate-300 hover:bg-slate-800"
-            }
+                ? "bg-orange-500 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
           >
             {table.label}
-          </Button>
+          </button>
         ))}
       </div>
     </div>
