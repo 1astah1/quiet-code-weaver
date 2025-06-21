@@ -864,8 +864,33 @@ export type Database = {
       }
     }
     Functions: {
+      check_time_limit: {
+        Args: {
+          p_user_id: string
+          p_action_type: string
+          p_interval_minutes?: number
+        }
+        Returns: boolean
+      }
       is_admin_user: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      safe_open_case: {
+        Args: {
+          p_user_id: string
+          p_case_id: string
+          p_skin_id: string
+          p_is_free?: boolean
+        }
+        Returns: Json
+      }
+      safe_update_coins: {
+        Args: {
+          p_user_id: string
+          p_coin_change: number
+          p_operation_type?: string
+        }
         Returns: boolean
       }
     }

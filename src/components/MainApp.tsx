@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +13,9 @@ import SettingsScreen from "@/components/settings/SettingsScreen";
 import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
 import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import SecurityMonitor from "@/components/security/SecurityMonitor";
 import { useToast } from "@/hooks/use-toast";
+import { auditLog } from "@/utils/security";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -40,21 +43,24 @@ const MainApp = () => {
     if (!user?.id) return;
 
     try {
+      console.log('Loading user data for:', user.id);
+      
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', user.id)
+        .eq('auth_id', user.id) // Используем auth_id для безопасности
         .single();
 
       if (error) {
         console.error('Error loading user data:', error);
+        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
         return;
       }
 
       // Get auth user data for avatar
       const { data: { user: authUser } } = await supabase.auth.getUser();
 
-      setCurrentUser({
+      const userProfile = {
         id: userData.id,
         username: userData.username || 'Пользователь',
         coins: userData.coins || 0,
@@ -63,9 +69,13 @@ const MainApp = () => {
         isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
         isAdmin: userData.is_admin || false,
         avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture
-      });
+      };
+
+      setCurrentUser(userProfile);
+      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
     } catch (error) {
       console.error('Error loading user data:', error);
+      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
     } finally {
       setIsLoading(false);
     }
@@ -79,25 +89,31 @@ const MainApp = () => {
     }
   }, [user, authLoading]);
 
-  const handleCoinsUpdate = (newCoins: number) => {
+  const handleCoinsUpdate = async (newCoins: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
+      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
     }
   };
 
-  const handleLivesUpdate = (newLives: number) => {
+  const handleLivesUpdate = async (newLives: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
+      await auditLog(currentUser.id, 'lives_updated', { newLives });
     }
   };
 
-  const handleStreakUpdate = (newStreak: number) => {
+  const handleStreakUpdate = async (newStreak: number) => {
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
+      await auditLog(currentUser.id, 'streak_updated', { newStreak });
     }
   };
 
   const handleSignOut = async () => {
+    if (currentUser) {
+      await auditLog(currentUser.id, 'user_signed_out', {});
+    }
     await signOut();
     setCurrentUser(null);
     setCurrentScreen('main');
@@ -196,6 +212,8 @@ const MainApp = () => {
 
   return (
     <div className="min-h-screen bg-black overflow-hidden">
+      <SecurityMonitor />
+      
       <div className="flex flex-col h-screen">
         <Header 
           currentUser={currentUser}
