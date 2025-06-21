@@ -370,6 +370,39 @@ export type Database = {
           },
         ]
       }
+      security_audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: string | null
+          success: boolean | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       skin_withdrawal_requests: {
         Row: {
           created_at: string | null
@@ -761,6 +794,36 @@ export type Database = {
           },
         ]
       }
+      user_task_progress: {
+        Row: {
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          status: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           auth_id: string | null
@@ -867,6 +930,15 @@ export type Database = {
       }
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_user_id: string
+          p_action_type: string
+          p_max_attempts?: number
+          p_time_window_minutes?: number
+        }
+        Returns: boolean
+      }
       check_time_limit: {
         Args: {
           p_user_id: string
@@ -893,6 +965,14 @@ export type Database = {
         Returns: Json
       }
       safe_update_coins: {
+        Args: {
+          p_user_id: string
+          p_coin_change: number
+          p_operation_type?: string
+        }
+        Returns: boolean
+      }
+      safe_update_coins_v2: {
         Args: {
           p_user_id: string
           p_coin_change: number
