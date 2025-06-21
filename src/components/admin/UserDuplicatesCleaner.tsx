@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,71 +6,76 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Trash2, Users } from "lucide-react";
 
+interface DuplicateGroup {
+  auth_id: string;
+  email: string;
+  count: number;
+  users: any[];
+}
+
 const UserDuplicatesCleaner = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: duplicates, isLoading } = useQuery({
-    queryKey: ['user_duplicates'],
+  const { data: allUsers, isLoading } = useQuery({
+    queryKey: ['all_users_for_duplicates'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('auth_id, email, count(*)')
+        .select('*')
         .not('auth_id', 'is', null)
-        .group('auth_id, email')
-        .having('count(*) > 1');
+        .order('created_at', { ascending: true });
       
       if (error) throw error;
       return data;
     }
   });
 
-  const { data: duplicateUsers } = useQuery({
-    queryKey: ['duplicate_user_details'],
-    queryFn: async () => {
-      if (!duplicates?.length) return [];
-      
-      const authIds = duplicates.map(d => d.auth_id);
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .in('auth_id', authIds)
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!duplicates?.length
-  });
+  // Process users to find duplicates
+  const duplicateGroups: DuplicateGroup[] = [];
+  if (allUsers) {
+    const authIdGroups: Record<string, any[]> = {};
+    
+    // Group users by auth_id
+    allUsers.forEach(user => {
+      if (!authIdGroups[user.auth_id]) {
+        authIdGroups[user.auth_id] = [];
+      }
+      authIdGroups[user.auth_id].push(user);
+    });
+
+    // Find groups with more than one user
+    Object.entries(authIdGroups).forEach(([authId, users]) => {
+      if (users.length > 1) {
+        duplicateGroups.push({
+          auth_id: authId,
+          email: users[0].email || 'No email',
+          count: users.length,
+          users: users
+        });
+      }
+    });
+  }
 
   const cleanupDuplicates = async () => {
-    if (!duplicateUsers?.length) return;
+    if (!duplicateGroups.length) return;
 
     setIsProcessing(true);
     try {
-      // Группируем пользователей по auth_id
-      const userGroups = duplicateUsers.reduce((acc, user) => {
-        if (!acc[user.auth_id]) {
-          acc[user.auth_id] = [];
-        }
-        acc[user.auth_id].push(user);
-        return acc;
-      }, {} as Record<string, typeof duplicateUsers>);
-
       let deletedCount = 0;
 
-      for (const [authId, users] of Object.entries(userGroups)) {
-        if (users.length > 1) {
-          // Сортируем: сначала админы, потом по дате создания
-          users.sort((a, b) => {
+      for (const group of duplicateGroups) {
+        if (group.users.length > 1) {
+          // Sort: admins first, then by creation date
+          group.users.sort((a, b) => {
             if (a.is_admin && !b.is_admin) return -1;
             if (!a.is_admin && b.is_admin) return 1;
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           });
 
-          // Оставляем первого (самого старого или админа), удаляем остальных
-          const toDelete = users.slice(1);
+          // Keep the first (oldest or admin), delete the rest
+          const toDelete = group.users.slice(1);
           
           for (const user of toDelete) {
             const { error } = await supabase
@@ -93,8 +97,7 @@ const UserDuplicatesCleaner = () => {
         description: `Удалено ${deletedCount} дублирующихся записей`,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['user_duplicates'] });
-      queryClient.invalidateQueries({ queryKey: ['duplicate_user_details'] });
+      queryClient.invalidateQueries({ queryKey: ['all_users_for_duplicates'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
 
     } catch (error) {
@@ -133,11 +136,11 @@ const UserDuplicatesCleaner = () => {
           Управление дубликатами пользователей
         </CardTitle>
         <CardDescription>
-          Найдено {duplicates?.length || 0} групп дублирующихся пользователей
+          Найдено {duplicateGroups.length} групп дублирующихся пользователей
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {duplicates?.length ? (
+        {duplicateGroups.length > 0 ? (
           <>
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
               <div className="flex items-center gap-2 text-yellow-400 mb-2">
@@ -151,7 +154,7 @@ const UserDuplicatesCleaner = () => {
             </div>
 
             <div className="space-y-2">
-              {duplicates.map((duplicate, index) => (
+              {duplicateGroups.map((duplicate, index) => (
                 <div key={index} className="bg-gray-800 p-3 rounded-lg">
                   <p className="text-sm">
                     <span className="text-gray-400">Auth ID:</span> {duplicate.auth_id}
