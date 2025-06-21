@@ -38,12 +38,12 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
       }
 
       // Проверяем, не использовал ли пользователь уже этот промокод
-      const { data: usedPromo, error: usedError } = await supabase
+      const { data: usedPromo } = await supabase
         .from('user_promo_codes')
         .select('id')
         .eq('user_id', currentUser.id)
         .eq('promo_code_id', promoData.id)
-        .single();
+        .maybeSingle();
 
       if (usedPromo) {
         throw new Error(t('promoCodeAlreadyUsed') || 'Промокод уже был использован');

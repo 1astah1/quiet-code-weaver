@@ -466,6 +466,7 @@ export type Database = {
           created_at: string | null
           description: string
           id: string
+          image_url: string | null
           is_active: boolean | null
           reward_coins: number
           task_url: string | null
@@ -475,6 +476,7 @@ export type Database = {
           created_at?: string | null
           description: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           reward_coins: number
           task_url?: string | null
@@ -484,6 +486,7 @@ export type Database = {
           created_at?: string | null
           description?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           reward_coins?: number
           task_url?: string | null
