@@ -28,6 +28,10 @@ interface CurrentUser {
   isPremium: boolean;
   isAdmin: boolean;
   avatar_url?: string;
+  language_code?: string;
+  sound_enabled?: boolean;
+  vibration_enabled?: boolean;
+  profile_private?: boolean;
 }
 
 const MainApp = () => {
@@ -164,6 +168,10 @@ const MainApp = () => {
     setOpeningCase(caseItem);
   };
 
+  const handleScreenChange = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -267,7 +275,7 @@ const MainApp = () => {
 
         <BottomNavigation 
           currentScreen={currentScreen}
-          onScreenChange={setCurrentScreen}
+          onScreenChange={handleScreenChange}
           currentLanguage={currentUser?.language_code}
         />
 
