@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
 import { purchaseLimiter } from "@/utils/rateLimiter";
+import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
+import { connectionOptimizer } from "@/utils/connectionOptimizer";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
@@ -29,7 +31,7 @@ interface Skin {
   image_url: string | null;
 }
 
-const ITEMS_PER_PAGE = 24; // Увеличил для лучшего отображения
+const ITEMS_PER_PAGE = 24;
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
@@ -45,108 +47,114 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: skins, isLoading } = useQuery({
+  // Используем оптимизированный запрос
+  const { data: skins, isLoading } = useOptimizedQuery({
     queryKey: ['shop-skins'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('skins')
-        .select('*')
-        .order('price', { ascending: true });
-      
-      if (error) {
-        console.error('Error loading skins:', error);
-        throw error;
-      }
-      return data as Skin[];
-    }
+      return connectionOptimizer.optimizedFetch(async () => {
+        const { data, error } = await supabase
+          .from('skins')
+          .select('*')
+          .order('price', { ascending: true });
+        
+        if (error) {
+          console.error('Error loading skins:', error);
+          throw error;
+        }
+        return data as Skin[];
+      });
+    },
+    staleTime: 10 * 60 * 1000, // Увеличиваем время кэша для скинов
   });
 
   const purchaseMutation = useMutation({
     mutationFn: async (skin: Skin) => {
-      try {
-        if (!purchaseLimiter.isAllowed(currentUser.id)) {
-          throw new Error('Слишком много покупок. Подождите немного.');
-        }
+      return connectionOptimizer.optimizedFetch(async () => {
+        try {
+          if (!purchaseLimiter.isAllowed(currentUser.id)) {
+            throw new Error('Слишком много покупок. Подождите немного.');
+          }
 
-        console.log('Starting purchase:', { skin: skin.name, price: skin.price, userCoins: currentUser.coins, userId: currentUser.id });
+          console.log('Starting purchase:', { skin: skin.name, price: skin.price, userCoins: currentUser.coins, userId: currentUser.id });
 
-        if (!isValidUUID(currentUser.id)) {
-          throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
-        }
+          if (!isValidUUID(currentUser.id)) {
+            throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
+          }
 
-        if (currentUser.coins < skin.price) {
-          throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
-        }
+          if (currentUser.coins < skin.price) {
+            throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
+          }
 
-        const { data: existingUser, error: userCheckError } = await supabase
-          .from('users')
-          .select('id, coins')
-          .eq('id', currentUser.id)
-          .single();
-
-        let userCoins = currentUser.coins;
-        
-        if (userCheckError && userCheckError.code === 'PGRST116') {
-          console.log('Creating new user:', currentUser.id);
-          const { error: createError } = await supabase
+          const { data: existingUser, error: userCheckError } = await supabase
             .from('users')
+            .select('id, coins')
+            .eq('id', currentUser.id)
+            .single();
+
+          let userCoins = currentUser.coins;
+          
+          if (userCheckError && userCheckError.code === 'PGRST116') {
+            console.log('Creating new user:', currentUser.id);
+            const { error: createError } = await supabase
+              .from('users')
+              .insert({
+                id: currentUser.id,
+                username: currentUser.username,
+                coins: currentUser.coins
+              });
+
+            if (createError) {
+              console.error('Error creating user:', createError);
+              throw new Error('Не удалось создать пользователя');
+            }
+          } else if (userCheckError) {
+            console.error('Error checking user:', userCheckError);
+            throw new Error('Ошибка проверки пользователя');
+          } else {
+            userCoins = existingUser.coins;
+          }
+
+          if (userCoins < skin.price) {
+            throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
+          }
+
+          const newCoins = userCoins - skin.price;
+          const { error: coinsError } = await supabase
+            .from('users')
+            .update({ coins: newCoins })
+            .eq('id', currentUser.id);
+
+          if (coinsError) {
+            console.error('Error updating coins:', coinsError);
+            throw new Error('Не удалось списать монеты');
+          }
+
+          const { error: inventoryError } = await supabase
+            .from('user_inventory')
             .insert({
-              id: currentUser.id,
-              username: currentUser.username,
-              coins: currentUser.coins
+              id: generateUUID(),
+              user_id: currentUser.id,
+              skin_id: skin.id,
+              obtained_at: new Date().toISOString(),
+              is_sold: false
             });
 
-          if (createError) {
-            console.error('Error creating user:', createError);
-            throw new Error('Не удалось создать пользователя');
+          if (inventoryError) {
+            console.error('Error adding to inventory:', inventoryError);
+            await supabase
+              .from('users')
+              .update({ coins: userCoins })
+              .eq('id', currentUser.id);
+            throw new Error('Не удалось добавить в инвентарь');
           }
-        } else if (userCheckError) {
-          console.error('Error checking user:', userCheckError);
-          throw new Error('Ошибка проверки пользователя');
-        } else {
-          userCoins = existingUser.coins;
+
+          console.log('Purchase successful, new coins:', newCoins);
+          return { newCoins, purchasedSkin: skin };
+        } catch (error) {
+          console.error('Purchase error:', error);
+          throw error;
         }
-
-        if (userCoins < skin.price) {
-          throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
-        }
-
-        const newCoins = userCoins - skin.price;
-        const { error: coinsError } = await supabase
-          .from('users')
-          .update({ coins: newCoins })
-          .eq('id', currentUser.id);
-
-        if (coinsError) {
-          console.error('Error updating coins:', coinsError);
-          throw new Error('Не удалось списать монеты');
-        }
-
-        const { error: inventoryError } = await supabase
-          .from('user_inventory')
-          .insert({
-            id: generateUUID(),
-            user_id: currentUser.id,
-            skin_id: skin.id,
-            obtained_at: new Date().toISOString(),
-            is_sold: false
-          });
-
-        if (inventoryError) {
-          console.error('Error adding to inventory:', inventoryError);
-          await supabase
-            .from('users')
-            .update({ coins: userCoins })
-            .eq('id', currentUser.id);
-          throw new Error('Не удалось добавить в инвентарь');
-        }
-
-        console.log('Purchase successful, new coins:', newCoins);
-        return { newCoins, purchasedSkin: skin };
-      } catch (error) {
-        console.error('Purchase error:', error);
-        throw error;
-      }
+      });
     },
     onSuccess: async (data) => {
       onCoinsUpdate(data.newCoins);

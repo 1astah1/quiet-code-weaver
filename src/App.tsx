@@ -1,32 +1,25 @@
 
 import { useState, useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
+import ConnectionStatus from "@/components/ui/ConnectionStatus";
+import { createOptimizedQueryClient } from "@/utils/queryOptimization";
 
-// Оптимизированная конфигурация QueryClient
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 минут
-      gcTime: 10 * 60 * 1000, // 10 минут
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// Создаем оптимизированный QueryClient один раз
+const queryClient = createOptimizedQueryClient();
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Быстрая загрузка - уменьшаем время загрузки
+    // Быстрая загрузка с учетом качества соединения
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000);
+    }, 1500); // Уменьшили время загрузки
 
     // Предзагрузка критических стилей
     const preloadStyles = () => {
@@ -47,6 +40,7 @@ const App = () => {
       <TooltipProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-black overflow-hidden">
+            <ConnectionStatus />
             {isLoading ? <LoadingScreen /> : <MainApp />}
             <Toaster />
           </div>
