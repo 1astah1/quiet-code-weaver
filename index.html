@@ -8,21 +8,6 @@
     <!-- Enhanced viewport for WebView -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
-    <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://lovableproject.com;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' data: blob: https: http:;
-      font-src 'self' https://fonts.gstatic.com;
-      connect-src 'self' https: wss: ws:;
-      media-src 'self' blob:;
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-      frame-ancestors 'none';
-    " />
-    
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#f97316" />
@@ -50,22 +35,6 @@
     <!-- Preconnect to improve performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    
-    <style>
-      /* Keyboard handling styles */
-      .keyboard-visible {
-        height: 100vh !important;
-        overflow: hidden;
-      }
-      
-      /* Enhanced safe area support */
-      .safe-area-inset {
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
-      }
-    </style>
   </head>
   <body>
     <div id="root"></div>
