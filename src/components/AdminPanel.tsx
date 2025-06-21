@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import AdminTableSelector from "./admin/AdminTableSelector";
 import CaseManagement from "./admin/CaseManagement";
 import BannerManagement from "./admin/BannerManagement";
-import PromoCodeManagement from "./admin/PromoCodeManagement";
 import AddItemForm from "./admin/AddItemForm";
 import AdminTable from "./admin/AdminTable";
 import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
@@ -243,10 +242,6 @@ const AdminPanel = () => {
           <BannerManagement />
         )}
 
-        {activeTable === 'promo_codes' && (
-          <PromoCodeManagement />
-        )}
-
         {activeTable === 'cases' && (
           <CaseManagement
             tableData={tableData || []}
@@ -257,7 +252,7 @@ const AdminPanel = () => {
           />
         )}
 
-        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'promo_codes' && (
+        {activeTable !== 'cases' && activeTable !== 'banners' && (
           <>
             <AddItemForm
               activeTable={activeTable}

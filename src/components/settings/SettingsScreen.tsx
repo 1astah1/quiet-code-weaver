@@ -1,66 +1,88 @@
 
 import { useState } from "react";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Settings, 
-  Volume2, 
-  VolumeX, 
-  Smartphone, 
-  Shield, 
-  Globe,
-  Gift,
-  HelpCircle,
-  Star,
-  Link
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import SteamConnectionModal from "./SteamConnectionModal";
-import PremiumModal from "./PremiumModal";
+import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
 import FAQModal from "./FAQModal";
+import PremiumModal from "./PremiumModal";
+import ImprovedSteamConnectionModal from "./ImprovedSteamConnectionModal";
 import LanguageSelector from "./LanguageSelector";
-import { useLanguage } from "@/hooks/useLanguage";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SettingsScreenProps {
   currentUser: {
     id: string;
     username: string;
     coins: number;
-    isPremium: boolean;
+    language_code?: string;
+    sound_enabled?: boolean;
+    vibration_enabled?: boolean;
+    profile_private?: boolean;
   };
   onCoinsUpdate: (newCoins: number) => void;
 }
 
 const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => {
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const [profilePrivate, setProfilePrivate] = useState(false);
-  const [showSteamModal, setShowSteamModal] = useState(false);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showSteamModal, setShowSteamModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(currentUser.sound_enabled ?? true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(currentUser.vibration_enabled ?? true);
+  const [profilePrivate, setProfilePrivate] = useState(currentUser.profile_private ?? false);
   const { toast } = useToast();
-  const { currentLanguage, changeLanguage, isLoading: languageLoading } = useLanguage(currentUser.id);
 
-  const updateSetting = async (field: string, value: boolean) => {
+  const handleLanguageChange = async (languageCode: string) => {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ [field]: value })
+        .update({ language_code: languageCode })
         .eq('id', currentUser.id);
 
       if (error) throw error;
 
       toast({
-        title: "Настройки обновлены",
-        description: "Изменения сохранены",
+        title: "Язык изменен",
+        description: "Настройки языка успешно сохранены",
       });
     } catch (error) {
-      console.error('Error updating settings:', error);
+      console.error('Error updating language:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось изменить язык",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleSetting = async (setting: string, value: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ [setting]: value })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      switch (setting) {
+        case 'sound_enabled':
+          setSoundEnabled(value);
+          break;
+        case 'vibration_enabled':
+          setVibrationEnabled(value);
+          break;
+        case 'profile_private':
+          setProfilePrivate(value);
+          break;
+      }
+
+      toast({
+        title: "Настройки сохранены",
+        description: "Изменения успешно применены",
+      });
+    } catch (error) {
+      console.error('Error updating setting:', error);
       toast({
         title: "Ошибка",
         description: "Не удалось сохранить настройки",
@@ -69,179 +91,203 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
     }
   };
 
-  const handleSoundToggle = (enabled: boolean) => {
-    setSoundEnabled(enabled);
-    updateSetting('sound_enabled', enabled);
-  };
-
-  const handleVibrationToggle = (enabled: boolean) => {
-    setVibrationEnabled(enabled);
-    updateSetting('vibration_enabled', enabled);
-  };
-
-  const handlePrivacyToggle = (isPrivate: boolean) => {
-    setProfilePrivate(isPrivate);
-    updateSetting('profile_private', isPrivate);
-  };
-
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-          <Settings className="w-6 h-6 text-white" />
-        </div>
-        <h1 className="text-2xl font-bold text-white">Настройки</h1>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">Настройки</h1>
+        <p className="text-slate-400">Управление аккаунтом и предпочтениями</p>
       </div>
 
-      <div className="space-y-4 max-w-2xl mx-auto">
-        {/* Language Settings */}
-        <Card className="bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Globe className="w-5 h-5 text-blue-400" />
-              Язык приложения
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LanguageSelector
-              currentLanguage={currentLanguage}
-              onLanguageChange={changeLanguage}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Audio & Vibration Settings */}
-        <Card className="bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-lg">Звук и вибрация</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {soundEnabled ? 
-                  <Volume2 className="w-5 h-5 text-green-400" /> : 
-                  <VolumeX className="w-5 h-5 text-red-400" />
-                }
-                <span className="text-white">Звуки в игре</span>
-              </div>
-              <Switch
-                checked={soundEnabled}
-                onCheckedChange={handleSoundToggle}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Smartphone className="w-5 h-5 text-blue-400" />
-                <span className="text-white">Вибрация</span>
-              </div>
-              <Switch
-                checked={vibrationEnabled}
-                onCheckedChange={handleVibrationToggle}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Privacy Settings */}
-        <Card className="bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5 text-green-400" />
-              Приватность
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
+      <div className="space-y-6">
+        {/* Premium Section */}
+        <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-2 border-yellow-500/30 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <Crown className="w-8 h-8 text-yellow-400" />
               <div>
-                <span className="text-white">Приватный профиль</span>
-                <p className="text-gray-400 text-sm">Скрыть статистику от других игроков</p>
+                <h3 className="text-xl font-bold text-white">Премиум подписка</h3>
+                <p className="text-yellow-300 text-sm">Откройте все возможности</p>
               </div>
-              <Switch
-                checked={profilePrivate}
-                onCheckedChange={handlePrivacyToggle}
+            </div>
+            <div className="text-right">
+              <div className="text-yellow-400 font-bold text-lg">$5/мес</div>
+              <div className="text-yellow-300 text-xs">3 дня бесплатно</div>
+            </div>
+          </div>
+          <Button 
+            onClick={() => setShowPremiumModal(true)}
+            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl"
+          >
+            Получить премиум
+          </Button>
+        </div>
+
+        {/* Account Settings */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <User className="w-5 h-5 mr-2 text-orange-400" />
+            Аккаунт
+          </h3>
+          <div className="space-y-4">
+            <div 
+              onClick={() => setShowSteamModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <Link className="w-6 h-6 text-blue-400" />
+                <div>
+                  <h4 className="text-white font-medium">Подключить Steam</h4>
+                  <p className="text-slate-400 text-sm">Настройте вывод скинов</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+
+            <div 
+              onClick={() => setShowPromoModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <Gift className="w-6 h-6 text-pink-400" />
+                <div>
+                  <h4 className="text-white font-medium">Промокоды</h4>
+                  <p className="text-slate-400 text-sm">Активировать бонусы</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* App Settings */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <Settings className="w-5 h-5 mr-2 text-orange-400" />
+            Приложение
+          </h3>
+          <div className="space-y-4">
+            {/* Language */}
+            <div>
+              <label className="block text-white font-medium mb-2 flex items-center">
+                <Globe className="w-4 h-4 mr-2 text-blue-400" />
+                Язык приложения
+              </label>
+              <LanguageSelector 
+                currentLanguage={currentUser.language_code || 'ru'}
+                onLanguageChange={handleLanguageChange}
               />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Account & Services */}
-        <Card className="bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-lg">Аккаунт и сервисы</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              onClick={() => setShowSteamModal(true)}
-              className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all hover:scale-[1.02]"
-            >
-              <Link className="w-5 h-5 mr-2" />
-              Подключить Steam
-            </Button>
+            {/* Sound */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Volume2 className="w-6 h-6 text-green-400" />
+                <div>
+                  <h4 className="text-white font-medium">Звуки</h4>
+                  <p className="text-slate-400 text-sm">Звуковые эффекты</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('sound_enabled', !soundEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  soundEnabled ? 'bg-green-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  soundEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
 
-            <Button
-              onClick={() => setShowPremiumModal(true)}
-              className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 rounded-lg transition-all hover:scale-[1.02]"
-            >
-              <Star className="w-5 h-5 mr-2" />
-              Premium подписка
-              {currentUser.isPremium && (
-                <Badge className="ml-2 bg-yellow-600">Активна</Badge>
-              )}
-            </Button>
+            {/* Vibration */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Vibrate className="w-6 h-6 text-purple-400" />
+                <div>
+                  <h4 className="text-white font-medium">Вибрация</h4>
+                  <p className="text-slate-400 text-sm">Тактильные отклики</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('vibration_enabled', !vibrationEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  vibrationEnabled ? 'bg-purple-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  vibrationEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
 
-            <Button
-              onClick={() => setShowPromoModal(true)}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-lg transition-all hover:scale-[1.02]"
-            >
-              <Gift className="w-5 h-5 mr-2" />
-              Активировать промокод
-            </Button>
-          </CardContent>
-        </Card>
+            {/* Privacy */}
+            <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center space-x-3">
+                <Lock className="w-6 h-6 text-red-400" />
+                <div>
+                  <h4 className="text-white font-medium">Приватный профиль</h4>
+                  <p className="text-slate-400 text-sm">Скрыть статистику</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleSetting('profile_private', !profilePrivate)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  profilePrivate ? 'bg-red-500' : 'bg-slate-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  profilePrivate ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </div>
 
-        {/* Help & Support */}
-        <Card className="bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-lg">Помощь и поддержка</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => setShowFAQModal(true)}
-              variant="outline"
-              className="w-full border-slate-600 text-white hover:bg-slate-700"
-            >
-              <HelpCircle className="w-5 h-5 mr-2" />
-              Часто задаваемые вопросы
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Support */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <HelpCircle className="w-5 h-5 mr-2 text-orange-400" />
+            Поддержка
+          </h3>
+          <div 
+            onClick={() => setShowFAQModal(true)}
+            className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+          >
+            <div className="flex items-center space-x-3">
+              <HelpCircle className="w-6 h-6 text-green-400" />
+              <div>
+                <h4 className="text-white font-medium">Часто задаваемые вопросы</h4>
+                <p className="text-slate-400 text-sm">Найдите ответы на вопросы</p>
+              </div>
+            </div>
+            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+          </div>
+        </div>
       </div>
 
       {/* Modals */}
-      <SteamConnectionModal
-        isOpen={showSteamModal}
-        onClose={() => setShowSteamModal(false)}
-        currentUser={currentUser}
-      />
-
-      <PremiumModal
-        isOpen={showPremiumModal}
-        onClose={() => setShowPremiumModal(false)}
-        currentUser={currentUser}
-        onCoinsUpdate={onCoinsUpdate}
-      />
-
-      <PromoCodeModal
+      <PromoCodeModal 
         isOpen={showPromoModal}
         onClose={() => setShowPromoModal(false)}
         currentUser={currentUser}
         onCoinsUpdate={onCoinsUpdate}
       />
-
-      <FAQModal
+      
+      <FAQModal 
         isOpen={showFAQModal}
         onClose={() => setShowFAQModal(false)}
+      />
+      
+      <PremiumModal 
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+      />
+      
+      <ImprovedSteamConnectionModal 
+        isOpen={showSteamModal}
+        onClose={() => setShowSteamModal(false)}
+        currentUser={currentUser}
       />
     </div>
   );
