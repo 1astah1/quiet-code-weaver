@@ -1,10 +1,11 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, CheckCircle, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DailyRewardsCalendar from "@/components/DailyRewardsCalendar";
 import { useSecureTaskProgress } from "@/hooks/useSecureTaskProgress";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface TasksScreenProps {
   currentUser: {
@@ -110,21 +111,26 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
               }`}
             >
               <div className="flex items-center">
-                {task.image_url && (
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 mr-3 sm:mr-4 flex-shrink-0">
-                    <OptimizedImage
+                <div className="w-12 h-12 sm:w-16 sm:h-16 mr-3 sm:mr-4 flex-shrink-0">
+                  {task.image_url ? (
+                    <LazyImage
                       src={task.image_url}
                       alt={task.title}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover rounded-lg border border-gray-600/30"
+                      timeout={3000}
                       fallback={
-                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
+                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600/30">
                           <Gift className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                         </div>
                       }
                       onError={() => console.log('Failed to load task image for:', task.title)}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600/30">
+                      <Gift className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">

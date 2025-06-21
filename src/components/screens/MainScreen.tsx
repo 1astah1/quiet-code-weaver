@@ -5,7 +5,7 @@ import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-r
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
 import BannerCarousel from "@/components/BannerCarousel";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import LazyImage from "@/components/ui/LazyImage";
 import { Screen } from "@/components/MainApp";
 
 interface MainScreenProps {
@@ -118,10 +118,11 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                 {favoriteSkins.slice(0, 3).map((skin: any) => (
                   <div key={skin.id} className="bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center border border-gray-600/30">
                     {skin.image_url ? (
-                      <OptimizedImage 
+                      <LazyImage 
                         src={skin.image_url} 
                         alt={skin.name}
                         className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-1 sm:mb-2 object-contain"
+                        timeout={3000}
                         fallback={
                           <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-600 rounded-lg mx-auto mb-1 sm:mb-2 flex items-center justify-center">
                             <span className="text-lg sm:text-2xl">🎯</span>
@@ -234,12 +235,13 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                 <div className="flex items-center flex-1 min-w-0">
                   {task.image_url && (
                     <div className="w-10 h-10 sm:w-12 sm:h-12 mr-3 sm:mr-4 flex-shrink-0">
-                      <OptimizedImage
+                      <LazyImage
                         src={task.image_url}
                         alt={task.title}
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full h-full object-cover rounded-lg border border-gray-600/30"
+                        timeout={3000}
                         fallback={
-                          <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
+                          <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600/30">
                             <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
                           </div>
                         }
