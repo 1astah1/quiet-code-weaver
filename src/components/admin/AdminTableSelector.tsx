@@ -15,6 +15,7 @@ const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorPr
     { key: "users", label: "Пользователи" },
     { key: "tasks", label: "Задания" },
     { key: "quiz_questions", label: "Вопросы викторины" },
+    { key: "daily_rewards", label: "Ежедневные награды" },
   ];
 
   return (
