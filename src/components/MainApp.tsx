@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +15,7 @@ import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
 import { useToast } from "@/hooks/use-toast";
 import { auditLog } from "@/utils/security";
+import BottomNavigation from "@/components/BottomNavigation";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -101,7 +101,11 @@ const MainApp = () => {
         streak: userData.quiz_streak || 0,
         isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
         isAdmin: userData.is_admin || false,
-        avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture
+        avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
+        language_code: userData.language_code || 'ru',
+        sound_enabled: userData.sound_enabled,
+        vibration_enabled: userData.vibration_enabled,
+        profile_private: userData.profile_private
       };
 
       setCurrentUser(userProfile);
@@ -261,66 +265,11 @@ const MainApp = () => {
           </main>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-40">
-          <div className="grid grid-cols-4 max-w-md mx-auto">
-            <button
-              onClick={() => setCurrentScreen('main')}
-              className={`flex flex-col items-center py-2 px-1 text-xs ${
-                currentScreen === 'main' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              <img 
-                src="/lovable-uploads/47a122b5-c1e7-44cd-af3e-d4ae59ce6838.png" 
-                alt="Главная" 
-                className={`w-6 h-6 mb-1 ${currentScreen === 'main' ? 'brightness-0 invert' : 'opacity-60'}`}
-              />
-              <span>Главная</span>
-            </button>
-            
-            <button
-              onClick={() => setCurrentScreen('skins')}
-              className={`flex flex-col items-center py-2 px-1 text-xs ${
-                currentScreen === 'skins' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              <img 
-                src="/lovable-uploads/7872de96-7d2a-441b-a062-58e9068a686b.png" 
-                alt="Кейсы" 
-                className={`w-6 h-6 mb-1 ${currentScreen === 'skins' ? 'brightness-0 invert' : 'opacity-60'}`}
-              />
-              <span>Кейсы</span>
-            </button>
-            
-            <button
-              onClick={() => setCurrentScreen('quiz')}
-              className={`flex flex-col items-center py-2 px-1 text-xs ${
-                currentScreen === 'quiz' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              <img 
-                src="/lovable-uploads/60a00c47-4bb3-4bb2-b7f0-01299fbde885.png" 
-                alt="Викторина" 
-                className={`w-6 h-6 mb-1 ${currentScreen === 'quiz' ? 'brightness-0 invert' : 'opacity-60'}`}
-              />
-              <span>Викторина</span>
-            </button>
-            
-            <button
-              onClick={() => setCurrentScreen('tasks')}
-              className={`flex flex-col items-center py-2 px-1 text-xs ${
-                currentScreen === 'tasks' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              <img 
-                src="/lovable-uploads/bc1fd348-a889-4ecf-8b2a-d806d4a84459.png" 
-                alt="Задания" 
-                className={`w-6 h-6 mb-1 ${currentScreen === 'tasks' ? 'brightness-0 invert' : 'opacity-60'}`}
-              />
-              <span>Задания</span>
-            </button>
-          </div>
-        </div>
+        <BottomNavigation 
+          currentScreen={currentScreen}
+          onScreenChange={setCurrentScreen}
+          currentLanguage={currentUser?.language_code}
+        />
 
         <Sidebar
           isOpen={isSidebarOpen}

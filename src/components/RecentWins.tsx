@@ -1,8 +1,14 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const RecentWins = () => {
+interface RecentWinsProps {
+  currentLanguage?: string;
+}
+
+const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
+  const { t } = useTranslation(currentLanguage);
+
   const { data: recentWins, isLoading, error } = useQuery({
     queryKey: ['recent-wins'],
     queryFn: async () => {
@@ -77,9 +83,9 @@ const RecentWins = () => {
   if (isLoading) {
     return (
       <div className="mb-6">
-        <h3 className="text-xl font-bold text-white mb-4">Последние выигрыши</h3>
+        <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
         <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20">
-          <p className="text-gray-400 text-center py-4">Загрузка...</p>
+          <p className="text-gray-400 text-center py-4">{t('loading')}</p>
         </div>
       </div>
     );
@@ -89,9 +95,9 @@ const RecentWins = () => {
     console.error('Recent wins error:', error);
     return (
       <div className="mb-6">
-        <h3 className="text-xl font-bold text-white mb-4">Последние выигрыши</h3>
+        <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
         <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20">
-          <p className="text-red-400 text-center py-4">Ошибка загрузки выигрышей</p>
+          <p className="text-red-400 text-center py-4">{t('errorLoadingWins')}</p>
         </div>
       </div>
     );
@@ -99,7 +105,7 @@ const RecentWins = () => {
 
   return (
     <div className="mb-6">
-      <h3 className="text-xl font-bold text-white mb-4">Последние выигрыши</h3>
+      <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
       <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20 max-h-60 overflow-y-auto">
         {recentWins && recentWins.length > 0 ? (
           <div className="space-y-2">
@@ -113,22 +119,22 @@ const RecentWins = () => {
                   </div>
                   <div>
                     <p className="text-white text-sm font-medium">
-                      {win.users?.username || 'Игрок'}
+                      {win.users?.username || t('player')}
                     </p>
-                    <p className="text-gray-400 text-xs">выиграл</p>
+                    <p className="text-gray-400 text-xs">{t('won')}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
-                    {win.skins?.name || 'Неизвестный предмет'}
+                    {win.skins?.name || t('unknownItem')}
                   </p>
-                  <p className="text-gray-400 text-xs">{win.skins?.weapon_type || 'Предмет'}</p>
+                  <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-gray-400 text-center py-4">Пока никто ничего не выиграл</p>
+          <p className="text-gray-400 text-center py-4">{t('noWinsYet')}</p>
         )}
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
@@ -9,6 +8,7 @@ import LanguageSelector from "./LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface SettingsScreenProps {
   currentUser: {
@@ -24,6 +24,8 @@ interface SettingsScreenProps {
 }
 
 const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => {
+  const { t } = useTranslation(currentUser.language_code);
+  
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -43,14 +45,17 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
       if (error) throw error;
 
       toast({
-        title: "Язык изменен",
-        description: "Настройки языка успешно сохранены",
+        title: t('languageChanged'),
+        description: t('languageSettingsSaved'),
       });
+
+      // Refresh the page to apply new language
+      window.location.reload();
     } catch (error) {
       console.error('Error updating language:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось изменить язык",
+        title: t('error'),
+        description: t('failedToChangeLanguage'),
         variant: "destructive",
       });
     }
@@ -78,14 +83,14 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
       }
 
       toast({
-        title: "Настройки сохранены",
-        description: "Изменения успешно применены",
+        title: t('settingsSaved'),
+        description: t('changesApplied'),
       });
     } catch (error) {
       console.error('Error updating setting:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось сохранить настройки",
+        title: t('error'),
+        description: t('failedToSaveSettings'),
         variant: "destructive",
       });
     }
@@ -95,8 +100,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
     <div className="min-h-screen pb-20 px-4 pt-4">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Настройки</h1>
-        <p className="text-slate-400">Управление аккаунтом и предпочтениями</p>
+        <h1 className="text-3xl font-bold text-white mb-2">{t('settings')}</h1>
+        <p className="text-slate-400">{t('accountManagement')}</p>
       </div>
 
       <div className="space-y-6">
@@ -106,8 +111,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             <div className="flex items-center space-x-3">
               <Crown className="w-8 h-8 text-yellow-400" />
               <div>
-                <h3 className="text-xl font-bold text-white">Премиум подписка</h3>
-                <p className="text-yellow-300 text-sm">Откройте все возможности</p>
+                <h3 className="text-xl font-bold text-white">{t('premiumSubscription')}</h3>
+                <p className="text-yellow-300 text-sm">{t('unlockAllFeatures')}</p>
               </div>
             </div>
             <div className="text-right">
@@ -119,7 +124,7 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             onClick={() => setShowPremiumModal(true)}
             className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl"
           >
-            Получить премиум
+            {t('getPremium')}
           </Button>
         </div>
 
@@ -127,7 +132,7 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
             <User className="w-5 h-5 mr-2 text-orange-400" />
-            Аккаунт
+            {t('accountSettings')}
           </h3>
           <div className="space-y-4">
             <div 
@@ -137,8 +142,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
               <div className="flex items-center space-x-3">
                 <Link className="w-6 h-6 text-blue-400" />
                 <div>
-                  <h4 className="text-white font-medium">Подключить Steam</h4>
-                  <p className="text-slate-400 text-sm">Настройте вывод скинов</p>
+                  <h4 className="text-white font-medium">{t('connectSteam')}</h4>
+                  <p className="text-slate-400 text-sm">{t('setupSkinWithdrawal')}</p>
                 </div>
               </div>
               <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
@@ -151,8 +156,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
               <div className="flex items-center space-x-3">
                 <Gift className="w-6 h-6 text-pink-400" />
                 <div>
-                  <h4 className="text-white font-medium">Промокоды</h4>
-                  <p className="text-slate-400 text-sm">Активировать бонусы</p>
+                  <h4 className="text-white font-medium">{t('promoCodes')}</h4>
+                  <p className="text-slate-400 text-sm">{t('activateBonuses')}</p>
                 </div>
               </div>
               <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
@@ -164,14 +169,14 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
             <Settings className="w-5 h-5 mr-2 text-orange-400" />
-            Приложение
+            {t('appSettings')}
           </h3>
           <div className="space-y-4">
             {/* Language */}
             <div>
               <label className="block text-white font-medium mb-2 flex items-center">
                 <Globe className="w-4 h-4 mr-2 text-blue-400" />
-                Язык приложения
+                {t('appLanguage')}
               </label>
               <LanguageSelector 
                 currentLanguage={currentUser.language_code || 'ru'}
@@ -184,8 +189,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
               <div className="flex items-center space-x-3">
                 <Volume2 className="w-6 h-6 text-green-400" />
                 <div>
-                  <h4 className="text-white font-medium">Звуки</h4>
-                  <p className="text-slate-400 text-sm">Звуковые эффекты</p>
+                  <h4 className="text-white font-medium">{t('sounds')}</h4>
+                  <p className="text-slate-400 text-sm">{t('soundEffects')}</p>
                 </div>
               </div>
               <button
@@ -205,8 +210,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
               <div className="flex items-center space-x-3">
                 <Vibrate className="w-6 h-6 text-purple-400" />
                 <div>
-                  <h4 className="text-white font-medium">Вибрация</h4>
-                  <p className="text-slate-400 text-sm">Тактильные отклики</p>
+                  <h4 className="text-white font-medium">{t('vibration')}</h4>
+                  <p className="text-slate-400 text-sm">{t('tactileFeedback')}</p>
                 </div>
               </div>
               <button
@@ -226,8 +231,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
               <div className="flex items-center space-x-3">
                 <Lock className="w-6 h-6 text-red-400" />
                 <div>
-                  <h4 className="text-white font-medium">Приватный профиль</h4>
-                  <p className="text-slate-400 text-sm">Скрыть статистику</p>
+                  <h4 className="text-white font-medium">{t('privateProfile')}</h4>
+                  <p className="text-slate-400 text-sm">{t('hideStats')}</p>
                 </div>
               </div>
               <button
@@ -248,7 +253,7 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
             <HelpCircle className="w-5 h-5 mr-2 text-orange-400" />
-            Поддержка
+            {t('support')}
           </h3>
           <div 
             onClick={() => setShowFAQModal(true)}
@@ -257,8 +262,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             <div className="flex items-center space-x-3">
               <HelpCircle className="w-6 h-6 text-green-400" />
               <div>
-                <h4 className="text-white font-medium">Часто задаваемые вопросы</h4>
-                <p className="text-slate-400 text-sm">Найдите ответы на вопросы</p>
+                <h4 className="text-white font-medium">{t('faq')}</h4>
+                <p className="text-slate-400 text-sm">{t('findAnswers')}</p>
               </div>
             </div>
             <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
