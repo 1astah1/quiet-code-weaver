@@ -46,8 +46,8 @@ export const useSecureCaseOpening = () => {
       try {
         console.log('Opening case securely:', { userId, caseId, skinId, isFree });
         
-        // Используем новую улучшенную функцию открытия кейса
-        const { data, error } = await supabase.rpc('safe_open_case_v2', {
+        // Используем существующую функцию открытия кейса
+        const { data, error } = await supabase.rpc('safe_open_case', {
           p_user_id: userId,
           p_case_id: caseId,
           p_skin_id: skinId,

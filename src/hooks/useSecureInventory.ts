@@ -133,8 +133,8 @@ export const useSecureSellSkin = () => {
           throw new Error('Не удалось продать скин');
         }
 
-        // Обновляем баланс пользователя используя новую функцию
-        const { error: coinsError } = await supabase.rpc('safe_update_coins_v3', {
+        // Обновляем баланс пользователя используя существующую функцию
+        const { error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
           p_user_id: userId,
           p_coin_change: sellPrice,
           p_operation_type: 'skin_sell'

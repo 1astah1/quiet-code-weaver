@@ -128,8 +128,8 @@ export const useSecureQuiz = () => {
       }
 
       try {
-        // Используем новую функцию проверки временных ограничений
-        const { data: canRestore, error: checkError } = await supabase.rpc('check_time_limit_v2', {
+        // Используем существующую функцию проверки временных ограничений
+        const { data: canRestore, error: checkError } = await supabase.rpc('check_time_limit', {
           p_user_id: userId,
           p_action_type: 'life_restore',
           p_interval_minutes: 120
