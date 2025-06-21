@@ -1,0 +1,29 @@
+
+{
+  "name": "FastMarket - CS2 Case Opening",
+  "short_name": "FastMarket",
+  "description": "CS2 Case Opening and Skin Trading Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#f97316",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/lovable-uploads/de98774e-404c-4e90-97b7-c6a0119e942d.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "ru",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}

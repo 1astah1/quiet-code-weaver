@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
+import WebViewOptimizer from "@/components/WebViewOptimizer";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
+          <WebViewOptimizer />
           <div className="min-h-screen bg-black overflow-hidden">
             {isLoading ? <LoadingScreen /> : <MainApp />}
             <Toaster />
