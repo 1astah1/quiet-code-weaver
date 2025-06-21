@@ -7,15 +7,37 @@ import { Toaster } from "@/components/ui/toaster";
 import LoadingScreen from "@/components/LoadingScreen";
 import MainApp from "@/components/MainApp";
 
-const queryClient = new QueryClient();
+// Оптимизированная конфигурация QueryClient
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 минут
+      gcTime: 10 * 60 * 1000, // 10 минут
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Быстрая загрузка - уменьшаем время загрузки
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 3000);
+    }, 2000);
+
+    // Предзагрузка критических стилей
+    const preloadStyles = () => {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.href = '/index.css';
+      link.as = 'style';
+      document.head.appendChild(link);
+    };
+
+    preloadStyles();
 
     return () => clearTimeout(timer);
   }, []);
