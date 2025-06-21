@@ -2,7 +2,7 @@
 class LoadingOptimizer {
   private static instance: LoadingOptimizer;
   private loadingStates = new Map<string, boolean>();
-  private minimumLoadTime = 800; // Минимальное время загрузки для UX
+  private minimumLoadTime = 550; // Уменьшаем минимальное время загрузки
   private loadStartTimes = new Map<string, number>();
 
   public static getInstance(): LoadingOptimizer {

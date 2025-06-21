@@ -30,7 +30,6 @@ class ConnectionOptimizer {
       }
     }
 
-    // Fallback: test connection speed
     this.testConnectionSpeed();
   }
 
@@ -44,7 +43,7 @@ class ConnectionOptimizer {
       const endTime = performance.now();
       const latency = endTime - startTime;
       
-      if (latency > 1000) {
+      if (latency > 800) { // Уменьшаем порог для определения медленного соединения
         this.connectionQuality = 'slow';
       } else {
         this.connectionQuality = 'fast';
@@ -74,20 +73,7 @@ class ConnectionOptimizer {
       throw new Error('No internet connection');
     }
 
-    if (this.connectionQuality === 'slow') {
-      return new Promise((resolve, reject) => {
-        this.requestQueue.push(async () => {
-          try {
-            const result = await fetchFn();
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
-        });
-        this.processQueue();
-      });
-    }
-
+    // Упрощаем логику - убираем очередь для быстрой загрузки
     return fetchFn();
   }
 
@@ -103,9 +89,8 @@ class ConnectionOptimizer {
       if (request) {
         try {
           await request();
-          // Small delay between requests for slow connections
           if (this.connectionQuality === 'slow') {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 50)); // Уменьшаем задержку
           }
         } catch (error) {
           console.error('Queue request failed:', error);
@@ -118,8 +103,8 @@ class ConnectionOptimizer {
 
   public getOptimizedQueryConfig() {
     const baseConfig = {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      staleTime: 3 * 60 * 1000, // Уменьшаем время кэша
+      gcTime: 5 * 60 * 1000,
       retry: 1,
       refetchOnWindowFocus: false,
     };
@@ -127,9 +112,9 @@ class ConnectionOptimizer {
     if (this.connectionQuality === 'slow') {
       return {
         ...baseConfig,
-        staleTime: 10 * 60 * 1000, // Увеличиваем время кэша для медленного соединения
-        retry: 3,
-        retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 15000),
       };
     }
 
