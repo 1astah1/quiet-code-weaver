@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,7 +212,7 @@ const MainApp = () => {
 
         {/* Bottom Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-40">
-          <div className="grid grid-cols-5 max-w-md mx-auto">
+          <div className="grid grid-cols-4 max-w-md mx-auto">
             <button
               onClick={() => setCurrentScreen('main')}
               className={`flex flex-col items-center py-2 px-1 text-xs ${
@@ -252,16 +251,6 @@ const MainApp = () => {
             >
               <span className="text-lg mb-1">📋</span>
               <span>Задания</span>
-            </button>
-            
-            <button
-              onClick={() => setCurrentScreen('inventory')}
-              className={`flex flex-col items-center py-2 px-1 text-xs ${
-                currentScreen === 'inventory' ? 'text-orange-500' : 'text-gray-400'
-              }`}
-            >
-              <span className="text-lg mb-1">🎯</span>
-              <span>Инвентарь</span>
             </button>
           </div>
         </div>
