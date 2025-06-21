@@ -53,8 +53,10 @@ export const useCases = () => {
         throw error;
       }
     },
-    retry: 3,
-    retryDelay: 1000
+    retry: 2,
+    retryDelay: 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false
   });
 };
 
@@ -62,7 +64,7 @@ export const useCaseSkins = (caseId: string | null) => {
   return useQuery({
     queryKey: ['case-skins', caseId],
     queryFn: async () => {
-      if (!caseId) return [];
+      if (!caseId || !isValidUUID(caseId)) return [];
       
       try {
         console.log('Fetching case skins for case:', caseId);
@@ -78,7 +80,7 @@ export const useCaseSkins = (caseId: string | null) => {
         
         if (error) {
           console.error('Error fetching case skins:', error);
-          throw error;
+          return [];
         }
         
         console.log('Case skins fetched successfully:', data?.length || 0);
@@ -88,8 +90,10 @@ export const useCaseSkins = (caseId: string | null) => {
         return [];
       }
     },
-    enabled: !!caseId,
-    retry: 2
+    enabled: !!caseId && isValidUUID(caseId),
+    retry: 1,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false
   });
 };
 
@@ -97,23 +101,36 @@ export const useUserFavorites = (userId: string) => {
   return useQuery({
     queryKey: ['user-favorites', userId],
     queryFn: async () => {
-      if (!isValidUUID(userId)) {
-        console.log('Invalid user ID for favorites');
+      // Предотвращаем запрос для невалидного userId
+      if (!userId || !isValidUUID(userId)) {
+        console.log('Invalid user ID for favorites:', userId);
         return [];
       }
       
       try {
-        // Проверяем аутентификацию перед запросом
+        // Проверяем сессию только один раз
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
+        if (sessionError) {
+          console.log('Session error for favorites:', sessionError);
+          return [];
+        }
+        
+        if (!session?.user) {
           console.log('No valid session for favorites');
+          return [];
+        }
+
+        // Проверяем, что userId совпадает с текущим пользователем
+        if (session.user.id !== userId) {
+          console.log('User ID mismatch for favorites');
           return [];
         }
         
         const { data, error } = await supabase
           .from('user_favorites')
           .select('case_id')
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .limit(100); // Ограничиваем количество
         
         if (error) {
           console.error('Error loading favorites:', error);
@@ -127,7 +144,10 @@ export const useUserFavorites = (userId: string) => {
       }
     },
     enabled: !!userId && isValidUUID(userId),
-    retry: 2
+    retry: 1,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
+    refetchInterval: false
   });
 };
 
@@ -155,9 +175,14 @@ export const useToggleFavorite = () => {
           .from('users')
           .select('id')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
-        if (userCheckError && userCheckError.code === 'PGRST116') {
+        if (userCheckError && userCheckError.code !== 'PGRST116') {
+          console.error('Error checking user:', userCheckError);
+          throw new Error('Ошибка проверки пользователя');
+        }
+
+        if (!existingUser) {
           console.log('Creating user for favorites');
           const { error: createError } = await supabase
             .from('users')
@@ -172,9 +197,6 @@ export const useToggleFavorite = () => {
             console.error('Error creating user:', createError);
             throw new Error('Не удалось создать пользователя');
           }
-        } else if (userCheckError) {
-          console.error('Error checking user:', userCheckError);
-          throw new Error('Ошибка проверки пользователя');
         }
         
         if (isFavorite) {
@@ -190,18 +212,28 @@ export const useToggleFavorite = () => {
             throw new Error('Не удалось убрать из избранного');
           }
         } else {
-          // Добавляем в избранное
-          const { error } = await supabase
+          // Проверяем, не существует ли уже такая запись
+          const { data: existing } = await supabase
             .from('user_favorites')
-            .insert({
-              id: generateUUID(),
-              user_id: userId,
-              case_id: caseId
-            });
-          
-          if (error) {
-            console.error('Error adding favorite:', error);
-            throw new Error('Не удалось добавить в избранное');
+            .select('id')
+            .eq('user_id', userId)
+            .eq('case_id', caseId)
+            .maybeSingle();
+
+          if (!existing) {
+            // Добавляем в избранное
+            const { error } = await supabase
+              .from('user_favorites')
+              .insert({
+                id: generateUUID(),
+                user_id: userId,
+                case_id: caseId
+              });
+            
+            if (error) {
+              console.error('Error adding favorite:', error);
+              throw new Error('Не удалось добавить в избранное');
+            }
           }
         }
         
@@ -212,7 +244,11 @@ export const useToggleFavorite = () => {
       }
     },
     onSuccess: (_, { userId }) => {
-      queryClient.invalidateQueries({ queryKey: ['user-favorites', userId] });
+      // Обновляем кэш более аккуратно
+      queryClient.invalidateQueries({ 
+        queryKey: ['user-favorites', userId],
+        exact: true 
+      });
     },
     onError: (error: any) => {
       console.error('Favorite mutation error:', error);
@@ -249,7 +285,7 @@ export const useOpenCase = () => {
             .from('users')
             .select('last_free_case_notification')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
           if (!userDataError && userData?.last_free_case_notification) {
             const lastOpen = new Date(userData.last_free_case_notification);
@@ -274,11 +310,16 @@ export const useOpenCase = () => {
           .from('users')
           .select('id, coins')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         let actualCoins = userCoins;
 
-        if (userCheckError && userCheckError.code === 'PGRST116') {
+        if (userCheckError && userCheckError.code !== 'PGRST116') {
+          console.error('Error checking user:', userCheckError);
+          throw new Error('Ошибка проверки пользователя');
+        }
+
+        if (!existingUser) {
           console.log('Creating new user for case opening');
           const { error: createError } = await supabase
             .from('users')
@@ -292,9 +333,6 @@ export const useOpenCase = () => {
             console.error('Error creating user:', createError);
             throw new Error('Не удалось создать пользователя');
           }
-        } else if (userCheckError) {
-          console.error('Error checking user:', userCheckError);
-          throw new Error('Ошибка проверки пользователя');
         } else {
           actualCoins = existingUser.coins;
         }
@@ -427,6 +465,7 @@ export const useOpenCase = () => {
         description: error.message || "Не удалось открыть кейс",
         variant: "destructive",
       });
-    }
+    },
+    retry: 1
   });
 };
