@@ -3,23 +3,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import MainScreen from "@/components/screens/MainScreen";
+import SkinsScreen from "@/components/screens/SkinsScreen";
+import QuizScreen from "@/components/screens/QuizScreen";
+import TasksScreen from "@/components/screens/TasksScreen";
+import InventoryScreen from "@/components/inventory/InventoryScreen";
+import SettingsScreen from "@/components/settings/SettingsScreen";
+import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
+import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
-import BottomNavigation from "@/components/BottomNavigation";
-import LazyWrapper from "@/components/ui/LazyWrapper";
 import { useToast } from "@/hooks/use-toast";
 import { auditLog } from "@/utils/security";
+import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/hooks/useTranslation";
-import {
-  LazyMainScreen,
-  LazySkinsScreen,
-  LazyQuizScreen,
-  LazyTasksScreen,
-  LazyInventoryScreen,
-  LazySettingsScreen,
-  LazyAdminPanel,
-  LazyCaseOpeningAnimation
-} from "@/utils/lazyComponents";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -57,13 +54,14 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
-      // Более быстрая загрузка данных пользователя
+      // Пытаемся найти пользователя сначала по внутреннему ID
       let { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
+      // Если не найден по внутреннему ID, ищем по auth_id
       if (!userData && user.id) {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
@@ -82,6 +80,7 @@ const MainApp = () => {
 
       if (error) {
         console.error('Error loading user data:', error);
+        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
         setIsLoading(false);
         return;
       }
@@ -97,6 +96,7 @@ const MainApp = () => {
         return;
       }
 
+      // Get auth user data for avatar
       const { data: { user: authUser } } = await supabase.auth.getUser();
 
       const userProfile = {
@@ -115,10 +115,10 @@ const MainApp = () => {
       };
 
       setCurrentUser(userProfile);
-      // Убираем лишние логи для ускорения
-      console.log('User data loaded successfully');
+      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
     } catch (error) {
       console.error('Error loading user data:', error);
+      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
     } finally {
       setIsLoading(false);
     }
@@ -174,13 +174,12 @@ const MainApp = () => {
     setCurrentScreen(screen as Screen);
   };
 
-  // Упрощенный лоадер без задержек
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-white text-sm">{t('loading')}</p>
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">{t('loading')}</p>
         </div>
       </div>
     );
@@ -191,78 +190,69 @@ const MainApp = () => {
   }
 
   const renderScreen = () => {
-    const commonProps = {
-      currentUser,
-      onCoinsUpdate: handleCoinsUpdate
-    };
-
     switch (currentScreen) {
       case 'main':
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazyMainScreen 
-              {...commonProps}
-              onScreenChange={setCurrentScreen}
-            />
-          </LazyWrapper>
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
         );
       case 'skins':
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazySkinsScreen {...commonProps} />
-          </LazyWrapper>
+          <SkinsScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
         );
       case 'quiz':
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazyQuizScreen 
-              currentUser={{
-                id: currentUser.id,
-                username: currentUser.username,
-                coins: currentUser.coins,
-                quiz_lives: currentUser.lives,
-                quiz_streak: currentUser.streak
-              }}
-              onCoinsUpdate={handleCoinsUpdate}
-              onBack={() => setCurrentScreen('main')}
-              onLivesUpdate={handleLivesUpdate}
-              onStreakUpdate={handleStreakUpdate}
-            />
-          </LazyWrapper>
+          <QuizScreen 
+            currentUser={{
+              id: currentUser.id,
+              username: currentUser.username,
+              coins: currentUser.coins,
+              quiz_lives: currentUser.lives,
+              quiz_streak: currentUser.streak
+            }}
+            onCoinsUpdate={handleCoinsUpdate}
+            onBack={() => setCurrentScreen('main')}
+            onLivesUpdate={handleLivesUpdate}
+            onStreakUpdate={handleStreakUpdate}
+          />
         );
       case 'tasks':
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazyTasksScreen {...commonProps} />
-          </LazyWrapper>
+          <TasksScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
         );
       case 'inventory':
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazyInventoryScreen {...commonProps} />
-          </LazyWrapper>
+          <InventoryScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
         );
       case 'settings':
-        return (
-          <LazyWrapper className="min-h-screen">
-            <LazySettingsScreen {...commonProps} />
-          </LazyWrapper>
-        );
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'admin':
-        return currentUser.isAdmin ? (
-          <LazyWrapper className="min-h-screen">
-            <LazyAdminPanel />
-          </LazyWrapper>
-        ) : (
-          <LazyWrapper className="min-h-screen">
-            <LazyMainScreen {...commonProps} onScreenChange={setCurrentScreen} />
-          </LazyWrapper>
+        return currentUser.isAdmin ? <AdminPanel /> : (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
         );
       default:
         return (
-          <LazyWrapper className="min-h-screen">
-            <LazyMainScreen {...commonProps} onScreenChange={setCurrentScreen} />
-          </LazyWrapper>
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
         );
     }
   };
@@ -300,14 +290,12 @@ const MainApp = () => {
         />
 
         {openingCase && (
-          <LazyWrapper>
-            <LazyCaseOpeningAnimation
-              caseItem={openingCase}
-              onClose={() => setOpeningCase(null)}
-              currentUser={currentUser}
-              onCoinsUpdate={handleCoinsUpdate}
-            />
-          </LazyWrapper>
+          <CaseOpeningAnimation
+            caseItem={openingCase}
+            onClose={() => setOpeningCase(null)}
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
         )}
       </div>
     </div>
