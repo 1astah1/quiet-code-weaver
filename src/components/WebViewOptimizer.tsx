@@ -39,7 +39,7 @@ const WebViewOptimizer = () => {
     if (isIOS) {
       console.log('🍎 [WEBVIEW_OPTIMIZER] iOS detected, applying iOS optimizations');
       document.body.style.webkitUserSelect = 'none';
-      document.body.style.webkitTouchCallout = 'none';
+      (document.body.style as any).webkitTouchCallout = 'none';
     }
     
     // Оптимизация для Android WebView
@@ -64,8 +64,9 @@ const WebViewOptimizer = () => {
     const optimizeScroll = () => {
       const scrollElements = document.querySelectorAll('[data-scroll-optimized]');
       scrollElements.forEach(element => {
-        (element as HTMLElement).style.webkitOverflowScrolling = 'touch';
-        (element as HTMLElement).style.overflowScrolling = 'touch';
+        const elementStyle = (element as HTMLElement).style as any;
+        elementStyle.webkitOverflowScrolling = 'touch';
+        elementStyle.overflowScrolling = 'touch';
       });
     };
     
