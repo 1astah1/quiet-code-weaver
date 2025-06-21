@@ -23,10 +23,10 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Простая загрузка без сложных оптимизаций
+    // Быстрая загрузка - только 500ms
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1500); // Фиксированное быстрое время загрузки
+    }, 500);
 
     return () => clearTimeout(timer);
   }, []);
