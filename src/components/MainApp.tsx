@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -269,7 +270,11 @@ const MainApp = () => {
                 currentScreen === 'main' ? 'text-orange-500' : 'text-gray-400'
               }`}
             >
-              <span className="text-lg mb-1">🏠</span>
+              <img 
+                src="/lovable-uploads/47a122b5-c1e7-44cd-af3e-d4ae59ce6838.png" 
+                alt="Главная" 
+                className={`w-6 h-6 mb-1 ${currentScreen === 'main' ? 'brightness-0 invert' : 'opacity-60'}`}
+              />
               <span>Главная</span>
             </button>
             
@@ -279,7 +284,11 @@ const MainApp = () => {
                 currentScreen === 'skins' ? 'text-orange-500' : 'text-gray-400'
               }`}
             >
-              <span className="text-lg mb-1">🎁</span>
+              <img 
+                src="/lovable-uploads/7872de96-7d2a-441b-a062-58e9068a686b.png" 
+                alt="Кейсы" 
+                className={`w-6 h-6 mb-1 ${currentScreen === 'skins' ? 'brightness-0 invert' : 'opacity-60'}`}
+              />
               <span>Кейсы</span>
             </button>
             
@@ -289,7 +298,11 @@ const MainApp = () => {
                 currentScreen === 'quiz' ? 'text-orange-500' : 'text-gray-400'
               }`}
             >
-              <span className="text-lg mb-1">🧠</span>
+              <img 
+                src="/lovable-uploads/60a00c47-4bb3-4bb2-b7f0-01299fbde885.png" 
+                alt="Викторина" 
+                className={`w-6 h-6 mb-1 ${currentScreen === 'quiz' ? 'brightness-0 invert' : 'opacity-60'}`}
+              />
               <span>Викторина</span>
             </button>
             
@@ -299,7 +312,11 @@ const MainApp = () => {
                 currentScreen === 'tasks' ? 'text-orange-500' : 'text-gray-400'
               }`}
             >
-              <span className="text-lg mb-1">📋</span>
+              <img 
+                src="/lovable-uploads/bc1fd348-a889-4ecf-8b2a-d806d4a84459.png" 
+                alt="Задания" 
+                className={`w-6 h-6 mb-1 ${currentScreen === 'tasks' ? 'brightness-0 invert' : 'opacity-60'}`}
+              />
               <span>Задания</span>
             </button>
           </div>
