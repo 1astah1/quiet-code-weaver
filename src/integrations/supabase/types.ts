@@ -768,8 +768,10 @@ export type Database = {
           id: string
           is_admin: boolean | null
           language_code: string | null
+          last_ad_life_restore: string | null
           last_daily_login: string | null
           last_free_case_notification: string | null
+          last_life_restore: string | null
           last_quiz_date: string | null
           most_expensive_skin_value: number | null
           premium_until: string | null
@@ -795,8 +797,10 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
+          last_life_restore?: string | null
           last_quiz_date?: string | null
           most_expensive_skin_value?: number | null
           premium_until?: string | null
@@ -822,8 +826,10 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           language_code?: string | null
+          last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
+          last_life_restore?: string | null
           last_quiz_date?: string | null
           most_expensive_skin_value?: number | null
           premium_until?: string | null

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,7 +68,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
           .eq('id', currentUser.id)
           .single();
 
-        if (error) return;
+        if (error || !data) return;
 
         const now = new Date();
         const lastRestore = data.last_life_restore ? new Date(data.last_life_restore) : null;
