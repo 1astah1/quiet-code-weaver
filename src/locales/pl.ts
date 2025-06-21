@@ -1,4 +1,3 @@
-
 export const pl = {
   // Header
   coins: 'Monety',
@@ -65,4 +64,22 @@ export const pl = {
   // Common
   accountManagement: 'Zarządzanie kontem i preferencjami',
   user: 'Użytkownik',
+  
+  // Steam
+  steamConnected: 'Steam połączony!',
+  steamConnectedDesc: 'Konto Steam zostało pomyślnie połączone',
+  connectionError: 'Błąd połączenia',
+  steamConnectionError: 'Nie udało się połączyć konta Steam',
+  steamDisconnected: 'Steam rozłączony',
+  steamDisconnectedDesc: 'Konto Steam zostało rozłączone',
+  connectedOn: 'Połączono',
+  disconnecting: 'Rozłączanie...',
+  disconnectSteam: 'Rozłącz Steam',
+  connectSteamDesc: 'Połącz swoje konto Steam do wypłat skinów',
+  howToFindSteamId: 'Jak znaleźć Steam ID:',
+  steamIdStep1: '1. Otwórz Steam i przejdź do profilu',
+  steamIdStep2: '2. Skopiuj numeryczne ID z URL profilu',
+  enterSteamId: 'Wprowadź swój Steam ID',
+  steamIdFormat: 'Steam ID musi zawierać 17 cyfr',
+  connecting: 'Łączenie...',
 };

@@ -1,4 +1,3 @@
-
 export const pt = {
   // Header
   coins: 'Moedas',
@@ -65,4 +64,22 @@ export const pt = {
   // Common
   accountManagement: 'Gerenciamento de conta e preferências',
   user: 'Usuário',
+  
+  // Steam
+  steamConnected: 'Steam conectado!',
+  steamConnectedDesc: 'Conta Steam conectada com sucesso',
+  connectionError: 'Erro de Conexão',
+  steamConnectionError: 'Falha ao conectar conta Steam',
+  steamDisconnected: 'Steam desconectado',
+  steamDisconnectedDesc: 'Conta Steam desconectada',
+  connectedOn: 'Conectado em',
+  disconnecting: 'Desconectando...',
+  disconnectSteam: 'Desconectar Steam',
+  connectSteamDesc: 'Conecte sua conta Steam para saque de skins',
+  howToFindSteamId: 'Como encontrar Steam ID:',
+  steamIdStep1: '1. Abra Steam e vá para o perfil',
+  steamIdStep2: '2. Copie o ID numérico da URL do perfil',
+  enterSteamId: 'Digite seu Steam ID',
+  steamIdFormat: 'Steam ID deve conter 17 dígitos',
+  connecting: 'Conectando...',
 };

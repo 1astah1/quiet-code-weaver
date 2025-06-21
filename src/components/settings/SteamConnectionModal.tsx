@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Link, User, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface SteamConnectionModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SteamConnectionModalProps {
     id: string;
     username: string;
     coins: number;
+    language_code?: string;
   };
 }
 
@@ -26,6 +28,7 @@ interface SteamSettings {
 const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionModalProps) => {
   const [steamId, setSteamId] = useState("");
   const { toast } = useToast();
+  const { t } = useTranslation(currentUser.language_code);
 
   const { data: steamSettings, refetch } = useQuery({
     queryKey: ['steam-settings', currentUser.id],
@@ -44,8 +47,11 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
 
   const connectSteamMutation = useMutation({
     mutationFn: async (steamId: string) => {
-      // В реальном приложении здесь был бы запрос к Steam API
-      // Пока что симулируем подключение
+      // Валидация Steam ID
+      if (!steamId || steamId.length < 17) {
+        throw new Error('Invalid Steam ID format');
+      }
+
       const mockSteamData = {
         steam_id: steamId,
         steam_nickname: `Player_${steamId.slice(-4)}`,
@@ -66,16 +72,16 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
     },
     onSuccess: () => {
       toast({
-        title: "Steam подключен!",
-        description: "Аккаунт Steam успешно подключен",
+        title: t('steamConnected') || "Steam подключен!",
+        description: t('steamConnectedDesc') || "Аккаунт Steam успешно подключен",
       });
       refetch();
       setSteamId("");
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка подключения",
-        description: "Не удалось подключить Steam аккаунт",
+        title: t('connectionError') || "Ошибка подключения",
+        description: t('steamConnectionError') || "Не удалось подключить Steam аккаунт",
         variant: "destructive",
       });
     }
@@ -92,8 +98,8 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
     },
     onSuccess: () => {
       toast({
-        title: "Steam отключен",
-        description: "Аккаунт Steam отключен",
+        title: t('steamDisconnected') || "Steam отключен",
+        description: t('steamDisconnectedDesc') || "Аккаунт Steam отключен",
       });
       refetch();
     }
@@ -150,7 +156,7 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
                     <h4 className="text-white font-semibold">{steamSettings.steam_nickname}</h4>
                     <p className="text-slate-400 text-sm">ID: {steamSettings.steam_id}</p>
                     <p className="text-green-400 text-xs">
-                      Подключен {new Date(steamSettings.connected_at).toLocaleDateString()}
+                      {t('connectedOn') || 'Подключен'} {new Date(steamSettings.connected_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -161,22 +167,22 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
                 disabled={disconnectSteamMutation.isPending}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-all"
               >
-                {disconnectSteamMutation.isPending ? "Отключение..." : "Отключить Steam"}
+                {disconnectSteamMutation.isPending ? (t('disconnecting') || "Отключение...") : (t('disconnectSteam') || "Отключить Steam")}
               </button>
             </div>
           ) : (
             <div className="space-y-6">
               <div>
                 <p className="text-slate-300 mb-4">
-                  Подключите свой Steam аккаунт для вывода скинов
+                  {t('connectSteamDesc') || 'Подключите свой Steam аккаунт для вывода скинов'}
                 </p>
                 <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
                     <ExternalLink className="w-5 h-5 text-blue-400 mt-0.5" />
                     <div className="text-sm text-blue-300">
-                      <p className="font-medium mb-1">Как найти Steam ID:</p>
-                      <p>1. Откройте Steam и перейдите в профиль</p>
-                      <p>2. Скопируйте числовой ID из URL профиля</p>
+                      <p className="font-medium mb-1">{t('howToFindSteamId') || 'Как найти Steam ID:'}</p>
+                      <p>{t('steamIdStep1') || '1. Откройте Steam и перейдите в профиль'}</p>
+                      <p>{t('steamIdStep2') || '2. Скопируйте числовой ID из URL профиля'}</p>
                     </div>
                   </div>
                 </div>
@@ -189,17 +195,23 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
                     type="text"
                     value={steamId}
                     onChange={(e) => setSteamId(e.target.value)}
-                    placeholder="Введите ваш Steam ID"
+                    placeholder={t('enterSteamId') || 'Введите ваш Steam ID'}
                     className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                    minLength={17}
+                    maxLength={17}
+                    pattern="[0-9]{17}"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    {t('steamIdFormat') || 'Steam ID должен содержать 17 цифр'}
+                  </p>
                 </div>
                 
                 <button
                   type="submit"
-                  disabled={!steamId.trim() || connectSteamMutation.isPending}
+                  disabled={!steamId.trim() || steamId.length !== 17 || connectSteamMutation.isPending}
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 rounded-lg transition-all hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed"
                 >
-                  {connectSteamMutation.isPending ? "Подключение..." : "Подключить Steam"}
+                  {connectSteamMutation.isPending ? (t('connecting') || "Подключение...") : (t('connectSteam') || "Подключить Steam")}
                 </button>
               </form>
             </div>

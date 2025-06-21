@@ -1,4 +1,3 @@
-
 export const de = {
   // Header
   coins: 'Münzen',
@@ -65,4 +64,22 @@ export const de = {
   // Common
   accountManagement: 'Konto- und Präferenzverwaltung',
   user: 'Benutzer',
+  
+  // Steam
+  steamConnected: 'Steam verbunden!',
+  steamConnectedDesc: 'Steam-Konto erfolgreich verbunden',
+  connectionError: 'Verbindungsfehler',
+  steamConnectionError: 'Steam-Konto konnte nicht verbunden werden',
+  steamDisconnected: 'Steam getrennt',
+  steamDisconnectedDesc: 'Steam-Konto getrennt',
+  connectedOn: 'Verbunden am',
+  disconnecting: 'Trenne...',
+  disconnectSteam: 'Steam trennen',
+  connectSteamDesc: 'Verbinden Sie Ihr Steam-Konto für Skin-Auszahlungen',
+  howToFindSteamId: 'So finden Sie Steam ID:',
+  steamIdStep1: '1. Öffnen Sie Steam und gehen Sie zum Profil',
+  steamIdStep2: '2. Kopieren Sie die numerische ID aus der Profil-URL',
+  enterSteamId: 'Geben Sie Ihre Steam ID ein',
+  steamIdFormat: 'Steam ID muss 17 Ziffern enthalten',
+  connecting: 'Verbinde...',
 };

@@ -1,4 +1,3 @@
-
 export const en = {
   // Header
   coins: 'Coins',
@@ -65,4 +64,22 @@ export const en = {
   // Common
   accountManagement: 'Account and preferences management',
   user: 'User',
+  
+  // Steam
+  steamConnected: 'Steam connected!',
+  steamConnectedDesc: 'Steam account successfully connected',
+  connectionError: 'Connection Error',
+  steamConnectionError: 'Failed to connect Steam account',
+  steamDisconnected: 'Steam disconnected',
+  steamDisconnectedDesc: 'Steam account disconnected',
+  connectedOn: 'Connected on',
+  disconnecting: 'Disconnecting...',
+  disconnectSteam: 'Disconnect Steam',
+  connectSteamDesc: 'Connect your Steam account for skin withdrawal',
+  howToFindSteamId: 'How to find Steam ID:',
+  steamIdStep1: '1. Open Steam and go to profile',
+  steamIdStep2: '2. Copy the numeric ID from profile URL',
+  enterSteamId: 'Enter your Steam ID',
+  steamIdFormat: 'Steam ID must contain 17 digits',
+  connecting: 'Connecting...',
 };

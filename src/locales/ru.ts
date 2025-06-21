@@ -1,4 +1,3 @@
-
 export const ru = {
   // Header
   coins: 'Монеты',
@@ -65,4 +64,22 @@ export const ru = {
   // Common
   accountManagement: 'Управление аккаунтом и предпочтениями',
   user: 'Пользователь',
+  
+  // Steam
+  steamConnected: 'Steam подключен!',
+  steamConnectedDesc: 'Аккаунт Steam успешно подключен',
+  connectionError: 'Ошибка подключения',
+  steamConnectionError: 'Не удалось подключить Steam аккаунт',
+  steamDisconnected: 'Steam отключен',
+  steamDisconnectedDesc: 'Аккаунт Steam отключен',
+  connectedOn: 'Подключен',
+  disconnecting: 'Отключение...',
+  disconnectSteam: 'Отключить Steam',
+  connectSteamDesc: 'Подключите свой Steam аккаунт для вывода скинов',
+  howToFindSteamId: 'Как найти Steam ID:',
+  steamIdStep1: '1. Откройте Steam и перейдите в профиль',
+  steamIdStep2: '2. Скопируйте числовой ID из URL профиля',
+  enterSteamId: 'Введите ваш Steam ID',
+  steamIdFormat: 'Steam ID должен содержать 17 цифр',
+  connecting: 'Подключение...',
 };
