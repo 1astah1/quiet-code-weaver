@@ -21,7 +21,14 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
           .from('recent_wins')
           .select(`
             *,
-            skins(name, weapon_type, rarity, image_url)
+            skins!inner(
+              id,
+              name, 
+              weapon_type, 
+              rarity, 
+              image_url,
+              price
+            )
           `)
           .order('won_at', { ascending: false })
           .limit(10);
@@ -52,7 +59,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         // Объединяем данные
         const enrichedWins = winsData?.map(win => {
           const user = usersData?.find(user => user.id === win.user_id);
-          console.log(`Win for user ${win.user_id}: found user:`, user);
+          console.log(`Win for user ${win.user_id}: found user:`, user, 'skin:', win.skins);
           return {
             ...win,
             users: user || null
@@ -111,46 +118,53 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
       <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20 max-h-60 overflow-y-auto">
         {recentWins && recentWins.length > 0 ? (
           <div className="space-y-2">
-            {recentWins.map((win) => (
-              <div key={win.id} className="flex items-center justify-between py-2 border-b border-gray-700/50 last:border-b-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">
-                      {win.users?.username?.charAt(0).toUpperCase() || '?'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      {win.users?.username || t('player')}
-                    </p>
-                    <p className="text-gray-400 text-xs">{t('won')}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  {win.skins?.image_url && (
-                    <div className="w-10 h-10 flex-shrink-0">
-                      <OptimizedImage
-                        src={win.skins.image_url}
-                        alt={win.skins.name || t('unknownItem')}
-                        className="w-full h-full object-cover rounded-lg"
-                        fallback={
-                          <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
-                            <span className="text-lg">🎯</span>
-                          </div>
-                        }
-                        onError={() => console.log('Failed to load skin image for recent win:', win.skins?.name)}
-                      />
+            {recentWins.map((win) => {
+              console.log('Rendering win:', win, 'skin data:', win.skins);
+              return (
+                <div key={win.id} className="flex items-center justify-between py-2 border-b border-gray-700/50 last:border-b-0">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {win.users?.username?.charAt(0).toUpperCase() || '?'}
+                      </span>
                     </div>
-                  )}
-                  <div className="text-right">
-                    <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
-                      {win.skins?.name || t('unknownItem')}
-                    </p>
-                    <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
+                    <div>
+                      <p className="text-white text-sm font-medium">
+                        {win.users?.username || t('player')}
+                      </p>
+                      <p className="text-gray-400 text-xs">{t('won')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 flex-shrink-0">
+                      {win.skins?.image_url ? (
+                        <OptimizedImage
+                          src={win.skins.image_url}
+                          alt={win.skins.name || t('unknownItem')}
+                          className="w-full h-full object-cover rounded-lg border border-gray-600"
+                          fallback={
+                            <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
+                              <span className="text-lg">🎯</span>
+                            </div>
+                          }
+                          onError={() => console.log('Failed to load skin image:', win.skins?.image_url, 'for skin:', win.skins?.name)}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
+                          <span className="text-lg">🎯</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
+                        {win.skins?.name || t('unknownItem')}
+                      </p>
+                      <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-gray-400 text-center py-4">{t('noWinsYet')}</p>
