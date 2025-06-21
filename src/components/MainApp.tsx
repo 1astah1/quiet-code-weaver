@@ -54,6 +54,13 @@ const MainApp = () => {
     try {
       console.log('Loading user data for:', user.id);
       
+      // Добавляем дополнительную проверку безопасности
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
+        console.error('Invalid user ID format detected');
+        await signOut();
+        return;
+      }
+      
       // Пытаемся найти пользователя сначала по внутреннему ID
       let { data: userData, error } = await supabase
         .from('users')
@@ -81,6 +88,13 @@ const MainApp = () => {
       if (error) {
         console.error('Error loading user data:', error);
         await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
+        
+        // При критических ошибках выходим из системы
+        if (error.code === 'PGRST301' || error.code === 'PGRST116') {
+          await signOut();
+          return;
+        }
+        
         setIsLoading(false);
         return;
       }
@@ -92,8 +106,14 @@ const MainApp = () => {
           description: t('userDataNotFound'),
           variant: "destructive",
         });
-        setIsLoading(false);
+        await signOut();
         return;
+      }
+
+      // Проверяем целостность данных пользователя
+      if (userData.coins < 0 || userData.coins > 10000000) {
+        console.warn('Suspicious coin amount detected:', userData.coins);
+        await auditLog(userData.id, 'suspicious_coin_amount', { coins: userData.coins }, false);
       }
 
       // Get auth user data for avatar
@@ -102,9 +122,9 @@ const MainApp = () => {
       const userProfile = {
         id: userData.id,
         username: userData.username || t('user'),
-        coins: userData.coins || 0,
-        lives: userData.quiz_lives || 5,
-        streak: userData.quiz_streak || 0,
+        coins: Math.max(0, Math.min(userData.coins || 0, 10000000)), // Ограничиваем диапазон
+        lives: Math.max(0, Math.min(userData.quiz_lives || 5, 10)), // Ограничиваем диапазон
+        streak: Math.max(0, userData.quiz_streak || 0),
         isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
         isAdmin: userData.is_admin || false,
         avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
@@ -119,6 +139,9 @@ const MainApp = () => {
     } catch (error) {
       console.error('Error loading user data:', error);
       await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
+      
+      // При неожиданных ошибках выходим из системы для безопасности
+      await signOut();
     } finally {
       setIsLoading(false);
     }
@@ -153,13 +176,26 @@ const MainApp = () => {
     }
   };
 
+  // Улучшенная обработка выхода из системы
   const handleSignOut = async () => {
-    if (currentUser) {
-      await auditLog(currentUser.id, 'user_signed_out', {});
+    try {
+      if (currentUser) {
+        await auditLog(currentUser.id, 'user_signed_out', {});
+      }
+      
+      // Очищаем все данные сессии
+      sessionStorage.clear();
+      localStorage.removeItem('supabase.auth.token');
+      
+      await signOut();
+      setCurrentUser(null);
+      setCurrentScreen('main');
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      // Принудительно очищаем состояние даже при ошибке
+      setCurrentUser(null);
+      window.location.reload();
     }
-    await signOut();
-    setCurrentUser(null);
-    setCurrentScreen('main');
   };
 
   const handleAuthSuccess = () => {
