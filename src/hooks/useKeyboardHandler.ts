@@ -40,8 +40,8 @@ export const useKeyboardHandler = (options: KeyboardHandlerOptions = {}) => {
     };
 
     const handleVisualViewportChange = () => {
-      if ('visualViewport' in window) {
-        const viewport = window.visualViewport as any;
+      if ('visualViewport' in window && window.visualViewport) {
+        const viewport = window.visualViewport;
         const heightDifference = window.screen.height - viewport.height;
         
         if (heightDifference > 150 && !isKeyboardOpen.current) {
@@ -55,15 +55,15 @@ export const useKeyboardHandler = (options: KeyboardHandlerOptions = {}) => {
     };
 
     // Используем Visual Viewport API если доступен (более точный для мобильных)
-    if ('visualViewport' in window) {
-      window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
+    if ('visualViewport' in window && window.visualViewport) {
+      (window.visualViewport as any).addEventListener('resize', handleVisualViewportChange);
     } else {
       window.addEventListener('resize', handleResize);
     }
 
     return () => {
-      if ('visualViewport' in window) {
-        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
+      if ('visualViewport' in window && window.visualViewport) {
+        (window.visualViewport as any).removeEventListener('resize', handleVisualViewportChange);
       } else {
         window.removeEventListener('resize', handleResize);
       }
