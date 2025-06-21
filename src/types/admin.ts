@@ -1,2 +1,10 @@
 
-export type TableName = "cases" | "skins" | "users" | "tasks" | "quiz_questions" | "banners" | "daily_rewards";
+export type TableName = 
+  | "cases"
+  | "skins" 
+  | "users"
+  | "banners"
+  | "promo_codes"
+  | "tasks"
+  | "quiz_questions"
+  | "faq_items";

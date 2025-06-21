@@ -11,10 +11,11 @@ const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorPr
     { key: "cases", label: "Кейсы" },
     { key: "skins", label: "Скины" },
     { key: "users", label: "Пользователи" },
+    { key: "banners", label: "Баннеры" },
+    { key: "promo_codes", label: "Промокоды" },
     { key: "tasks", label: "Задания" },
     { key: "quiz_questions", label: "Вопросы викторины" },
-    { key: "banners", label: "Баннеры" },
-    { key: "daily_rewards", label: "Ежедневные награды" },
+    { key: "faq_items", label: "FAQ" },
   ];
 
   return (
@@ -27,7 +28,7 @@ const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorPr
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTable === table.key
                 ? "bg-orange-500 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
             }`}
           >
             {table.label}

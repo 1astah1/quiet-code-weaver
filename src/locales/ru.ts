@@ -82,4 +82,16 @@ export const ru = {
   enterSteamId: 'Введите ваш Steam ID',
   steamIdFormat: 'Steam ID должен содержать 17 цифр',
   connecting: 'Подключение...',
+  
+  // Promo codes
+  promoCodeNotFound: 'Промокод не найден или неактивен',
+  promoCodeAlreadyUsed: 'Промокод уже был использован',
+  promoCodeLimitExceeded: 'Превышен лимит использований промокода',
+  promoCodeExpired: 'Срок действия промокода истек',
+  promoCodeActivated: 'Промокод активирован!',
+  coinsReceived: 'Получено {amount} монет',
+  enterPromoCodeDesc: 'Введите промокод для получения бонусных монет',
+  enterPromoCode: 'Введите промокод',
+  activating: 'Активация...',
+  activatePromoCode: 'Активировать',
 };

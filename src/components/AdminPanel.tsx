@@ -9,6 +9,7 @@ import AddItemForm from "./admin/AddItemForm";
 import AdminTable from "./admin/AdminTable";
 import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
 import UserManagement from "./admin/UserManagement";
+import PromoCodeManagement from "./admin/PromoCodeManagement";
 import { TableName } from "@/types/admin";
 
 const AdminPanel = () => {
@@ -261,7 +262,11 @@ const AdminPanel = () => {
           />
         )}
 
-        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'users' && (
+        {activeTable === 'promo_codes' && (
+          <PromoCodeManagement />
+        )}
+
+        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'users' && activeTable !== 'promo_codes' && (
           <>
             <AddItemForm
               activeTable={activeTable}

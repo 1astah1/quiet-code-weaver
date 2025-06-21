@@ -82,4 +82,16 @@ export const en = {
   enterSteamId: 'Enter your Steam ID',
   steamIdFormat: 'Steam ID must contain 17 digits',
   connecting: 'Connecting...',
+
+  // Promo codes
+  promoCodeNotFound: 'Promo code not found or inactive',
+  promoCodeAlreadyUsed: 'Promo code already used',
+  promoCodeLimitExceeded: 'Promo code usage limit exceeded',
+  promoCodeExpired: 'Promo code has expired',
+  promoCodeActivated: 'Promo code activated!',
+  coinsReceived: 'Received {amount} coins',
+  enterPromoCodeDesc: 'Enter promo code to get bonus coins',
+  enterPromoCode: 'Enter promo code',
+  activating: 'Activating...',
+  activatePromoCode: 'Activate',
 };
