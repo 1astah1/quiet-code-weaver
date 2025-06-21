@@ -44,11 +44,10 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
 
   const connectSteamMutation = useMutation({
     mutationFn: async (steamId: string) => {
-      // В реальном приложении здесь был бы запрос к Steam API
-      // Пока что симулируем подключение
+      // Симуляция получения данных Steam (в реальном приложении здесь был бы API запрос)
       const mockSteamData = {
         steam_id: steamId,
-        steam_nickname: `Player_${steamId.slice(-4)}`,
+        steam_nickname: `SteamPlayer_${steamId.slice(-4)}`,
         steam_avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${steamId}`
       };
 
@@ -62,12 +61,26 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
         .single();
 
       if (error) throw error;
+
+      // Обновляем основную информацию пользователя с данными Steam
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          username: mockSteamData.steam_nickname,
+          steam_connected: true
+        })
+        .eq('id', currentUser.id);
+
+      if (userUpdateError) {
+        console.error('Error updating user with Steam data:', userUpdateError);
+      }
+
       return data;
     },
     onSuccess: () => {
       toast({
         title: "Steam подключен!",
-        description: "Аккаунт Steam успешно подключен",
+        description: "Аккаунт Steam успешно подключен. Никнейм и аватар обновлены.",
       });
       refetch();
       setSteamId("");
@@ -89,6 +102,16 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
         .eq('user_id', currentUser.id);
 
       if (error) throw error;
+
+      // Убираем флаг подключения Steam
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({ steam_connected: false })
+        .eq('id', currentUser.id);
+
+      if (userUpdateError) {
+        console.error('Error updating user steam status:', userUpdateError);
+      }
     },
     onSuccess: () => {
       toast({
@@ -168,7 +191,7 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
             <div className="space-y-6">
               <div>
                 <p className="text-slate-300 mb-4">
-                  Подключите свой Steam аккаунт для вывода скинов
+                  Подключите свой Steam аккаунт для вывода скинов и автоматического обновления никнейма и аватара
                 </p>
                 <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
@@ -177,6 +200,7 @@ const SteamConnectionModal = ({ isOpen, onClose, currentUser }: SteamConnectionM
                       <p className="font-medium mb-1">Как найти Steam ID:</p>
                       <p>1. Откройте Steam и перейдите в профиль</p>
                       <p>2. Скопируйте числовой ID из URL профиля</p>
+                      <p className="mt-2 text-green-300">✓ Никнейм и аватар обновятся автоматически</p>
                     </div>
                   </div>
                 </div>

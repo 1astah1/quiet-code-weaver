@@ -12,7 +12,7 @@ const RecentWins = () => {
           .from('recent_wins')
           .select(`
             *,
-            users(username),
+            users!inner(id, username, auth_id),
             skins(name, weapon_type, rarity)
           `)
           .order('won_at', { ascending: false })
@@ -43,6 +43,16 @@ const RecentWins = () => {
       case 'Covert': return 'text-red-400';
       case 'Contraband': return 'text-yellow-400';
       default: return 'text-gray-400';
+    }
+  };
+
+  const getPlayerAvatar = async (authId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.admin.getUserById(authId);
+      return user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+    } catch (error) {
+      console.error('Error getting user avatar:', error);
+      return null;
     }
   };
 
@@ -84,7 +94,9 @@ const RecentWins = () => {
                     </span>
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">{win.users?.username || 'Неизвестный игрок'}</p>
+                    <p className="text-white text-sm font-medium">
+                      {win.users?.username || 'Игрок'}
+                    </p>
                     <p className="text-gray-400 text-xs">выиграл</p>
                   </div>
                 </div>
