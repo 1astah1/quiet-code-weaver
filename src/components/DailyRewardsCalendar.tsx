@@ -169,10 +169,10 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
 
   if (!isOpen) {
     return (
-      <div className="mt-6">
+      <div className="mt-4 sm:mt-6">
         <Button
           onClick={() => setIsOpen(true)}
-          className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
+          className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white text-sm sm:text-base py-2 sm:py-3"
         >
           <Calendar className="w-4 h-4 mr-2" />
           Ежедневные награды
@@ -182,24 +182,24 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-slate-600">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-slate-900 rounded-xl w-full max-w-sm sm:max-w-2xl md:max-w-4xl max-h-[95vh] overflow-y-auto border border-slate-600">
+        <div className="p-3 sm:p-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Ежедневные награды</h2>
-              <p className="text-slate-400">Текущая серия: {currentStreak} дней</p>
+              <h2 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2">Ежедневные награды</h2>
+              <p className="text-slate-400 text-xs sm:text-base">Текущая серия: {currentStreak} дней</p>
             </div>
             <Button
               onClick={() => setIsOpen(false)}
               variant="ghost"
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white p-1 sm:p-2"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
 
-          <div className="grid grid-cols-5 sm:grid-cols-7 gap-3">
+          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 sm:gap-3">
             {dailyRewards?.map((reward) => {
               const isClaimed = isRewardClaimed(reward.day_number);
               const isNextReward = reward.day_number === currentStreak + 1;
@@ -209,7 +209,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                 <div
                   key={reward.day_number}
                   className={`
-                    relative p-4 rounded-lg border-2 transition-all
+                    relative p-2 sm:p-3 md:p-4 rounded-lg border-2 transition-all
                     ${isClaimed 
                       ? 'bg-green-900/50 border-green-500 text-green-400' 
                       : isNextReward 
@@ -221,14 +221,15 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                   `}
                 >
                   <div className="text-center">
-                    <div className="text-xs font-medium mb-2">День {reward.day_number}</div>
-                    <div className="flex items-center justify-center mb-2">
-                      <Gift className="w-6 h-6" />
+                    <div className="text-[10px] xs:text-xs font-medium mb-1 sm:mb-2">День {reward.day_number}</div>
+                    <div className="flex items-center justify-center mb-1 sm:mb-2">
+                      <Gift className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                     </div>
-                    <div className="text-xs font-bold">{reward.reward_coins} монет</div>
+                    <div className="text-[10px] xs:text-xs font-bold">{reward.reward_coins}</div>
+                    <div className="text-[8px] xs:text-[10px] opacity-75">монет</div>
                     
                     {isClaimed && (
-                      <div className="absolute top-1 right-1 text-green-400">
+                      <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-green-400 text-xs sm:text-sm">
                         ✓
                       </div>
                     )}
@@ -237,9 +238,9 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                       <Button
                         onClick={() => claimRewardMutation.mutate(reward.day_number)}
                         disabled={claimRewardMutation.isPending}
-                        className="mt-2 w-full bg-orange-500 hover:bg-orange-600 text-white text-xs py-1"
+                        className="mt-1 sm:mt-2 w-full bg-orange-500 hover:bg-orange-600 text-white text-[10px] xs:text-xs py-1 px-1 sm:px-2 h-auto min-h-[20px] sm:min-h-[24px]"
                       >
-                        Получить
+                        {claimRewardMutation.isPending ? '...' : 'Получить'}
                       </Button>
                     )}
                   </div>
@@ -248,8 +249,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
             })}
           </div>
 
-          <div className="mt-6 text-center text-slate-400 text-sm">
-            <p>Заходите каждый день, чтобы получать награды!</p>
+          <div className="mt-4 sm:mt-6 text-center text-slate-400 text-xs sm:text-sm">
+            <p className="mb-1">Заходите каждый день, чтобы получать награды!</p>
             <p>Пропуск дня сбрасывает серию.</p>
           </div>
         </div>
