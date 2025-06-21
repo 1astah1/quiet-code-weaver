@@ -16,6 +16,8 @@ export interface WithdrawalRequest {
 }
 
 export const useWithdrawSkin = () => {
+  console.log('💰 [WITHDRAW_SKIN] Hook mounting/rendering');
+  
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -27,12 +29,14 @@ export const useWithdrawSkin = () => {
       inventoryItemId: string; 
       steamTradeUrl: string;
     }) => {
-      console.log('Starting skin withdrawal:', { inventoryItemId, steamTradeUrl });
+      console.log('🚀 [WITHDRAW_SKIN] Starting withdrawal process:', { inventoryItemId, steamTradeUrl });
 
       if (!steamTradeUrl || !steamTradeUrl.includes('steamcommunity.com')) {
+        console.error('❌ [WITHDRAW_SKIN] Invalid Steam Trade URL:', steamTradeUrl);
         throw new Error('Неверная Steam Trade URL');
       }
 
+      console.log('📡 [WITHDRAW_SKIN] Calling withdraw-skin function...');
       const { data, error } = await supabase.functions.invoke('withdraw-skin', {
         body: {
           inventoryItemId,
@@ -41,18 +45,20 @@ export const useWithdrawSkin = () => {
       });
 
       if (error) {
-        console.error('Withdrawal function error:', error);
+        console.error('❌ [WITHDRAW_SKIN] Function error:', error);
         throw error;
       }
 
       if (!data.success) {
+        console.error('❌ [WITHDRAW_SKIN] Function returned failure:', data);
         throw new Error(data.error || 'Ошибка при создании запроса на вывод');
       }
 
-      console.log('Withdrawal request created:', data);
+      console.log('✅ [WITHDRAW_SKIN] Withdrawal request created successfully:', data);
       return data;
     },
     onSuccess: (data) => {
+      console.log('🎉 [WITHDRAW_SKIN] Mutation success, showing toast and invalidating queries');
       toast({
         title: "Запрос на вывод создан!",
         description: data.message || "Проверьте Steam для подтверждения трейда",
@@ -63,7 +69,7 @@ export const useWithdrawSkin = () => {
       queryClient.invalidateQueries({ queryKey: ['withdrawal-requests'] });
     },
     onError: (error: any) => {
-      console.error('Withdrawal error:', error);
+      console.error('🚨 [WITHDRAW_SKIN] Mutation error:', error);
       toast({
         title: "Ошибка вывода",
         description: error.message || "Не удалось создать запрос на вывод",
@@ -74,10 +80,13 @@ export const useWithdrawSkin = () => {
 };
 
 export const useWithdrawalRequests = (userId: string) => {
+  console.log('📋 [WITHDRAWAL_REQUESTS] Hook mounting/rendering for user:', userId);
+  
   return useQuery({
     queryKey: ['withdrawal-requests', userId],
     queryFn: async () => {
-      console.log('Loading withdrawal requests for user:', userId);
+      console.log('📡 [WITHDRAWAL_REQUESTS] Starting query for user:', userId);
+      const startTime = Date.now();
 
       const { data, error } = await supabase
         .from('skin_withdrawal_requests')
@@ -91,16 +100,26 @@ export const useWithdrawalRequests = (userId: string) => {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       
+      const duration = Date.now() - startTime;
+      console.log(`⏱️ [WITHDRAWAL_REQUESTS] Query completed in ${duration}ms`);
+      
       if (error) {
-        console.error('Error loading withdrawal requests:', error);
+        console.error('❌ [WITHDRAWAL_REQUESTS] Query error:', error);
         throw error;
       }
       
-      console.log('Withdrawal requests loaded:', data?.length || 0);
+      console.log('✅ [WITHDRAWAL_REQUESTS] Query success:', {
+        requestsCount: data?.length || 0,
+        requests: data?.map(r => ({ id: r.id, status: r.status })) || []
+      });
+      
       return (data || []) as WithdrawalRequest[];
     },
     enabled: !!userId,
-    retry: 2,
+    retry: (failureCount, error) => {
+      console.log(`🔄 [WITHDRAWAL_REQUESTS] Retry attempt ${failureCount}:`, error);
+      return failureCount < 2;
+    },
     refetchInterval: 30000, // Обновляем каждые 30 секунд
   });
 };

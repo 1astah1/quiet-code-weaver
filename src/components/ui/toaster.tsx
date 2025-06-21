@@ -1,3 +1,4 @@
+
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -11,9 +12,15 @@ import {
 export function Toaster() {
   const { toasts } = useToast()
 
+  console.log('🍞 [TOASTER] Component rendering:', {
+    toastCount: toasts.length,
+    toasts: toasts.map(t => ({ id: t.id, title: t.title, variant: t.variant }))
+  });
+
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
+        console.log('🍞 [TOASTER] Rendering toast:', { id, title, variant: props.variant });
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">

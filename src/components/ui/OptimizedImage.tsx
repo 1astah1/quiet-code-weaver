@@ -10,21 +10,28 @@ interface OptimizedImageProps {
 }
 
 const OptimizedImage = ({ src, alt, className = '', fallback, onError }: OptimizedImageProps) => {
+  console.log('🖼️ [OPTIMIZED_IMAGE] Component mounting:', { src, alt, hasClassName: !!className, hasFallback: !!fallback });
+  
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   const handleLoad = () => {
+    console.log('✅ [OPTIMIZED_IMAGE] Image loaded successfully:', src);
     setIsLoaded(true);
   };
 
   const handleError = () => {
+    console.error('❌ [OPTIMIZED_IMAGE] Image failed to load:', src);
     setHasError(true);
     onError?.();
   };
 
   if (hasError && fallback) {
+    console.log('🔄 [OPTIMIZED_IMAGE] Showing fallback for:', src);
     return <>{fallback}</>;
   }
+
+  console.log('🎨 [OPTIMIZED_IMAGE] Rendering image:', { src, isLoaded, hasError });
 
   return (
     <div className={`relative ${className}`}>
