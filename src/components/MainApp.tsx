@@ -13,10 +13,13 @@ import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
 import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
+import ScreenTransition from "@/components/ui/ScreenTransition";
 import { useToast } from "@/hooks/use-toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useKeyboardHandler } from "@/hooks/useKeyboardHandler";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -40,12 +43,30 @@ const MainApp = () => {
   
   const { user, isLoading: authLoading, signOut } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
+  const [prevScreen, setPrevScreen] = useState<Screen>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openingCase, setOpeningCase] = useState<any>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation(currentUser?.language_code);
+  const { successFeedback, errorFeedback } = useHapticFeedback({ 
+    enabled: currentUser?.vibration_enabled !== false 
+  });
+
+  // Обработка клавиатуры
+  useKeyboardHandler({
+    onKeyboardShow: (height) => {
+      console.log('⌨️ [MAIN_APP] Keyboard shown, height:', height);
+      setIsKeyboardVisible(true);
+    },
+    onKeyboardHide: () => {
+      console.log('⌨️ [MAIN_APP] Keyboard hidden');
+      setIsKeyboardVisible(false);
+    },
+    adjustViewport: true
+  });
 
   // Логирование изменений состояния
   useEffect(() => {
@@ -121,6 +142,7 @@ const MainApp = () => {
 
       if (!userData) {
         console.error('❌ [MAIN_APP] User data not found in database');
+        errorFeedback();
         toast({
           title: t('error'),
           description: t('userDataNotFound'),
@@ -162,6 +184,7 @@ const MainApp = () => {
       });
 
       setCurrentUser(userProfile);
+      successFeedback();
       await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
     } catch (error) {
       console.error('💥 [MAIN_APP] Unexpected error in loadUserData:', error);
@@ -169,6 +192,7 @@ const MainApp = () => {
       await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
       
       console.log('🚪 [MAIN_APP] Signing out due to unexpected error...');
+      errorFeedback();
       await signOut();
     } finally {
       console.log('⏹️ [MAIN_APP] loadUserData completed, setting loading to false');
@@ -254,6 +278,7 @@ const MainApp = () => {
 
   const handleScreenChange = (screen: string) => {
     console.log('📱 [MAIN_APP] Screen change requested:', { from: currentScreen, to: screen });
+    setPrevScreen(currentScreen);
     setCurrentScreen(screen as Screen);
   };
 
@@ -352,25 +377,38 @@ const MainApp = () => {
     <div className="min-h-screen bg-black overflow-hidden">
       <SecurityMonitor />
       
-      <div className="flex flex-col h-screen">
+      <div className={`flex flex-col h-screen transition-all duration-300 ${
+        isKeyboardVisible ? 'keyboard-visible' : ''
+      }`}>
         <Header 
           currentUser={currentUser}
           onMenuClick={() => setIsSidebarOpen(true)}
         />
         
         <div className="flex-1 overflow-hidden">
-          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10">
+          <main className={`h-full w-full overflow-y-auto px-4 transition-all duration-300 ${
+            isKeyboardVisible ? 'pb-4' : 'pb-20 sm:pb-20'
+          } sm:px-6 md:px-8 lg:px-10`}>
             <div className="max-w-7xl mx-auto">
-              {renderScreen()}
+              <ScreenTransition
+                key={currentScreen}
+                direction={prevScreen < currentScreen ? 'slide-left' : 'slide-right'}
+                duration={300}
+                isVisible={true}
+              >
+                {renderScreen()}
+              </ScreenTransition>
             </div>
           </main>
         </div>
 
-        <BottomNavigation 
-          currentScreen={currentScreen}
-          onScreenChange={handleScreenChange}
-          currentLanguage={currentUser?.language_code}
-        />
+        {!isKeyboardVisible && (
+          <BottomNavigation 
+            currentScreen={currentScreen}
+            onScreenChange={handleScreenChange}
+            currentLanguage={currentUser?.language_code}
+          />
+        )}
 
         <Sidebar
           isOpen={isSidebarOpen}
