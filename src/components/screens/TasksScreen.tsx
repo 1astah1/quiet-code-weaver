@@ -1,10 +1,10 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, CheckCircle, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DailyRewardsCalendar from "@/components/DailyRewardsCalendar";
 import { useSecureTaskProgress } from "@/hooks/useSecureTaskProgress";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 
 interface TasksScreenProps {
   currentUser: {
@@ -112,13 +112,16 @@ const TasksScreen = ({ currentUser, onCoinsUpdate }: TasksScreenProps) => {
               <div className="flex items-center">
                 {task.image_url && (
                   <div className="w-12 h-12 sm:w-16 sm:h-16 mr-3 sm:mr-4 flex-shrink-0">
-                    <img
+                    <OptimizedImage
                       src={task.image_url}
                       alt={task.title}
                       className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      fallback={
+                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
+                          <Gift className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+                        </div>
+                      }
+                      onError={() => console.log('Failed to load task image for:', task.title)}
                     />
                   </div>
                 )}

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +5,7 @@ import { Star, TrendingUp, Users, Play, Gift, ArrowRight, Coins } from "lucide-r
 import RecentWins from "@/components/RecentWins";
 import ReferralModal from "@/components/ReferralModal";
 import BannerCarousel from "@/components/BannerCarousel";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 import { Screen } from "@/components/MainApp";
 
 interface MainScreenProps {
@@ -118,10 +118,15 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
                 {favoriteSkins.slice(0, 3).map((skin: any) => (
                   <div key={skin.id} className="bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center border border-gray-600/30">
                     {skin.image_url ? (
-                      <img 
+                      <OptimizedImage 
                         src={skin.image_url} 
                         alt={skin.name}
                         className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-1 sm:mb-2 object-contain"
+                        fallback={
+                          <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-600 rounded-lg mx-auto mb-1 sm:mb-2 flex items-center justify-center">
+                            <span className="text-lg sm:text-2xl">🎯</span>
+                          </div>
+                        }
                       />
                     ) : (
                       <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-600 rounded-lg mx-auto mb-1 sm:mb-2 flex items-center justify-center">
@@ -226,9 +231,25 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
               className="bg-gray-800/50 rounded-lg p-3 sm:p-4 border border-orange-500/20 cursor-pointer hover:border-orange-500/40 transition-all"
             >
               <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-white font-semibold text-sm sm:text-base truncate">{task.title}</h4>
-                  <p className="text-gray-400 text-xs sm:text-sm truncate">{task.description}</p>
+                <div className="flex items-center flex-1 min-w-0">
+                  {task.image_url && (
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mr-3 sm:mr-4 flex-shrink-0">
+                      <OptimizedImage
+                        src={task.image_url}
+                        alt={task.title}
+                        className="w-full h-full object-cover rounded-lg"
+                        fallback={
+                          <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
+                            <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
+                          </div>
+                        }
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-white font-semibold text-sm sm:text-base truncate">{task.title}</h4>
+                    <p className="text-gray-400 text-xs sm:text-sm truncate">{task.description}</p>
+                  </div>
                 </div>
                 <div className="text-right ml-2">
                   <div className="flex items-center space-x-0.5 sm:space-x-1 text-orange-400 font-bold">
