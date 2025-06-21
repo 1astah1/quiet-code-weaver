@@ -10,20 +10,11 @@ import MainApp from "@/components/MainApp";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      onError: (error) => {
-        console.error('🚨 [QUERY_CLIENT] Global query error:', error);
-      },
-      onSuccess: (data) => {
-        console.log('✅ [QUERY_CLIENT] Global query success');
-      }
+      retry: 3,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
     mutations: {
-      onError: (error) => {
-        console.error('🚨 [QUERY_CLIENT] Global mutation error:', error);
-      },
-      onSuccess: (data) => {
-        console.log('✅ [QUERY_CLIENT] Global mutation success');
-      }
+      retry: 1,
     }
   }
 });
