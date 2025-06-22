@@ -1,9 +1,12 @@
+
 import { useState } from "react";
-import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock } from "lucide-react";
+import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock, FileText, ScrollText } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
 import FAQModal from "./FAQModal";
 import PremiumModal from "./PremiumModal";
 import ImprovedSteamConnectionModal from "./ImprovedSteamConnectionModal";
+import TermsOfServiceModal from "./TermsOfServiceModal";
+import PrivacyPolicyModal from "./PrivacyPolicyModal";
 import LanguageSelector from "./LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +33,8 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(currentUser.sound_enabled ?? true);
   const [vibrationEnabled, setVibrationEnabled] = useState(currentUser.vibration_enabled ?? true);
   const [profilePrivate, setProfilePrivate] = useState(currentUser.profile_private ?? false);
@@ -255,18 +260,57 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             <HelpCircle className="w-5 h-5 mr-2 text-orange-400" />
             {t('support')}
           </h3>
-          <div 
-            onClick={() => setShowFAQModal(true)}
-            className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
-          >
-            <div className="flex items-center space-x-3">
-              <HelpCircle className="w-6 h-6 text-green-400" />
-              <div>
-                <h4 className="text-white font-medium">{t('faq')}</h4>
-                <p className="text-slate-400 text-sm">{t('findAnswers')}</p>
+          <div className="space-y-4">
+            <div 
+              onClick={() => setShowFAQModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <HelpCircle className="w-6 h-6 text-green-400" />
+                <div>
+                  <h4 className="text-white font-medium">{t('faq')}</h4>
+                  <p className="text-slate-400 text-sm">{t('findAnswers')}</p>
+                </div>
               </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
             </div>
-            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Legal Section */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+            <FileText className="w-5 h-5 mr-2 text-orange-400" />
+            Правовая информация
+          </h3>
+          <div className="space-y-4">
+            <div 
+              onClick={() => setShowTermsModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <ScrollText className="w-6 h-6 text-blue-400" />
+                <div>
+                  <h4 className="text-white font-medium">Условия использования</h4>
+                  <p className="text-slate-400 text-sm">Правила и условия пользования приложением</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+
+            <div 
+              onClick={() => setShowPrivacyModal(true)}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            >
+              <div className="flex items-center space-x-3">
+                <Shield className="w-6 h-6 text-purple-400" />
+                <div>
+                  <h4 className="text-white font-medium">Политика конфиденциальности</h4>
+                  <p className="text-slate-400 text-sm">Как мы обрабатываем ваши данные</p>
+                </div>
+              </div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -293,6 +337,16 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         isOpen={showSteamModal}
         onClose={() => setShowSteamModal(false)}
         currentUser={currentUser}
+      />
+
+      <TermsOfServiceModal 
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
+
+      <PrivacyPolicyModal 
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
       />
     </div>
   );
