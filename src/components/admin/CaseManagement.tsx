@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +38,7 @@ const CaseManagement = ({
     queryKey: ['case_skins', selectedCase],
     queryFn: async () => {
       if (!selectedCase) return [];
+      console.log('Loading case skins for case:', selectedCase);
       const { data, error } = await supabase
         .from('case_skins')
         .select(`
@@ -50,7 +50,11 @@ const CaseManagement = ({
         `)
         .eq('case_id', selectedCase);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading case skins:', error);
+        throw error;
+      }
+      console.log('Loaded case skins:', data);
       return data || [];
     },
     enabled: !!selectedCase
@@ -187,7 +191,14 @@ const CaseManagement = ({
 
   const handleSkinsButtonClick = (caseId: string) => {
     console.log('Скины кнопка нажата для кейса:', caseId);
-    setSelectedCase(caseId);
+    console.log('Текущий выбранный кейс:', selectedCase);
+    
+    // Если кейс уже выбран, скрываем его. Иначе показываем скины для этого кейса
+    if (selectedCase === caseId) {
+      setSelectedCase(null);
+    } else {
+      setSelectedCase(caseId);
+    }
   };
 
   return (
@@ -361,11 +372,15 @@ const CaseManagement = ({
                     </Button>
                     <Button
                       onClick={() => handleSkinsButtonClick(caseItem.id)}
-                      variant="outline"
-                      className="px-2 py-1 text-xs"
+                      variant={selectedCase === caseItem.id ? "default" : "outline"}
+                      className={`px-2 py-1 text-xs ${
+                        selectedCase === caseItem.id 
+                          ? "bg-orange-600 hover:bg-orange-700" 
+                          : ""
+                      }`}
                     >
                       <Plus className="w-3 h-3 mr-1" />
-                      Скины
+                      {selectedCase === caseItem.id ? "Скрыть скины" : "Скины"}
                     </Button>
                   </div>
                   
@@ -384,36 +399,44 @@ const CaseManagement = ({
 
       {selectedCase && (
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h4 className="text-white font-medium mb-4">Скины в кейсе</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {caseSkins?.map((item: any) => (
-              <div key={item.id} className="bg-gray-700 rounded p-3">
-                <div className="flex items-center space-x-3">
-                  {item.skins?.image_url && (
-                    <img 
-                      src={item.skins.image_url} 
-                      alt={item.skins.name}
-                      className="w-10 h-10 object-cover rounded"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
-                    <p className="text-gray-400 text-xs">{item.probability}%</p>
+          <h4 className="text-white font-medium mb-4">
+            Скины в кейсе {tableData?.find(c => c.id === selectedCase)?.name}
+          </h4>
+          {caseSkins && caseSkins.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {caseSkins.map((item: any) => (
+                <div key={item.id} className="bg-gray-700 rounded p-3">
+                  <div className="flex items-center space-x-3">
+                    {item.skins?.image_url && (
+                      <img 
+                        src={item.skins.image_url} 
+                        alt={item.skins.name}
+                        className="w-10 h-10 object-cover rounded"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
+                      <p className="text-gray-400 text-xs">{item.probability}%</p>
+                    </div>
                   </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onSkinImageUpload(file, item.skins.id);
+                    }}
+                    className="mt-2 text-xs text-gray-400"
+                    disabled={uploadingImage}
+                  />
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onSkinImageUpload(file, item.skins.id);
-                  }}
-                  className="mt-2 text-xs text-gray-400"
-                  disabled={uploadingImage}
-                />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-center py-4">
+              В этом кейсе пока нет скинов
+            </p>
+          )}
           
           <Button
             onClick={() => setSelectedCase(null)}
