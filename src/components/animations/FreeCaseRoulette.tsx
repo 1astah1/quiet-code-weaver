@@ -18,6 +18,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   const { vibrateSuccess, vibrateRare } = useVibration();
 
   console.log('🎰 [FREE_CASE_ROULETTE] Component mounted with caseSkins:', caseSkins?.length);
+  console.log('🎰 [FREE_CASE_ROULETTE] CaseSkins structure:', caseSkins);
 
   const getRarityColor = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
@@ -51,6 +52,20 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
       return;
     }
 
+    // Фильтруем доступные скины (те, которые не помечены как never_drop и имеют тип skin)
+    const availableSkins = caseSkins.filter(item => {
+      console.log('🔍 [FREE_CASE_ROULETTE] Checking item:', {
+        id: item.id,
+        reward_type: item.reward_type,
+        never_drop: item.never_drop,
+        has_skins: !!item.skins,
+        skins_data: item.skins
+      });
+      return item.reward_type === 'skin' && !item.never_drop && item.skins;
+    });
+
+    console.log('🎰 [FREE_CASE_ROULETTE] Available skins for roulette:', availableSkins.length);
+
     // Создаем массив предметов для рулетки (скины + монеты)
     const rouletteItems = [];
     const totalItems = 100;
@@ -60,7 +75,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
     const willDropCoins = Math.random() < 0.3;
     let winner;
 
-    if (willDropCoins) {
+    if (willDropCoins || availableSkins.length === 0) {
       winner = {
         type: 'coins',
         coins: Math.floor(Math.random() * 200) + 50, // 50-250 монет
@@ -70,41 +85,29 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
       console.log('🪙 [FREE_CASE_ROULETTE] Winner will be coins:', winner.coins);
     } else {
       // Выбираем случайный скин из кейса
-      const availableSkins = caseSkins.filter(item => item.skins && !item.never_drop);
+      const totalProbability = availableSkins.reduce((sum, item) => {
+        return sum + (item.custom_probability || item.probability || 0.01);
+      }, 0);
       
-      if (availableSkins.length === 0) {
-        console.log('⚠️ [FREE_CASE_ROULETTE] No available skins, fallback to coins');
-        winner = {
-          type: 'coins',
-          coins: 100,
-          name: 'Монеты',
-          rarity: 'coins'
-        };
-      } else {
-        const totalProbability = availableSkins.reduce((sum, item) => {
-          return sum + (item.custom_probability || item.probability || 0.01);
-        }, 0);
-        
-        let random = Math.random() * totalProbability;
-        let selectedSkin = availableSkins[0];
+      let random = Math.random() * totalProbability;
+      let selectedSkin = availableSkins[0];
 
-        for (const skin of availableSkins) {
-          const probability = skin.custom_probability || skin.probability || 0.01;
-          random -= probability;
-          if (random <= 0) {
-            selectedSkin = skin;
-            break;
-          }
+      for (const skin of availableSkins) {
+        const probability = skin.custom_probability || skin.probability || 0.01;
+        random -= probability;
+        if (random <= 0) {
+          selectedSkin = skin;
+          break;
         }
-
-        winner = {
-          type: 'skin',
-          skin: selectedSkin.skins,
-          ...selectedSkin.skins,
-          rarity: selectedSkin.skins.rarity
-        };
-        console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', winner.name);
       }
+
+      winner = {
+        type: 'skin',
+        skin: selectedSkin.skins,
+        ...selectedSkin.skins,
+        rarity: selectedSkin.skins.rarity
+      };
+      console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', winner.name);
     }
 
     // Заполняем рулетку
@@ -122,7 +125,6 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
           });
         } else {
           // Добавляем случайный скин
-          const availableSkins = caseSkins.filter(item => item.skins);
           if (availableSkins.length > 0) {
             const randomIndex = Math.floor(Math.random() * availableSkins.length);
             const randomSkin = availableSkins[randomIndex]?.skins;

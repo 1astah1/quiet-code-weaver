@@ -48,8 +48,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
             skins (*),
             coin_rewards (*)
           `)
-          .eq('case_id', caseItem.id)
-          .eq('never_drop', false);
+          .eq('case_id', caseItem.id);
 
         if (error) {
           console.error('❌ [CASE_OPENING] Error loading case skins:', error);
@@ -65,6 +64,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         console.log('✅ [CASE_OPENING] Case skins loaded:', data?.length || 0);
+        console.log('📊 [CASE_OPENING] Case skins data structure:', data);
         setCaseSkins(data || []);
         
         await logCaseOpening({
@@ -93,6 +93,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   useEffect(() => {
     if (caseItem?.is_free && caseSkins.length > 0 && animationPhase === 'opening') {
       console.log('🆓 [CASE_OPENING] Free case - moving to revealing phase');
+      console.log('🔍 [CASE_OPENING] Available case skins for free case:', caseSkins);
       setTimeout(() => {
         setAnimationPhase('revealing');
       }, 1000); // Короткая задержка для анимации
