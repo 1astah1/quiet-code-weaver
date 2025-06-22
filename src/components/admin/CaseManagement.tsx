@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,6 +185,11 @@ const CaseManagement = ({
     }
   };
 
+  const handleSkinsButtonClick = (caseId: string) => {
+    console.log('Скины кнопка нажата для кейса:', caseId);
+    setSelectedCase(caseId);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -354,7 +360,7 @@ const CaseManagement = ({
                       Изменить
                     </Button>
                     <Button
-                      onClick={() => setSelectedCase(caseItem.id)}
+                      onClick={() => handleSkinsButtonClick(caseItem.id)}
                       variant="outline"
                       className="px-2 py-1 text-xs"
                     >
