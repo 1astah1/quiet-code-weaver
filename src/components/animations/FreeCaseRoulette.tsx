@@ -17,6 +17,8 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   const { playRouletteSpinSound, playItemRevealSound, playCoinsEarnedSound } = useSound();
   const { vibrateSuccess, vibrateRare } = useVibration();
 
+  console.log('🎰 [FREE_CASE_ROULETTE] Component mounted with caseSkins:', caseSkins?.length);
+
   const getRarityColor = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
       case 'consumer grade':
@@ -41,7 +43,10 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   };
 
   useEffect(() => {
+    console.log('🎰 [FREE_CASE_ROULETTE] Setting up roulette with caseSkins:', caseSkins?.length);
+    
     if (!caseSkins?.length) {
+      console.log('🎰 [FREE_CASE_ROULETTE] No case skins provided, using fallback');
       setTimeout(() => onComplete({ type: 'coins', coins: 50 }), 1000);
       return;
     }
@@ -62,29 +67,43 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
         name: 'Монеты',
         rarity: 'coins'
       };
+      console.log('🪙 [FREE_CASE_ROULETTE] Winner will be coins:', winner.coins);
     } else {
       // Выбираем случайный скин из кейса
-      const totalProbability = caseSkins.reduce((sum, item) => {
-        return sum + (item.custom_probability || item.probability || 0.01);
-      }, 0);
+      const availableSkins = caseSkins.filter(item => item.skins && !item.never_drop);
       
-      let random = Math.random() * totalProbability;
-      let selectedSkin = caseSkins[0];
+      if (availableSkins.length === 0) {
+        console.log('⚠️ [FREE_CASE_ROULETTE] No available skins, fallback to coins');
+        winner = {
+          type: 'coins',
+          coins: 100,
+          name: 'Монеты',
+          rarity: 'coins'
+        };
+      } else {
+        const totalProbability = availableSkins.reduce((sum, item) => {
+          return sum + (item.custom_probability || item.probability || 0.01);
+        }, 0);
+        
+        let random = Math.random() * totalProbability;
+        let selectedSkin = availableSkins[0];
 
-      for (const skin of caseSkins) {
-        const probability = skin.custom_probability || skin.probability || 0.01;
-        random -= probability;
-        if (random <= 0) {
-          selectedSkin = skin;
-          break;
+        for (const skin of availableSkins) {
+          const probability = skin.custom_probability || skin.probability || 0.01;
+          random -= probability;
+          if (random <= 0) {
+            selectedSkin = skin;
+            break;
+          }
         }
-      }
 
-      winner = {
-        type: 'skin',
-        ...selectedSkin.skins,
-        rarity: selectedSkin.skins.rarity
-      };
+        winner = {
+          type: 'skin',
+          ...selectedSkin.skins,
+          rarity: selectedSkin.skins.rarity
+        };
+        console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', winner.name);
+      }
     }
 
     // Заполняем рулетку
@@ -102,23 +121,36 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
           });
         } else {
           // Добавляем случайный скин
-          const randomIndex = Math.floor(Math.random() * caseSkins.length);
-          const randomSkin = caseSkins[randomIndex]?.skins;
-          if (randomSkin) {
+          const availableSkins = caseSkins.filter(item => item.skins);
+          if (availableSkins.length > 0) {
+            const randomIndex = Math.floor(Math.random() * availableSkins.length);
+            const randomSkin = availableSkins[randomIndex]?.skins;
+            if (randomSkin) {
+              rouletteItems.push({
+                type: 'skin',
+                ...randomSkin,
+                rarity: randomSkin.rarity
+              });
+            }
+          } else {
+            // Fallback to coins if no skins available
             rouletteItems.push({
-              type: 'skin',
-              ...randomSkin,
-              rarity: randomSkin.rarity
+              type: 'coins',
+              coins: Math.floor(Math.random() * 100) + 25,
+              name: 'Монеты',
+              rarity: 'coins'
             });
           }
         }
       }
     }
 
+    console.log('🎰 [FREE_CASE_ROULETTE] Roulette items prepared:', rouletteItems.length);
     setItems(rouletteItems);
 
     // Запускаем анимацию
     const timer1 = setTimeout(() => {
+      console.log('🎰 [FREE_CASE_ROULETTE] Starting spin animation');
       setIsSpinning(true);
       playRouletteSpinSound();
       
@@ -132,6 +164,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
     }, 500);
 
     const timer2 = setTimeout(() => {
+      console.log('🎰 [FREE_CASE_ROULETTE] Animation completed, revealing winner');
       setIsComplete(true);
       
       if (winner.type === 'coins') {
