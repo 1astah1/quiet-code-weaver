@@ -48,32 +48,26 @@ export type Database = {
       case_skins: {
         Row: {
           case_id: string | null
-          coin_reward_id: string | null
           custom_probability: number | null
           id: string
           never_drop: boolean | null
           probability: number | null
-          reward_type: string | null
           skin_id: string | null
         }
         Insert: {
           case_id?: string | null
-          coin_reward_id?: string | null
           custom_probability?: number | null
           id?: string
           never_drop?: boolean | null
           probability?: number | null
-          reward_type?: string | null
           skin_id?: string | null
         }
         Update: {
           case_id?: string | null
-          coin_reward_id?: string | null
           custom_probability?: number | null
           id?: string
           never_drop?: boolean | null
           probability?: number | null
-          reward_type?: string | null
           skin_id?: string | null
         }
         Relationships: [
@@ -82,13 +76,6 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "case_skins_coin_reward_id_fkey"
-            columns: ["coin_reward_id"]
-            isOneToOne: false
-            referencedRelation: "coin_rewards"
             referencedColumns: ["id"]
           },
           {
@@ -142,30 +129,6 @@ export type Database = {
           name?: string
           price?: number
           rarity_color?: string | null
-        }
-        Relationships: []
-      }
-      coin_rewards: {
-        Row: {
-          amount: number
-          created_at: string | null
-          id: string
-          image_url: string | null
-          name: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string | null
-          id?: string
-          image_url?: string | null
-          name: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string | null
-          id?: string
-          image_url?: string | null
-          name?: string
         }
         Relationships: []
       }
@@ -305,8 +268,6 @@ export type Database = {
         Row: {
           case_id: string | null
           id: string
-          reward_data: Json | null
-          reward_type: string | null
           skin_id: string | null
           user_id: string | null
           won_at: string | null
@@ -314,8 +275,6 @@ export type Database = {
         Insert: {
           case_id?: string | null
           id?: string
-          reward_data?: Json | null
-          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -323,8 +282,6 @@ export type Database = {
         Update: {
           case_id?: string | null
           id?: string
-          reward_data?: Json | null
-          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -335,6 +292,13 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_wins_skin_id_fkey"
+            columns: ["skin_id"]
+            isOneToOne: false
+            referencedRelation: "skins"
             referencedColumns: ["id"]
           },
           {
@@ -689,30 +653,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      user_free_case_openings: {
-        Row: {
-          case_id: string
-          created_at: string
-          id: string
-          opened_at: string
-          user_id: string
-        }
-        Insert: {
-          case_id: string
-          created_at?: string
-          id?: string
-          opened_at?: string
-          user_id: string
-        }
-        Update: {
-          case_id?: string
-          created_at?: string
-          id?: string
-          opened_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       user_inventory: {
         Row: {
@@ -1100,20 +1040,12 @@ export type Database = {
         Returns: boolean
       }
       safe_open_case: {
-        Args:
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id: string
-              p_is_free?: boolean
-            }
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id?: string
-              p_coin_reward_id?: string
-              p_is_free?: boolean
-            }
+        Args: {
+          p_user_id: string
+          p_case_id: string
+          p_skin_id: string
+          p_is_free?: boolean
+        }
         Returns: Json
       }
       safe_update_coins: {
