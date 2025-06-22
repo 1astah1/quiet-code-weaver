@@ -5,33 +5,44 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Coins, Sparkles } from "lucide-react";
 import { useVibration } from "@/hooks/useVibration";
+import { useCaseOpening } from "@/hooks/useCaseOpening";
 
 interface CaseOpeningAnimationProps {
-  isOpening: boolean;
-  wonSkin: {
+  caseItem: {
     id: string;
     name: string;
-    weapon_type: string;
-    rarity: string;
     price: number;
-    image_url: string | null;
-  } | null;
-  onComplete: () => void;
+    image_url?: string;
+  };
+  onClose: () => void;
+  currentUser: {
+    id: string;
+    username: string;
+    coins: number;
+  };
+  onCoinsUpdate: (newCoins: number) => void;
 }
 
-const CaseOpeningAnimation = ({ isOpening, wonSkin, onComplete }: CaseOpeningAnimationProps) => {
+const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
   const [stage, setStage] = useState<'opening' | 'revealing' | 'complete'>('opening');
   const [showConfetti, setShowConfetti] = useState(false);
   const { vibrate, patterns, isSupported } = useVibration();
+  const { openCase, isLoading, wonSkin } = useCaseOpening();
 
   useEffect(() => {
-    if (isOpening && wonSkin) {
-      // Запускаем анимацию открытия кейса с вибрацией
-      setStage('opening');
+    if (caseItem) {
+      // Запускаем открытие кейса
+      openCase(caseItem.id);
       
       // Вибрация при начале открытия
       vibrate(patterns.caseOpening);
       
+      setStage('opening');
+    }
+  }, [caseItem]);
+
+  useEffect(() => {
+    if (wonSkin) {
       // Переход к стадии раскрытия
       const revealTimer = setTimeout(() => {
         setStage('revealing');
@@ -52,7 +63,7 @@ const CaseOpeningAnimation = ({ isOpening, wonSkin, onComplete }: CaseOpeningAni
       const completeTimer = setTimeout(() => {
         setStage('complete');
         setTimeout(() => {
-          onComplete();
+          onClose();
           setShowConfetti(false);
           setStage('opening');
         }, 3000);
@@ -63,7 +74,7 @@ const CaseOpeningAnimation = ({ isOpening, wonSkin, onComplete }: CaseOpeningAni
         clearTimeout(completeTimer);
       };
     }
-  }, [isOpening, wonSkin, vibrate, patterns, onComplete]);
+  }, [wonSkin, vibrate, patterns, onClose]);
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -83,8 +94,6 @@ const CaseOpeningAnimation = ({ isOpening, wonSkin, onComplete }: CaseOpeningAni
         return 'from-gray-400 to-gray-600';
     }
   };
-
-  if (!isOpening || !wonSkin) return null;
 
   return (
     <AnimatePresence>
@@ -156,7 +165,7 @@ const CaseOpeningAnimation = ({ isOpening, wonSkin, onComplete }: CaseOpeningAni
           )}
 
           {/* Стадия раскрытия */}
-          {stage === 'revealing' && (
+          {stage === 'revealing' && wonSkin && (
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

@@ -1,6 +1,6 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { validateInput } from "@/utils/security";
 import { useVibration } from './useVibration';
@@ -9,11 +9,12 @@ export const useCaseOpening = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [wonSkin, setWonSkin] = useState<any | null>(null);
   const { toast } = useToast();
-  const { user } = useUser();
   const { vibrate, patterns } = useVibration();
 
   const openCase = async (caseId: string, isFreeCase = false) => {
-    if (!user) {
+    const userId = 'test-user-1'; // Моковый пользователь
+
+    if (!userId) {
       toast({
         title: "Ошибка",
         description: "Пожалуйста, войдите, чтобы открыть кейс.",
@@ -22,7 +23,7 @@ export const useCaseOpening = () => {
       return;
     }
 
-    if (!validateInput.uuid(caseId)) {
+    if (!caseId) {
       toast({
         title: "Ошибка",
         description: "Неверный ID кейса.",
@@ -84,7 +85,7 @@ export const useCaseOpening = () => {
       }
       
       const { data, error } = await supabase.rpc('safe_open_case', {
-        p_user_id: user.id,
+        p_user_id: userId,
         p_case_id: caseId,
         p_skin_id: selectedSkin.id,
         p_is_free: isFreeCase
