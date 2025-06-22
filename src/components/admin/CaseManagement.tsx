@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Plus, Upload } from "lucide-react";
+import { Edit, Trash2, Plus, Upload, X } from "lucide-react";
 
 interface CaseManagementProps {
   tableData: any[];
@@ -23,12 +23,19 @@ const CaseManagement = ({
   const [editingCase, setEditingCase] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddSkinForm, setShowAddSkinForm] = useState(false);
   const [newCaseData, setNewCaseData] = useState({
     name: '',
     description: '',
     price: 0,
     is_free: false,
     cover_image_url: ''
+  });
+  const [newSkinData, setNewSkinData] = useState({
+    skin_id: '',
+    probability: 10,
+    never_drop: false,
+    custom_probability: null as number | null
   });
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
   const { toast } = useToast();
@@ -58,6 +65,23 @@ const CaseManagement = ({
       return data || [];
     },
     enabled: !!selectedCase
+  });
+
+  // Query for all available skins to add to case
+  const { data: allSkins } = useQuery({
+    queryKey: ['all_skins'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('skins')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error loading skins:', error);
+        throw error;
+      }
+      return data || [];
+    }
   });
 
   const handleImageUpload = async (file: File, fieldName: string) => {
@@ -186,6 +210,88 @@ const CaseManagement = ({
     } catch (error) {
       console.error('Update error:', error);
       toast({ title: "Ошибка обновления", variant: "destructive" });
+    }
+  };
+
+  const handleAddSkinToCase = async () => {
+    if (!selectedCase || !newSkinData.skin_id) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Выберите кейс и скин",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    try {
+      // Проверяем, не добавлен ли уже этот скин в кейс
+      const { data: existingSkin } = await supabase
+        .from('case_skins')
+        .select('id')
+        .eq('case_id', selectedCase)
+        .eq('skin_id', newSkinData.skin_id)
+        .maybeSingle();
+
+      if (existingSkin) {
+        toast({ 
+          title: "Ошибка", 
+          description: "Этот скин уже добавлен в кейс",
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('case_skins')
+        .insert([{
+          case_id: selectedCase,
+          skin_id: newSkinData.skin_id,
+          probability: newSkinData.probability,
+          never_drop: newSkinData.never_drop,
+          custom_probability: newSkinData.custom_probability
+        }]);
+      
+      if (error) throw error;
+      
+      setNewSkinData({
+        skin_id: '',
+        probability: 10,
+        never_drop: false,
+        custom_probability: null
+      });
+      setShowAddSkinForm(false);
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      toast({ title: "Скин успешно добавлен в кейс" });
+    } catch (error: any) {
+      toast({ 
+        title: "Ошибка", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleRemoveSkinFromCase = async (caseSkinId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот скин из кейса?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('case_skins')
+        .delete()
+        .eq('id', caseSkinId);
+      
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      toast({ title: "Скин удален из кейса" });
+    } catch (error: any) {
+      toast({ 
+        title: "Ошибка", 
+        description: error.message,
+        variant: "destructive" 
+      });
     }
   };
 
@@ -399,25 +505,112 @@ const CaseManagement = ({
 
       {selectedCase && (
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h4 className="text-white font-medium mb-4">
-            Скины в кейсе {tableData?.find(c => c.id === selectedCase)?.name}
-          </h4>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-white font-medium">
+              Скины в кейсе {tableData?.find(c => c.id === selectedCase)?.name}
+            </h4>
+            <Button
+              onClick={() => setShowAddSkinForm(!showAddSkinForm)}
+              className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Добавить скин
+            </Button>
+          </div>
+
+          {showAddSkinForm && (
+            <div className="bg-gray-700 rounded-lg p-4 mb-4">
+              <h5 className="text-white font-medium mb-3">Добавить скин в кейс</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select
+                  value={newSkinData.skin_id}
+                  onChange={(e) => setNewSkinData({ ...newSkinData, skin_id: e.target.value })}
+                  className="bg-gray-600 text-white px-3 py-2 rounded"
+                >
+                  <option value="">Выберите скин</option>
+                  {allSkins?.map((skin) => (
+                    <option key={skin.id} value={skin.id}>
+                      {skin.name} ({skin.weapon_type}) - {skin.price} монет
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Вероятность (%)"
+                  value={newSkinData.probability}
+                  onChange={(e) => setNewSkinData({ ...newSkinData, probability: parseFloat(e.target.value) || 0 })}
+                  className="bg-gray-600 text-white px-3 py-2 rounded"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+                <input
+                  type="number"
+                  placeholder="Кастомная вероятность (опционально)"
+                  value={newSkinData.custom_probability || ''}
+                  onChange={(e) => setNewSkinData({ ...newSkinData, custom_probability: e.target.value ? parseFloat(e.target.value) : null })}
+                  className="bg-gray-600 text-white px-3 py-2 rounded"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={newSkinData.never_drop}
+                    onChange={(e) => setNewSkinData({ ...newSkinData, never_drop: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-gray-300">Никогда не выпадает</span>
+                </label>
+              </div>
+              <div className="flex space-x-2 mt-3">
+                <Button
+                  onClick={handleAddSkinToCase}
+                  disabled={!newSkinData.skin_id}
+                  className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
+                >
+                  Добавить
+                </Button>
+                <Button 
+                  onClick={() => setShowAddSkinForm(false)} 
+                  variant="outline"
+                  className="px-3 py-1 text-sm"
+                >
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          )}
+
           {caseSkins && caseSkins.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {caseSkins.map((item: any) => (
                 <div key={item.id} className="bg-gray-700 rounded p-3">
-                  <div className="flex items-center space-x-3">
-                    {item.skins?.image_url && (
-                      <img 
-                        src={item.skins.image_url} 
-                        alt={item.skins.name}
-                        className="w-10 h-10 object-cover rounded"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
-                      <p className="text-gray-400 text-xs">{item.probability}%</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      {item.skins?.image_url && (
+                        <img 
+                          src={item.skins.image_url} 
+                          alt={item.skins.name}
+                          className="w-10 h-10 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
+                        <p className="text-gray-400 text-xs">
+                          {item.custom_probability || item.probability}%
+                          {item.never_drop && " (не выпадает)"}
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      onClick={() => handleRemoveSkinFromCase(item.id)}
+                      className="bg-red-600 hover:bg-red-700 p-1"
+                      size="sm"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
                   <input
                     type="file"
