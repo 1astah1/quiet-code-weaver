@@ -691,6 +691,30 @@ export type Database = {
           },
         ]
       }
+      user_free_case_openings: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          opened_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          opened_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          opened_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_inventory: {
         Row: {
           id: string

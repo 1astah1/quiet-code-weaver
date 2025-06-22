@@ -356,12 +356,24 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         });
       }
 
-      // Обновляем время последнего открытия бесплатного кейса
-      console.log('⏰ [CASE_OPENING] Updating last free case time');
-      await supabase
-        .from('users')
-        .update({ last_free_case_notification: new Date().toISOString() })
-        .eq('id', currentUser.id);
+      // Обновляем время последнего открытия этого конкретного бесплатного кейса
+      console.log('⏰ [CASE_OPENING] Updating individual case opening time');
+      
+      // Используем upsert для обновления или создания записи
+      const { error: openingError } = await supabase
+        .from('user_free_case_openings')
+        .upsert({
+          user_id: currentUser.id,
+          case_id: caseItem.id,
+          opened_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,case_id'
+        });
+
+      if (openingError) {
+        console.error('❌ [CASE_OPENING] Error updating case opening time:', openingError);
+        // Не бросаем ошибку, так как основная операция прошла успешно
+      }
 
       setIsComplete(true);
       setAnimationPhase('complete');

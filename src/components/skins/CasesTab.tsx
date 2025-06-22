@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
 import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
-import FreeCaseTimer from "@/components/FreeCaseTimer";
 
 interface CasesTabProps {
   currentUser: {
@@ -19,7 +18,6 @@ interface CasesTabProps {
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [selectedCaseForPreview, setSelectedCaseForPreview] = useState<any>(null);
   const [openingCase, setOpeningCase] = useState<any>(null);
-  const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
 
   const { data: cases = [], isLoading, error } = useQuery({
     queryKey: ['cases'],
@@ -45,36 +43,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     },
     retry: 3,
     retryDelay: 1000
-  });
-
-  const { data: userData } = useQuery({
-    queryKey: ['user-free-case-timer', currentUser?.id],
-    queryFn: async () => {
-      if (!currentUser?.id) {
-        console.log('No user ID for free case timer');
-        return null;
-      }
-      
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('last_free_case_notification')
-          .eq('id', currentUser.id)
-          .single();
-        
-        if (error) {
-          console.error('User data fetch error:', error);
-          return null;
-        }
-        
-        return data;
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        return null;
-      }
-    },
-    enabled: !!currentUser?.id,
-    retry: 2
   });
 
   // Отдельный запрос для содержимого кейса при предварительном просмотре
@@ -152,16 +120,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             <span className="mr-2">🎁</span>
             Бесплатные кейсы
           </h2>
-          
-          {/* Показываем таймер только для первого (самого старого) бесплатного кейса */}
-          {freeCases.length > 0 && (
-            <FreeCaseTimer 
-              lastOpenTime={userData?.last_free_case_notification || null}
-              onTimerComplete={() => setCanOpenFreeCase(true)}
-              userId={currentUser.id}
-              caseId={freeCases[freeCases.length - 1]?.id || ''} // Передаем ID самого старого кейса
-            />
-          )}
           
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 sm:mt-4">
             {freeCases.map((caseItem) => (
