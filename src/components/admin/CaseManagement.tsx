@@ -41,6 +41,28 @@ const CaseManagement = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Query for all available skins to add to case
+  const { data: allSkins } = useQuery({
+    queryKey: ['all_skins'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('skins')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error loading skins:', error);
+        throw error;
+      }
+      return data || [];
+    }
+  });
+
+  // Валидация вероятности
+  const validateProbability = (value: number): boolean => {
+    return value >= 0 && value <= 100 && value <= 9.9999;
+  };
+
   const { data: caseSkins } = useQuery({
     queryKey: ['case_skins', selectedCase],
     queryFn: async () => {
@@ -65,23 +87,6 @@ const CaseManagement = ({
       return data || [];
     },
     enabled: !!selectedCase
-  });
-
-  // Query for all available skins to add to case
-  const { data: allSkins } = useQuery({
-    queryKey: ['all_skins'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('skins')
-        .select('*')
-        .order('name');
-      
-      if (error) {
-        console.error('Error loading skins:', error);
-        throw error;
-      }
-      return data || [];
-    }
   });
 
   const handleImageUpload = async (file: File, fieldName: string) => {
@@ -218,6 +223,25 @@ const CaseManagement = ({
       toast({ 
         title: "Ошибка", 
         description: "Выберите кейс и скин",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Валидация вероятностей
+    if (!validateProbability(newSkinData.probability)) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Вероятность должна быть от 0 до 9.9999%",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (newSkinData.custom_probability !== null && !validateProbability(newSkinData.custom_probability)) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Кастомная вероятность должна быть от 0 до 9.9999%",
         variant: "destructive" 
       });
       return;
@@ -536,23 +560,33 @@ const CaseManagement = ({
                 </select>
                 <input
                   type="number"
-                  placeholder="Вероятность (%)"
+                  placeholder="Вероятность (0-9.9999%)"
                   value={newSkinData.probability}
-                  onChange={(e) => setNewSkinData({ ...newSkinData, probability: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    if (value <= 9.9999) {
+                      setNewSkinData({ ...newSkinData, probability: value });
+                    }
+                  }}
                   className="bg-gray-600 text-white px-3 py-2 rounded"
                   min="0"
-                  max="100"
-                  step="0.01"
+                  max="9.9999"
+                  step="0.0001"
                 />
                 <input
                   type="number"
-                  placeholder="Кастомная вероятность (опционально)"
+                  placeholder="Кастомная вероятность (0-9.9999%)"
                   value={newSkinData.custom_probability || ''}
-                  onChange={(e) => setNewSkinData({ ...newSkinData, custom_probability: e.target.value ? parseFloat(e.target.value) : null })}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : null;
+                    if (value === null || value <= 9.9999) {
+                      setNewSkinData({ ...newSkinData, custom_probability: value });
+                    }
+                  }}
                   className="bg-gray-600 text-white px-3 py-2 rounded"
                   min="0"
-                  max="100"
-                  step="0.01"
+                  max="9.9999"
+                  step="0.0001"
                 />
                 <label className="flex items-center space-x-2">
                   <input
