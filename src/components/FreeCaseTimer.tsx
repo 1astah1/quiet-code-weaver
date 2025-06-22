@@ -34,19 +34,37 @@ const FreeCaseTimer = ({
       try {
         console.log('🔍 [FREE_CASE_TIMER] Checking timer status...');
         
-        const { data, error } = await supabase
-          .from('users')
-          .select('last_free_case_notification')
-          .eq('id', userId)
-          .single();
+        // Получаем информацию о пользователе и кейсе
+        const [userResponse, caseResponse] = await Promise.all([
+          supabase
+            .from('users')
+            .select('last_free_case_notification')
+            .eq('id', userId)
+            .single(),
+          supabase
+            .from('cases')
+            .select('created_at')
+            .eq('id', caseId)
+            .single()
+        ]);
 
-        if (error) {
-          console.error('❌ [FREE_CASE_TIMER] Error fetching user data:', error);
+        if (userResponse.error) {
+          console.error('❌ [FREE_CASE_TIMER] Error fetching user data:', userResponse.error);
           return;
         }
 
-        const serverLastOpen = data?.last_free_case_notification;
-        console.log('📊 [FREE_CASE_TIMER] Server last open time:', serverLastOpen);
+        if (caseResponse.error) {
+          console.error('❌ [FREE_CASE_TIMER] Error fetching case data:', caseResponse.error);
+          return;
+        }
+
+        const serverLastOpen = userResponse.data?.last_free_case_notification;
+        const caseCreatedAt = caseResponse.data?.created_at;
+        
+        console.log('📊 [FREE_CASE_TIMER] Data:', {
+          serverLastOpen,
+          caseCreatedAt
+        });
         
         if (!serverLastOpen) {
           console.log('✅ [FREE_CASE_TIMER] No previous free case, available immediately');
@@ -57,7 +75,18 @@ const FreeCaseTimer = ({
         }
 
         const lastOpen = new Date(serverLastOpen);
+        const caseCreated = new Date(caseCreatedAt);
         const now = new Date();
+        
+        // Если кейс был создан после последнего открытия бесплатного кейса, он доступен сразу
+        if (caseCreated > lastOpen) {
+          console.log('🆕 [FREE_CASE_TIMER] Case is newer than last free open, available immediately');
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+          return;
+        }
+
         const timeDiff = now.getTime() - lastOpen.getTime();
         const eightHours = 8 * 60 * 60 * 1000; // 8 часов в миллисекундах
 
@@ -95,7 +124,7 @@ const FreeCaseTimer = ({
       console.log('🛑 [FREE_CASE_TIMER] Cleaning up timer');
       clearInterval(interval);
     };
-  }, [userId, onTimerComplete]);
+  }, [userId, caseId, onTimerComplete]);
 
   const formatTime = (milliseconds: number) => {
     const hours = Math.floor(milliseconds / (1000 * 60 * 60));

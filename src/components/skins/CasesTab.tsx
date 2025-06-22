@@ -153,12 +153,15 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
             Бесплатные кейсы
           </h2>
           
-          <FreeCaseTimer 
-            lastOpenTime={userData?.last_free_case_notification || null}
-            onTimerComplete={() => setCanOpenFreeCase(true)}
-            userId={currentUser.id}
-            caseId={freeCases[0]?.id || ''}
-          />
+          {/* Показываем таймер только для первого (самого старого) бесплатного кейса */}
+          {freeCases.length > 0 && (
+            <FreeCaseTimer 
+              lastOpenTime={userData?.last_free_case_notification || null}
+              onTimerComplete={() => setCanOpenFreeCase(true)}
+              userId={currentUser.id}
+              caseId={freeCases[freeCases.length - 1]?.id || ''} // Передаем ID самого старого кейса
+            />
+          )}
           
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 sm:mt-4">
             {freeCases.map((caseItem) => (
