@@ -316,6 +316,18 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         setWonCoins(reward.coins);
         onCoinsUpdate(currentUser.coins + reward.coins);
         
+        // Записываем в recent_wins с правильной структурой
+        await supabase
+          .from('recent_wins')
+          .insert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            skin_id: null,
+            reward_type: 'coins',
+            reward_data: { amount: reward.coins },
+            won_at: new Date().toISOString()
+          });
+        
         await logCaseOpening({
           user_id: currentUser.id,
           case_id: caseItem.id,
@@ -348,6 +360,18 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
 
         setWonSkin(reward.skin);
+        
+        // Записываем в recent_wins с правильной структурой
+        await supabase
+          .from('recent_wins')
+          .insert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            skin_id: reward.skin.id,
+            reward_type: 'skin',
+            reward_data: reward.skin,
+            won_at: new Date().toISOString()
+          });
         
         await logCaseOpening({
           user_id: currentUser.id,

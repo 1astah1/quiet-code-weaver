@@ -305,6 +305,8 @@ export type Database = {
         Row: {
           case_id: string | null
           id: string
+          reward_data: Json | null
+          reward_type: string | null
           skin_id: string | null
           user_id: string | null
           won_at: string | null
@@ -312,6 +314,8 @@ export type Database = {
         Insert: {
           case_id?: string | null
           id?: string
+          reward_data?: Json | null
+          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -319,6 +323,8 @@ export type Database = {
         Update: {
           case_id?: string | null
           id?: string
+          reward_data?: Json | null
+          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -329,13 +335,6 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recent_wins_skin_id_fkey"
-            columns: ["skin_id"]
-            isOneToOne: false
-            referencedRelation: "skins"
             referencedColumns: ["id"]
           },
           {
