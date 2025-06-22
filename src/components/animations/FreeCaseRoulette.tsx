@@ -18,7 +18,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   const { vibrateSuccess, vibrateRare } = useVibration();
 
   console.log('🎰 [FREE_CASE_ROULETTE] Component mounted with caseSkins:', caseSkins?.length);
-  console.log('🎰 [FREE_CASE_ROULETTE] CaseSkins structure:', caseSkins);
+  console.log('🎰 [FREE_CASE_ROULETTE] CaseSkins full data:', JSON.stringify(caseSkins, null, 2));
 
   const getRarityColor = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
@@ -65,6 +65,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
     });
 
     console.log('🎰 [FREE_CASE_ROULETTE] Available skins for roulette:', availableSkins.length);
+    console.log('🎰 [FREE_CASE_ROULETTE] Available skins data:', JSON.stringify(availableSkins, null, 2));
 
     // Создаем массив предметов для рулетки (скины + монеты)
     const rouletteItems = [];
@@ -101,13 +102,21 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
         }
       }
 
+      // ИСПРАВЛЕНО: Правильно передаем данные скина
       winner = {
         type: 'skin',
-        skin: selectedSkin.skins,
-        ...selectedSkin.skins,
-        rarity: selectedSkin.skins.rarity
+        skin: selectedSkin.skins, // Передаем объект скина для дальнейшего использования
+        name: selectedSkin.skins?.name || 'Скин',
+        rarity: selectedSkin.skins?.rarity || 'common',
+        image_url: selectedSkin.skins?.image_url,
+        weapon_type: selectedSkin.skins?.weapon_type,
+        price: selectedSkin.skins?.price || 0
       };
-      console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', winner.name);
+      console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', {
+        name: winner.name,
+        rarity: winner.rarity,
+        skin_object: winner.skin
+      });
     }
 
     // Заполняем рулетку
@@ -131,8 +140,11 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
             if (randomSkin) {
               rouletteItems.push({
                 type: 'skin',
-                ...randomSkin,
-                rarity: randomSkin.rarity
+                name: randomSkin.name,
+                rarity: randomSkin.rarity,
+                image_url: randomSkin.image_url,
+                weapon_type: randomSkin.weapon_type,
+                price: randomSkin.price || 0
               });
             }
           } else {
@@ -149,6 +161,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
     }
 
     console.log('🎰 [FREE_CASE_ROULETTE] Roulette items prepared:', rouletteItems.length);
+    console.log('🎯 [FREE_CASE_ROULETTE] Winner item at position', winnerPosition, ':', winner);
     setItems(rouletteItems);
 
     // Запускаем анимацию
@@ -168,20 +181,23 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
 
     const timer2 = setTimeout(() => {
       console.log('🎰 [FREE_CASE_ROULETTE] Animation completed, revealing winner');
+      console.log('🎁 [FREE_CASE_ROULETTE] Final winner result:', winner);
       setIsComplete(true);
       
       if (winner.type === 'coins') {
         playCoinsEarnedSound();
         vibrateSuccess();
+        console.log('🪙 [FREE_CASE_ROULETTE] Calling onComplete with coins:', winner.coins);
         onComplete({ type: 'coins', coins: winner.coins });
       } else {
         const rarity = winner.rarity?.toLowerCase();
-        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
+        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal' || rarity === 'covert') {
           vibrateRare();
         } else {
           vibrateSuccess();
         }
         playItemRevealSound();
+        console.log('🔫 [FREE_CASE_ROULETTE] Calling onComplete with skin:', winner.skin);
         onComplete({ type: 'skin', skin: winner.skin });
       }
     }, 5000);

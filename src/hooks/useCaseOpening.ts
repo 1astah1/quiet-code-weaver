@@ -64,7 +64,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         console.log('✅ [CASE_OPENING] Case skins loaded:', data?.length || 0);
-        console.log('📊 [CASE_OPENING] Case skins data structure:', data);
+        console.log('📊 [CASE_OPENING] Case skins detailed data:', JSON.stringify(data, null, 2));
         setCaseSkins(data || []);
         
         await logCaseOpening({
@@ -296,11 +296,11 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   };
 
   const handleFreeCaseResult = async (reward: any) => {
-    console.log('🎯 [CASE_OPENING] Free case result received:', reward);
+    console.log('🎯 [CASE_OPENING] Free case result received:', JSON.stringify(reward, null, 2));
     
     try {
       if (reward.type === 'coins') {
-        console.log('🪙 [CASE_OPENING] Processing free case coin reward');
+        console.log('🪙 [CASE_OPENING] Processing free case coin reward:', reward.coins);
         
         // Обновляем монеты пользователя
         const { error } = await supabase.rpc('safe_update_coins', {
@@ -328,7 +328,12 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           duration_ms: Date.now() - startTime
         });
       } else {
-        console.log('🔫 [CASE_OPENING] Processing free case skin reward');
+        console.log('🔫 [CASE_OPENING] Processing free case skin reward:', JSON.stringify(reward.skin, null, 2));
+        
+        if (!reward.skin || !reward.skin.id) {
+          console.error('❌ [CASE_OPENING] Invalid skin data received:', reward.skin);
+          throw new Error('Получен некорректный скин');
+        }
         
         // Добавляем скин в инвентарь
         const { error } = await supabase
@@ -376,6 +381,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         // Не бросаем ошибку, так как основная операция прошла успешно
       }
 
+      console.log('✅ [CASE_OPENING] Free case processing completed successfully');
       setIsComplete(true);
       setAnimationPhase('complete');
       
