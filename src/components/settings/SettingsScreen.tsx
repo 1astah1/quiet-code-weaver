@@ -284,9 +284,12 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             Правовая информация
           </h3>
           <div className="space-y-4">
-            <div 
-              onClick={() => setShowTermsModal(true)}
-              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            <button 
+              onClick={() => {
+                console.log('Opening Terms modal');
+                setShowTermsModal(true);
+              }}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50 w-full text-left"
             >
               <div className="flex items-center space-x-3">
                 <ScrollText className="w-6 h-6 text-blue-400" />
@@ -296,11 +299,14 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
                 </div>
               </div>
               <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
-            </div>
+            </button>
 
-            <div 
-              onClick={() => setShowPrivacyModal(true)}
-              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50"
+            <button 
+              onClick={() => {
+                console.log('Opening Privacy modal');
+                setShowPrivacyModal(true);
+              }}
+              className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors border border-slate-600/50 w-full text-left"
             >
               <div className="flex items-center space-x-3">
                 <Shield className="w-6 h-6 text-purple-400" />
@@ -310,7 +316,7 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
                 </div>
               </div>
               <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
