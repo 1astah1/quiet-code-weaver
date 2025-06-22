@@ -59,17 +59,17 @@ const FreeCaseTimer = ({
         const lastOpen = new Date(serverLastOpen);
         const now = new Date();
         const timeDiff = now.getTime() - lastOpen.getTime();
-        const twoHours = 2 * 60 * 60 * 1000; // 2 часа в миллисекундах
+        const eightHours = 8 * 60 * 60 * 1000; // 8 часов в миллисекундах
 
         console.log('⏱️ [FREE_CASE_TIMER] Time calculation:', {
           lastOpen: lastOpen.toISOString(),
           now: now.toISOString(),
           timeDiff,
-          twoHours,
-          isAvailable: timeDiff >= twoHours
+          eightHours,
+          isAvailable: timeDiff >= eightHours
         });
 
-        if (timeDiff >= twoHours) {
+        if (timeDiff >= eightHours) {
           console.log('✅ [FREE_CASE_TIMER] Timer completed, case available');
           setIsAvailable(true);
           setTimeLeft(0);
@@ -77,7 +77,7 @@ const FreeCaseTimer = ({
         } else {
           console.log('⏳ [FREE_CASE_TIMER] Timer still running');
           setIsAvailable(false);
-          const remaining = twoHours - timeDiff;
+          const remaining = eightHours - timeDiff;
           setTimeLeft(remaining);
         }
 

@@ -6,6 +6,7 @@ import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
 import CaseRevealingPhase from "@/components/animations/CaseRevealingPhase";
 import CaseCompletePhase from "@/components/animations/CaseCompletePhase";
 import BonusMultiplierRoulette from "@/components/animations/BonusMultiplierRoulette";
+import FreeCaseRoulette from "@/components/animations/FreeCaseRoulette";
 
 interface CaseOpeningAnimationProps {
   caseItem: any;
@@ -32,7 +33,8 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     sellDirectly,
     caseSkins,
     handleBonusComplete,
-    handleBonusSkip
+    handleBonusSkip,
+    handleFreeCaseResult
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
   const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
@@ -43,7 +45,8 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     hasWonSkin: !!wonSkin,
     hasWonCoins: wonCoins > 0,
     showBonusRoulette,
-    hasCaseSkins: !!caseSkins?.length 
+    hasCaseSkins: !!caseSkins?.length,
+    isFreeCase: caseItem?.is_free 
   });
 
   // Добавляем вибрацию на разных этапах анимации
@@ -112,7 +115,12 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           
           {animationPhase === 'revealing' && (
             <>
-              {wonSkin ? (
+              {caseItem?.is_free ? (
+                <FreeCaseRoulette 
+                  caseSkins={caseSkins} 
+                  onComplete={handleFreeCaseResult}
+                />
+              ) : wonSkin ? (
                 <CaseRevealingPhase 
                   caseSkins={caseSkins} 
                   wonSkin={wonSkin} 

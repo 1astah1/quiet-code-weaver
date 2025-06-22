@@ -98,80 +98,77 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       setCaseSkins(fetchedCaseSkins);
       console.log('Case skins loaded:', fetchedCaseSkins.length);
 
-      // Определяем, что выпадет - скин или монеты (30% шанс на монеты)
-      const shouldDropCoins = Math.random() < 0.3;
-
-      if (shouldDropCoins) {
-        // Выпали монеты
-        const coinAmount = Math.floor(Math.random() * (caseItem.price * 2)) + 10;
-        setWonCoins(coinAmount);
-        playCoinsEarnedSound();
-        
+      // Для бесплатных кейсов используем новую рулетку
+      if (caseItem.is_free) {
         setTimeout(() => {
           setAnimationPhase('revealing');
         }, 3000);
-        
-        setTimeout(() => {
-          if (caseItem.is_free) {
-            // Для бесплатных кейсов показываем бонусную рулетку
-            setAnimationPhase('bonus');
-            setShowBonusRoulette(true);
-          } else {
-            // Для платных кейсов сразу начисляем монеты
+      } else {
+        // Для платных кейсов оставляем старую логику
+        const shouldDropCoins = Math.random() < 0.3;
+
+        if (shouldDropCoins) {
+          const coinAmount = Math.floor(Math.random() * (caseItem.price * 2)) + 10;
+          setWonCoins(coinAmount);
+          playCoinsEarnedSound();
+          
+          setTimeout(() => {
+            setAnimationPhase('revealing');
+          }, 3000);
+          
+          setTimeout(() => {
             addCoinsToBalance(coinAmount);
             setAnimationPhase('complete');
             setIsComplete(true);
             setIsOpening(false);
-          }
-        }, 8000);
-        
-      } else {
-        // Выпал скин
-        const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
-          return sum + (item.custom_probability || item.probability || 0.01);
-        }, 0);
-        
-        let random = Math.random() * totalProbability;
-        let selectedSkin = fetchedCaseSkins[0];
-
-        for (const skin of fetchedCaseSkins) {
-          const probability = skin.custom_probability || skin.probability || 0.01;
-          random -= probability;
-          if (random <= 0) {
-            selectedSkin = skin;
-            break;
-          }
-        }
-
-        if (!selectedSkin?.skins) {
-          throw new Error('Не удалось выбрать скин');
-        }
-
-        console.log('Selected skin:', selectedSkin.skins.name);
-
-        // Звук в зависимости от редкости скина
-        const rarity = selectedSkin.skins.rarity?.toLowerCase();
-        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
-          setTimeout(() => playRareItemSound(), 3000);
+          }, 8000);
+          
         } else {
-          setTimeout(() => playItemRevealSound(), 3000);
+          const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
+            return sum + (item.custom_probability || item.probability || 0.01);
+          }, 0);
+          
+          let random = Math.random() * totalProbability;
+          let selectedSkin = fetchedCaseSkins[0];
+
+          for (const skin of fetchedCaseSkins) {
+            const probability = skin.custom_probability || skin.probability || 0.01;
+            random -= probability;
+            if (random <= 0) {
+              selectedSkin = skin;
+              break;
+            }
+          }
+
+          if (!selectedSkin?.skins) {
+            throw new Error('Не удалось выбрать скин');
+          }
+
+          console.log('Selected skin:', selectedSkin.skins.name);
+
+          const rarity = selectedSkin.skins.rarity?.toLowerCase();
+          if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
+            setTimeout(() => playRareItemSound(), 3000);
+          } else {
+            setTimeout(() => playItemRevealSound(), 3000);
+          }
+
+          setTimeout(() => {
+            setAnimationPhase('revealing');
+            setWonSkin(selectedSkin.skins);
+          }, 3000);
+          
+          setTimeout(() => {
+            setAnimationPhase('complete');
+            setIsComplete(true);
+            setIsOpening(false);
+
+            toast({
+              title: "🎉 Поздравляем!",
+              description: `Вы выиграли ${selectedSkin.skins.name}!`,
+            });
+          }, 8000);
         }
-
-        setTimeout(() => {
-          setAnimationPhase('revealing');
-          setWonSkin(selectedSkin.skins);
-        }, 3000);
-        
-        setTimeout(() => {
-          setAnimationPhase('complete');
-          setIsComplete(true);
-          setIsOpening(false);
-
-          toast({
-            title: "🎉 Поздравляем!",
-            description: `Вы выиграли ${selectedSkin.skins.name}!`,
-          });
-        }, 8000);
       }
 
     } catch (error) {
@@ -185,6 +182,25 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось открыть кейс",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleFreeCaseResult = (result: { type: 'skin' | 'coins', skin?: any, coins?: number }) => {
+    if (result.type === 'coins') {
+      setWonCoins(result.coins!);
+      // Показываем бонусную рулетку для монет
+      setAnimationPhase('bonus');
+      setShowBonusRoulette(true);
+    } else {
+      setWonSkin(result.skin);
+      setAnimationPhase('complete');
+      setIsComplete(true);
+      setIsOpening(false);
+      
+      toast({
+        title: "🎉 Поздравляем!",
+        description: `Вы выиграли ${result.skin.name}!`,
       });
     }
   };
@@ -384,6 +400,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     addToInventory,
     sellDirectly,
     handleBonusComplete,
-    handleBonusSkip
+    handleBonusSkip,
+    handleFreeCaseResult
   };
 };

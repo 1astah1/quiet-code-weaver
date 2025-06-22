@@ -18,18 +18,18 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
   const { playRouletteSpinSound, playMultiplierWinSound } = useSound();
   const { vibrateSuccess, vibrateRare } = useVibration();
 
-  // Множители для рулетки
+  // Множители от 5% до 80% (1.05 до 1.8)
   const multipliers = [
-    1.1, 1.2, 1.5, 2.0, 1.3, 1.8, 1.4, 3.0, 1.6, 2.5, 
-    1.2, 1.7, 1.1, 4.0, 1.5, 2.2, 1.3, 1.9, 1.4, 5.0,
-    1.6, 1.8, 1.2, 2.8, 1.5, 1.7, 1.3, 3.5, 1.4, 2.0
+    1.05, 1.08, 1.12, 1.15, 1.18, 1.22, 1.25, 1.28, 1.32, 1.35,
+    1.38, 1.42, 1.45, 1.48, 1.52, 1.55, 1.58, 1.62, 1.65, 1.68,
+    1.72, 1.75, 1.78, 1.82, 1.85, 1.88, 1.92, 1.95, 1.98, 1.8
   ];
 
   const getMultiplierColor = (multiplier: number) => {
-    if (multiplier >= 4.0) return 'from-yellow-500 to-orange-500 border-yellow-400'; // Легендарный
-    if (multiplier >= 3.0) return 'from-red-500 to-pink-500 border-red-400'; // Редкий
-    if (multiplier >= 2.0) return 'from-purple-500 to-blue-500 border-purple-400'; // Необычный
-    return 'from-green-500 to-teal-500 border-green-400'; // Обычный
+    if (multiplier >= 1.7) return 'from-yellow-500 to-orange-500 border-yellow-400'; // Очень хороший
+    if (multiplier >= 1.5) return 'from-red-500 to-pink-500 border-red-400'; // Хороший
+    if (multiplier >= 1.3) return 'from-purple-500 to-blue-500 border-purple-400'; // Средний
+    return 'from-green-500 to-teal-500 border-green-400'; // Небольшой
   };
 
   const spinRoulette = () => {
@@ -38,12 +38,12 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
     setIsSpinning(true);
     playRouletteSpinSound();
     
-    // Выбираем случайный множитель (с весами для баланса)
+    // Выбираем случайный множитель с весами
     const weights = multipliers.map(m => {
-      if (m >= 4.0) return 1; // 1% шанс
-      if (m >= 3.0) return 3; // 3% шанс  
-      if (m >= 2.0) return 8; // 8% шанс
-      return 20; // 20% шанс
+      if (m >= 1.7) return 1; // 1% шанс для больших множителей
+      if (m >= 1.5) return 3; // 3% шанс  
+      if (m >= 1.3) return 8; // 8% шанс
+      return 20; // 20% шанс для маленьких
     });
     
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
@@ -75,7 +75,7 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
       setShowResult(true);
       
       // Звук и вибрация в зависимости от множителя
-      if (winner >= 4.0) {
+      if (winner >= 1.5) {
         vibrateRare();
         playMultiplierWinSound();
       } else {
@@ -99,7 +99,7 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
         <h2 className="text-3xl sm:text-4xl font-bold text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-yellow-600 bg-clip-text mb-2">
           🎰 БОНУСНАЯ РУЛЕТКА!
         </h2>
-        <p className="text-slate-400 text-lg mb-2">Увеличьте свой выигрыш!</p>
+        <p className="text-slate-400 text-lg mb-2">Увеличьте свой выигрыш от 5% до 80%!</p>
         <div className="text-2xl font-bold text-yellow-400">
           Базовый выигрыш: {baseCoins} монет
         </div>
@@ -132,19 +132,23 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
                 style={{ transform: 'translateX(0px)' }}
               >
                 {multipliers.map((multiplier, index) => {
-                  const colorClass = getMultiplierColor(multiplier);
+                  const isWinner = index === Math.floor(multipliers.length * 0.85);
+                  const rarityClass = getMultiplierColor(multiplier);
+                  const bonusPercent = Math.round((multiplier - 1) * 100);
                   
                   return (
                     <div
                       key={index}
-                      className={`flex-shrink-0 w-28 h-32 mx-2 bg-gradient-to-br ${colorClass} rounded-xl p-3 flex flex-col items-center justify-center border-2 relative overflow-hidden`}
+                      className={`flex-shrink-0 w-28 h-32 mx-2 bg-gradient-to-br ${rarityClass} rounded-xl p-3 flex flex-col items-center justify-center border-2 relative overflow-hidden ${
+                        isWinner ? 'ring-4 ring-yellow-400 ring-opacity-75 shadow-lg shadow-yellow-400/50' : ''
+                      }`}
                     >
                       {/* Эффект свечения */}
                       <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-transparent to-white/10 animate-pulse"></div>
                       
                       {/* Множитель */}
-                      <div className="text-white text-2xl font-bold mb-1 relative z-10">
-                        x{multiplier}
+                      <div className="text-white text-xl font-bold mb-1 relative z-10">
+                        +{bonusPercent}%
                       </div>
                       
                       {/* Результат */}
@@ -152,9 +156,9 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
                         {Math.floor(baseCoins * multiplier)}
                       </div>
                       
-                      {/* Иконка в зависимости от редкости */}
+                      {/* Иконка в зависимости от процента */}
                       <div className="text-lg relative z-10">
-                        {multiplier >= 4.0 ? '🌟' : multiplier >= 3.0 ? '💎' : multiplier >= 2.0 ? '🔥' : '✨'}
+                        {bonusPercent >= 70 ? '🌟' : bonusPercent >= 50 ? '💎' : bonusPercent >= 30 ? '🔥' : '✨'}
                       </div>
                     </div>
                   );
@@ -170,7 +174,7 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
               disabled={isSpinning}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 text-lg font-bold"
             >
-              {isSpinning ? 'Крутим...' : '🎬 Посмотреть рекламу и крутить'}
+              {isSpinning ? 'Крутим...' : '📺 Посмотреть рекламу и крутить'}
             </Button>
             
             <Button
@@ -189,12 +193,12 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
           <div className="bg-gradient-to-r from-purple-900/80 to-pink-900/80 rounded-2xl p-8 border border-purple-500/50">
             <h3 className="text-3xl font-bold text-white mb-4">🎉 Поздравляем!</h3>
             
-            <div className="text-6xl font-bold text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text mb-4">
-              x{selectedMultiplier}
+            <div className="text-5xl font-bold text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text mb-4">
+              +{Math.round((selectedMultiplier - 1) * 100)}%
             </div>
             
             <div className="text-xl text-slate-300 mb-2">
-              {baseCoins} × {selectedMultiplier} =
+              {baseCoins} × {selectedMultiplier.toFixed(2)} =
             </div>
             
             <div className="text-4xl font-bold text-yellow-400 mb-6">
