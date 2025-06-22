@@ -305,6 +305,13 @@ export type Database = {
             foreignKeyName: "recent_wins_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_wins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
@@ -344,6 +351,13 @@ export type Database = {
             foreignKeyName: "referral_earnings_referred_id_fkey"
             columns: ["referred_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
             referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
@@ -352,6 +366,13 @@ export type Database = {
             columns: ["referred_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -443,6 +464,13 @@ export type Database = {
             columns: ["inventory_item_id"]
             isOneToOne: true
             referencedRelation: "user_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -557,6 +585,13 @@ export type Database = {
             foreignKeyName: "user_daily_rewards_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
@@ -594,6 +629,13 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -652,6 +694,13 @@ export type Database = {
             foreignKeyName: "user_inventory_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
@@ -689,6 +738,13 @@ export type Database = {
             columns: ["promo_code_id"]
             isOneToOne: false
             referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_promo_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
             referencedColumns: ["id"]
           },
           {
@@ -737,6 +793,13 @@ export type Database = {
             foreignKeyName: "user_quiz_progress_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
@@ -778,6 +841,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_steam_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_steam_settings_user_id_fkey"
             columns: ["user_id"]
@@ -916,6 +986,20 @@ export type Database = {
       }
     }
     Views: {
+      leaderboard: {
+        Row: {
+          id: string | null
+          items_in_inventory: number | null
+          items_sold: number | null
+          most_expensive_skin_value: number | null
+          rank: number | null
+          total_cases_opened: number | null
+          total_earned: number | null
+          total_spent: number | null
+          username: string | null
+        }
+        Relationships: []
+      }
       user_rankings: {
         Row: {
           id: string | null
