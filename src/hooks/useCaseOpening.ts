@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useVibration } from "@/hooks/useVibration";
 import { generateUUID } from "@/utils/uuid";
 
 interface UseCaseOpeningProps {
@@ -24,6 +25,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [caseSkins, setCaseSkins] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { vibrateError } = useVibration();
 
   const openCase = async () => {
     if (isOpening) return;
@@ -136,6 +138,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       console.error('Case opening error:', error);
       setIsOpening(false);
       setAnimationPhase('opening');
+      
+      // Вибрация при ошибке
+      vibrateError();
+      
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось открыть кейс",
@@ -197,6 +203,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
     } catch (error) {
       console.error('Add to inventory error:', error);
+      vibrateError(); // Вибрация при ошибке
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось добавить скин в инвентарь",
@@ -262,6 +269,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
     } catch (error) {
       console.error('Sell directly error:', error);
+      vibrateError(); // Вибрация при ошибке
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось продать скин",

@@ -1,6 +1,8 @@
 
 import { X } from "lucide-react";
 import { useCaseOpening } from "@/hooks/useCaseOpening";
+import { useVibration } from "@/hooks/useVibration";
+import { useEffect } from "react";
 import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
 import CaseRevealingPhase from "@/components/animations/CaseRevealingPhase";
 import CaseCompletePhase from "@/components/animations/CaseCompletePhase";
@@ -29,6 +31,8 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     caseSkins
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
+  const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
+
   console.log('CaseOpeningAnimation: State', { 
     animationPhase, 
     isComplete, 
@@ -36,14 +40,35 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     hasCaseSkins: !!caseSkins?.length 
   });
 
+  // Добавляем вибрацию на разных этапах анимации
+  useEffect(() => {
+    if (animationPhase === 'opening') {
+      // Легкая вибрация при начале открытия
+      vibrateLight();
+    } else if (animationPhase === 'revealing') {
+      // Вибрация при показе предмета
+      vibrateLight();
+    } else if (isComplete && wonSkin) {
+      // Особая вибрация в зависимости от редкости предмета
+      const rarity = wonSkin.rarity?.toLowerCase();
+      if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
+        vibrateRare();
+      } else {
+        vibrateSuccess();
+      }
+    }
+  }, [animationPhase, isComplete, wonSkin, vibrateLight, vibrateSuccess, vibrateRare]);
+
   const handleAddToInventory = async () => {
     console.log('Adding to inventory');
+    vibrateLight(); // Вибрация при добавлении в инвентарь
     await addToInventory();
     onClose();
   };
 
   const handleSellDirectly = async () => {
     console.log('Selling directly');
+    vibrateLight(); // Вибрация при продаже
     await sellDirectly();
     onClose();
   };
