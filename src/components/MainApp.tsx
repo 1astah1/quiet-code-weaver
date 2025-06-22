@@ -25,7 +25,9 @@ const MainApp = () => {
     isPremium: false,
     isAdmin: false,
     avatar_url: '',
-    language_code: 'ru'
+    language_code: 'ru',
+    quiz_lives: 3,
+    quiz_streak: 0
   };
 
   const handleScreenChange = (screen: Screen) => {
