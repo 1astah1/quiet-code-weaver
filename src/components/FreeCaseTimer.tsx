@@ -49,7 +49,7 @@ const FreeCaseTimer = ({
           .select('opened_at')
           .eq('user_id', userId)
           .eq('case_id', caseId)
-          .single();
+          .maybeSingle();
 
         if (caseOpeningError && caseOpeningError.code !== 'PGRST116') {
           console.error('❌ [FREE_CASE_TIMER] Error fetching case opening data:', caseOpeningError);
@@ -115,8 +115,8 @@ const FreeCaseTimer = ({
     console.log('🔄 [FREE_CASE_TIMER] Setting up individual case timer checks...');
     checkTimer();
     
-    // Проверяем каждые 5 секунд
-    const interval = setInterval(checkTimer, 5000);
+    // Проверяем каждые 30 секунд (реже чтобы снизить нагрузку)
+    const interval = setInterval(checkTimer, 30000);
 
     return () => {
       console.log('🛑 [FREE_CASE_TIMER] Cleaning up timer');
@@ -130,7 +130,6 @@ const FreeCaseTimer = ({
     const seconds = Math.floor((milliseconds % (1000 * 60)) / 1000);
 
     const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    console.log('🕐 [FREE_CASE_TIMER] Formatted time:', { milliseconds, formatted });
     return formatted;
   };
 

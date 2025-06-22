@@ -64,7 +64,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         console.log('✅ [CASE_OPENING] Case skins loaded:', data?.length || 0);
-        console.log('📊 [CASE_OPENING] Case skins detailed data:', JSON.stringify(data, null, 2));
         setCaseSkins(data || []);
         
         await logCaseOpening({
@@ -327,7 +326,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           reward_data: { amount: reward.coins },
           duration_ms: Date.now() - startTime
         });
-      } else {
+      } else if (reward.type === 'skin' && reward.skin) {
         console.log('🔫 [CASE_OPENING] Processing free case skin reward:', JSON.stringify(reward.skin, null, 2));
         
         if (!reward.skin || !reward.skin.id) {
@@ -365,20 +364,27 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       // Обновляем время последнего открытия этого конкретного бесплатного кейса
       console.log('⏰ [CASE_OPENING] Updating individual case opening time');
       
-      // Используем upsert для обновления или создания записи
-      const { error: openingError } = await supabase
-        .from('user_free_case_openings')
-        .upsert({
-          user_id: currentUser.id,
-          case_id: caseItem.id,
-          opened_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,case_id'
-        });
+      try {
+        // Используем upsert для обновления или создания записи
+        const { error: openingError } = await supabase
+          .from('user_free_case_openings')
+          .upsert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            opened_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,case_id'
+          });
 
-      if (openingError) {
-        console.error('❌ [CASE_OPENING] Error updating case opening time:', openingError);
-        // Не бросаем ошибку, так как основная операция прошла успешно
+        if (openingError) {
+          console.error('❌ [CASE_OPENING] Error updating case opening time:', openingError);
+          // Не бросаем ошибку, так как основная операция прошла успешно
+        } else {
+          console.log('✅ [CASE_OPENING] Case opening time updated successfully');
+        }
+      } catch (error) {
+        console.error('❌ [CASE_OPENING] Unexpected error updating case opening time:', error);
+        // Продолжаем выполнение, так как основная операция прошла успешно
       }
 
       console.log('✅ [CASE_OPENING] Free case processing completed successfully');

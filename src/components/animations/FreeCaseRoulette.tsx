@@ -18,7 +18,6 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   const { vibrateSuccess, vibrateRare } = useVibration();
 
   console.log('🎰 [FREE_CASE_ROULETTE] Component mounted with caseSkins:', caseSkins?.length);
-  console.log('🎰 [FREE_CASE_ROULETTE] CaseSkins full data:', JSON.stringify(caseSkins, null, 2));
 
   const getRarityColor = (rarity: string) => {
     switch (rarity?.toLowerCase()) {
@@ -52,70 +51,54 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
       return;
     }
 
-    // Фильтруем доступные скины (те, которые не помечены как never_drop и имеют тип skin)
+    // Фильтруем только скины (не монетные награды)
     const availableSkins = caseSkins.filter(item => {
       console.log('🔍 [FREE_CASE_ROULETTE] Checking item:', {
-        id: item.id,
         reward_type: item.reward_type,
         never_drop: item.never_drop,
-        has_skins: !!item.skins,
-        skins_data: item.skins
+        has_skins: !!item.skins
       });
       return item.reward_type === 'skin' && !item.never_drop && item.skins;
     });
 
     console.log('🎰 [FREE_CASE_ROULETTE] Available skins for roulette:', availableSkins.length);
-    console.log('🎰 [FREE_CASE_ROULETTE] Available skins data:', JSON.stringify(availableSkins, null, 2));
 
-    // Создаем массив предметов для рулетки (скины + монеты)
+    // Создаем массив предметов для рулетки
     const rouletteItems = [];
     const totalItems = 100;
     const winnerPosition = Math.floor(totalItems * 0.85);
 
-    // Определяем что выпадет (30% шанс на монеты)
-    const willDropCoins = Math.random() < 0.3;
+    // Определяем что выпадет (20% шанс на монеты, 80% на скин)
+    const willDropCoins = Math.random() < 0.2;
     let winner;
 
     if (willDropCoins || availableSkins.length === 0) {
+      const coinsAmount = Math.floor(Math.random() * 200) + 50; // 50-250 монет
       winner = {
         type: 'coins',
-        coins: Math.floor(Math.random() * 200) + 50, // 50-250 монет
+        coins: coinsAmount,
         name: 'Монеты',
         rarity: 'coins'
       };
-      console.log('🪙 [FREE_CASE_ROULETTE] Winner will be coins:', winner.coins);
+      console.log('🪙 [FREE_CASE_ROULETTE] Winner will be coins:', coinsAmount);
     } else {
-      // Выбираем случайный скин из кейса
-      const totalProbability = availableSkins.reduce((sum, item) => {
-        return sum + (item.custom_probability || item.probability || 0.01);
-      }, 0);
+      // Выбираем случайный скин из доступных
+      const randomSkinItem = availableSkins[Math.floor(Math.random() * availableSkins.length)];
+      const skinData = randomSkinItem.skins;
       
-      let random = Math.random() * totalProbability;
-      let selectedSkin = availableSkins[0];
-
-      for (const skin of availableSkins) {
-        const probability = skin.custom_probability || skin.probability || 0.01;
-        random -= probability;
-        if (random <= 0) {
-          selectedSkin = skin;
-          break;
-        }
-      }
-
-      // ИСПРАВЛЕНО: Правильно передаем данные скина
       winner = {
         type: 'skin',
-        skin: selectedSkin.skins, // Передаем объект скина для дальнейшего использования
-        name: selectedSkin.skins?.name || 'Скин',
-        rarity: selectedSkin.skins?.rarity || 'common',
-        image_url: selectedSkin.skins?.image_url,
-        weapon_type: selectedSkin.skins?.weapon_type,
-        price: selectedSkin.skins?.price || 0
+        skin: skinData, // Передаем весь объект скина
+        name: skinData.name || 'Скин',
+        rarity: skinData.rarity || 'common',
+        image_url: skinData.image_url,
+        weapon_type: skinData.weapon_type,
+        price: skinData.price || 0
       };
       console.log('🔫 [FREE_CASE_ROULETTE] Winner will be skin:', {
         name: winner.name,
         rarity: winner.rarity,
-        skin_object: winner.skin
+        skin_id: skinData.id
       });
     }
 
@@ -135,18 +118,16 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
         } else {
           // Добавляем случайный скин
           if (availableSkins.length > 0) {
-            const randomIndex = Math.floor(Math.random() * availableSkins.length);
-            const randomSkin = availableSkins[randomIndex]?.skins;
-            if (randomSkin) {
-              rouletteItems.push({
-                type: 'skin',
-                name: randomSkin.name,
-                rarity: randomSkin.rarity,
-                image_url: randomSkin.image_url,
-                weapon_type: randomSkin.weapon_type,
-                price: randomSkin.price || 0
-              });
-            }
+            const randomSkinItem = availableSkins[Math.floor(Math.random() * availableSkins.length)];
+            const skinData = randomSkinItem.skins;
+            rouletteItems.push({
+              type: 'skin',
+              name: skinData.name,
+              rarity: skinData.rarity,
+              image_url: skinData.image_url,
+              weapon_type: skinData.weapon_type,
+              price: skinData.price || 0
+            });
           } else {
             // Fallback to coins if no skins available
             rouletteItems.push({
