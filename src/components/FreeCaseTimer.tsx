@@ -26,7 +26,7 @@ const FreeCaseTimer = ({
   });
 
   const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [isAvailable, setIsAvailable] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true); // Изменено: по умолчанию доступен
   const [lastFreeOpen, setLastFreeOpen] = useState<string | null>(lastOpenTime);
 
   useEffect(() => {
@@ -34,36 +34,35 @@ const FreeCaseTimer = ({
       try {
         console.log('🔍 [FREE_CASE_TIMER] Checking timer status...');
         
-        // Получаем информацию о пользователе и кейсе
-        const [userResponse, caseResponse] = await Promise.all([
-          supabase
-            .from('users')
-            .select('last_free_case_notification')
-            .eq('id', userId)
-            .single(),
-          supabase
-            .from('cases')
-            .select('created_at')
-            .eq('id', caseId)
-            .single()
-        ]);
-
-        if (userResponse.error) {
-          console.error('❌ [FREE_CASE_TIMER] Error fetching user data:', userResponse.error);
+        // Если нет userId или caseId, делаем доступным
+        if (!userId || !caseId) {
+          console.log('✅ [FREE_CASE_TIMER] No user/case ID, available immediately');
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
           return;
         }
 
-        if (caseResponse.error) {
-          console.error('❌ [FREE_CASE_TIMER] Error fetching case data:', caseResponse.error);
+        // Получаем информацию о пользователе
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('last_free_case_notification')
+          .eq('id', userId)
+          .single();
+
+        if (userError) {
+          console.error('❌ [FREE_CASE_TIMER] Error fetching user data:', userError);
+          // Если ошибка, делаем доступным
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
           return;
         }
 
-        const serverLastOpen = userResponse.data?.last_free_case_notification;
-        const caseCreatedAt = caseResponse.data?.created_at;
+        const serverLastOpen = userData?.last_free_case_notification;
         
         console.log('📊 [FREE_CASE_TIMER] Data:', {
-          serverLastOpen,
-          caseCreatedAt
+          serverLastOpen
         });
         
         if (!serverLastOpen) {
@@ -75,18 +74,8 @@ const FreeCaseTimer = ({
         }
 
         const lastOpen = new Date(serverLastOpen);
-        const caseCreated = new Date(caseCreatedAt);
         const now = new Date();
         
-        // Если кейс был создан после последнего открытия бесплатного кейса, он доступен сразу
-        if (caseCreated > lastOpen) {
-          console.log('🆕 [FREE_CASE_TIMER] Case is newer than last free open, available immediately');
-          setIsAvailable(true);
-          setTimeLeft(0);
-          onTimerComplete();
-          return;
-        }
-
         const timeDiff = now.getTime() - lastOpen.getTime();
         const eightHours = 8 * 60 * 60 * 1000; // 8 часов в миллисекундах
 
@@ -113,12 +102,18 @@ const FreeCaseTimer = ({
         setLastFreeOpen(serverLastOpen);
       } catch (error) {
         console.error('💥 [FREE_CASE_TIMER] Timer check error:', error);
+        // В случае ошибки делаем доступным
+        setIsAvailable(true);
+        setTimeLeft(0);
+        onTimerComplete();
       }
     };
 
     console.log('🔄 [FREE_CASE_TIMER] Setting up timer checks...');
     checkTimer();
-    const interval = setInterval(checkTimer, 1000);
+    
+    // Проверяем каждые 5 секунд вместо каждую секунду для уменьшения нагрузки
+    const interval = setInterval(checkTimer, 5000);
 
     return () => {
       console.log('🛑 [FREE_CASE_TIMER] Cleaning up timer');
@@ -143,12 +138,14 @@ const FreeCaseTimer = ({
     shouldRender: !isAvailable || isDisabled
   });
 
+  // Если доступен и не отключен, не показываем таймер
   if (isAvailable && !isDisabled) {
     console.log('🚫 [FREE_CASE_TIMER] Not rendering (available and not disabled)');
     return null;
   }
 
-  if (isDisabled || !isAvailable) {
+  // Показываем таймер только если недоступен или отключен
+  if (!isAvailable || isDisabled) {
     console.log('✅ [FREE_CASE_TIMER] Rendering timer display');
     return (
       <div className="flex items-center justify-center space-x-2 text-gray-400 text-sm font-medium mb-2">
@@ -156,7 +153,7 @@ const FreeCaseTimer = ({
         <span>
           {timeLeft > 0 
             ? `Следующий бесплатный кейс через: ${formatTime(timeLeft)}`
-            : 'Загрузка...'
+            : 'Проверка доступности...'
           }
         </span>
       </div>

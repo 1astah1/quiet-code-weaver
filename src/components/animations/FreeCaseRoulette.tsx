@@ -99,6 +99,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
 
         winner = {
           type: 'skin',
+          skin: selectedSkin.skins,
           ...selectedSkin.skins,
           rarity: selectedSkin.skins.rarity
         };
@@ -179,7 +180,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
           vibrateSuccess();
         }
         playItemRevealSound();
-        onComplete({ type: 'skin', skin: winner });
+        onComplete({ type: 'skin', skin: winner.skin });
       }
     }, 5000);
 
