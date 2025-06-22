@@ -98,6 +98,19 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
               <Settings className="w-5 h-5" />
               <span className="font-medium">{t('settings')}</span>
             </button>
+
+            {currentUser.isAdmin && (
+              <button
+                onClick={() => {
+                  onScreenChange('admin');
+                  onClose();
+                }}
+                className="w-full flex items-center space-x-3 p-4 rounded-xl hover:bg-gray-800/50 text-gray-300 hover:text-white transition-all"
+              >
+                <Shield className="w-5 h-5" />
+                <span className="font-medium">{t('adminPanel')}</span>
+              </button>
+            )}
           </div>
 
           {/* Sign Out */}
