@@ -1,7 +1,10 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
+import PrivacyPolicyModal from "@/components/settings/PrivacyPolicyModal";
 
 interface AuthScreenProps {
   onAuthSuccess: (user: any) => void;
@@ -10,6 +13,8 @@ interface AuthScreenProps {
 const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { toast } = useToast();
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
@@ -153,13 +158,19 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           <div className="mt-6 text-center">
             <p className="text-gray-400 text-sm">
               Входя в систему, вы соглашаетесь с{' '}
-              <a href="#" className="text-orange-400 hover:text-orange-300 underline">
+              <button 
+                onClick={() => setShowTermsModal(true)}
+                className="text-orange-400 hover:text-orange-300 underline"
+              >
                 Условиями использования
-              </a>{' '}
+              </button>{' '}
               и{' '}
-              <a href="#" className="text-orange-400 hover:text-orange-300 underline">
+              <button 
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-orange-400 hover:text-orange-300 underline"
+              >
                 Политикой конфиденциальности
-              </a>
+              </button>
             </p>
           </div>
         </div>
@@ -180,6 +191,17 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <TermsOfServiceModal 
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
+      
+      <PrivacyPolicyModal 
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 };
