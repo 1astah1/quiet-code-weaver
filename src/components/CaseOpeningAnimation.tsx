@@ -1,12 +1,13 @@
+
 import { X } from "lucide-react";
 import { useCaseOpening } from "@/hooks/useCaseOpening";
 import { useVibration } from "@/hooks/useVibration";
 import { useEffect } from "react";
 import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
-import CaseRevealingPhase from "@/components/animations/CaseRevealingPhase";
+import FreeCaseRoulette from "@/components/animations/FreeCaseRoulette";
+import NewCaseRoulette from "@/components/animations/NewCaseRoulette";
 import CaseCompletePhase from "@/components/animations/CaseCompletePhase";
 import BonusMultiplierRoulette from "@/components/animations/BonusMultiplierRoulette";
-import FreeCaseRoulette from "@/components/animations/FreeCaseRoulette";
 
 interface CaseOpeningAnimationProps {
   caseItem: any;
@@ -20,7 +21,10 @@ interface CaseOpeningAnimationProps {
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
-  console.log('CaseOpeningAnimation: Rendering');
+  console.log('CaseOpeningAnimation: Rendering', { 
+    caseName: caseItem?.name, 
+    isFree: caseItem?.is_free 
+  });
 
   const {
     wonSkin,
@@ -45,17 +49,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     hasWonSkin: !!wonSkin,
     hasWonCoins: wonCoins > 0,
     showBonusRoulette,
-    hasCaseSkins: !!caseSkins?.length,
-    isFreeCase: caseItem?.is_free 
+    hasCaseSkins: !!caseSkins?.length
   });
 
   // Добавляем вибрацию на разных этапах анимации
   useEffect(() => {
     if (animationPhase === 'opening') {
-      // Легкая вибрация при начале открытия
       vibrateLight();
     } else if (animationPhase === 'revealing') {
-      // Вибрация при показе предмета
       vibrateLight();
     } else if (isComplete && (wonSkin || wonCoins > 0)) {
       if (wonSkin) {
@@ -73,14 +74,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
   const handleAddToInventory = async () => {
     console.log('Adding to inventory');
-    vibrateLight(); // Вибрация при добавлении в инвентарь
+    vibrateLight();
     await addToInventory();
     onClose();
   };
 
   const handleSellDirectly = async () => {
     console.log('Selling directly');
-    vibrateLight(); // Вибрация при продаже
+    vibrateLight();
     await sellDirectly();
     onClose();
   };
@@ -121,7 +122,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                   onComplete={handleFreeCaseResult}
                 />
               ) : wonSkin ? (
-                <CaseRevealingPhase 
+                <NewCaseRoulette 
                   caseSkins={caseSkins} 
                   wonSkin={wonSkin} 
                   onComplete={handleRevealComplete}
