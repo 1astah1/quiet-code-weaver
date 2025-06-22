@@ -32,7 +32,9 @@ const CaseManagement = ({
     cover_image_url: ''
   });
   const [newSkinData, setNewSkinData] = useState({
+    reward_type: 'skin',
     skin_id: '',
+    coin_reward_id: '',
     probability: 10,
     never_drop: false,
     custom_probability: null as number | null
@@ -58,6 +60,23 @@ const CaseManagement = ({
     }
   });
 
+  // Query for all coin rewards
+  const { data: coinRewards } = useQuery({
+    queryKey: ['coin_rewards'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('coin_rewards')
+        .select('*')
+        .order('amount');
+      
+      if (error) {
+        console.error('Error loading coin rewards:', error);
+        throw error;
+      }
+      return data || [];
+    }
+  });
+
   // Валидация вероятности
   const validateProbability = (value: number): boolean => {
     return value >= 0 && value <= 100 && value <= 9.9999;
@@ -75,7 +94,9 @@ const CaseManagement = ({
           probability,
           never_drop,
           custom_probability,
-          skins (*)
+          reward_type,
+          skins (*),
+          coin_rewards (*)
         `)
         .eq('case_id', selectedCase);
       
@@ -219,10 +240,29 @@ const CaseManagement = ({
   };
 
   const handleAddSkinToCase = async () => {
-    if (!selectedCase || !newSkinData.skin_id) {
+    if (!selectedCase) {
       toast({ 
         title: "Ошибка", 
-        description: "Выберите кейс и скин",
+        description: "Выберите кейс",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Проверяем что выбран либо скин либо монетная награда
+    if (newSkinData.reward_type === 'skin' && !newSkinData.skin_id) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Выберите скин",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (newSkinData.reward_type === 'coin_reward' && !newSkinData.coin_reward_id) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Выберите монетную награду",
         variant: "destructive" 
       });
       return;
@@ -248,44 +288,55 @@ const CaseManagement = ({
     }
 
     try {
-      // Проверяем, не добавлен ли уже этот скин в кейс
-      const { data: existingSkin } = await supabase
+      // Проверяем, не добавлен ли уже этот предмет в кейс
+      const { data: existingItem } = await supabase
         .from('case_skins')
         .select('id')
         .eq('case_id', selectedCase)
-        .eq('skin_id', newSkinData.skin_id)
+        .eq(newSkinData.reward_type === 'skin' ? 'skin_id' : 'coin_reward_id', 
+            newSkinData.reward_type === 'skin' ? newSkinData.skin_id : newSkinData.coin_reward_id)
         .maybeSingle();
 
-      if (existingSkin) {
+      if (existingItem) {
         toast({ 
           title: "Ошибка", 
-          description: "Этот скин уже добавлен в кейс",
+          description: `Эта ${newSkinData.reward_type === 'skin' ? 'награда' : 'монетная награда'} уже добавлена в кейс`,
           variant: "destructive" 
         });
         return;
       }
 
+      const insertData: any = {
+        case_id: selectedCase,
+        reward_type: newSkinData.reward_type,
+        probability: newSkinData.probability,
+        never_drop: newSkinData.never_drop,
+        custom_probability: newSkinData.custom_probability
+      };
+
+      if (newSkinData.reward_type === 'skin') {
+        insertData.skin_id = newSkinData.skin_id;
+      } else {
+        insertData.coin_reward_id = newSkinData.coin_reward_id;
+      }
+
       const { error } = await supabase
         .from('case_skins')
-        .insert([{
-          case_id: selectedCase,
-          skin_id: newSkinData.skin_id,
-          probability: newSkinData.probability,
-          never_drop: newSkinData.never_drop,
-          custom_probability: newSkinData.custom_probability
-        }]);
+        .insert([insertData]);
       
       if (error) throw error;
       
       setNewSkinData({
+        reward_type: 'skin',
         skin_id: '',
+        coin_reward_id: '',
         probability: 10,
         never_drop: false,
         custom_probability: null
       });
       setShowAddSkinForm(false);
       queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-      toast({ title: "Скин успешно добавлен в кейс" });
+      toast({ title: `${newSkinData.reward_type === 'skin' ? 'Скин' : 'Монетная награда'} успешно добавлена в кейс` });
     } catch (error: any) {
       toast({ 
         title: "Ошибка", 
@@ -531,63 +582,111 @@ const CaseManagement = ({
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-white font-medium">
-              Скины в кейсе {tableData?.find(c => c.id === selectedCase)?.name}
+              Содержимое кейса {tableData?.find(c => c.id === selectedCase)?.name}
             </h4>
             <Button
               onClick={() => setShowAddSkinForm(!showAddSkinForm)}
               className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
             >
               <Plus className="w-3 h-3 mr-1" />
-              Добавить скин
+              Добавить награду
             </Button>
           </div>
 
           {showAddSkinForm && (
             <div className="bg-gray-700 rounded-lg p-4 mb-4">
-              <h5 className="text-white font-medium mb-3">Добавить скин в кейс</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <select
-                  value={newSkinData.skin_id}
-                  onChange={(e) => setNewSkinData({ ...newSkinData, skin_id: e.target.value })}
-                  className="bg-gray-600 text-white px-3 py-2 rounded"
-                >
-                  <option value="">Выберите скин</option>
-                  {allSkins?.map((skin) => (
-                    <option key={skin.id} value={skin.id}>
-                      {skin.name} ({skin.weapon_type}) - {skin.price} монет
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Вероятность (0-9.9999%)"
-                  value={newSkinData.probability}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value) || 0;
-                    if (value <= 9.9999) {
-                      setNewSkinData({ ...newSkinData, probability: value });
-                    }
-                  }}
-                  className="bg-gray-600 text-white px-3 py-2 rounded"
-                  min="0"
-                  max="9.9999"
-                  step="0.0001"
-                />
-                <input
-                  type="number"
-                  placeholder="Кастомная вероятность (0-9.9999%)"
-                  value={newSkinData.custom_probability || ''}
-                  onChange={(e) => {
-                    const value = e.target.value ? parseFloat(e.target.value) : null;
-                    if (value === null || value <= 9.9999) {
-                      setNewSkinData({ ...newSkinData, custom_probability: value });
-                    }
-                  }}
-                  className="bg-gray-600 text-white px-3 py-2 rounded"
-                  min="0"
-                  max="9.9999"
-                  step="0.0001"
-                />
+              <h5 className="text-white font-medium mb-3">Добавить награду в кейс</h5>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-gray-300 text-sm mb-2">Тип награды:</label>
+                  <select
+                    value={newSkinData.reward_type}
+                    onChange={(e) => setNewSkinData({ 
+                      ...newSkinData, 
+                      reward_type: e.target.value,
+                      skin_id: '',
+                      coin_reward_id: ''
+                    })}
+                    className="bg-gray-600 text-white px-3 py-2 rounded w-full"
+                  >
+                    <option value="skin">Скин</option>
+                    <option value="coin_reward">Монеты</option>
+                  </select>
+                </div>
+
+                {newSkinData.reward_type === 'skin' ? (
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Выберите скин:</label>
+                    <select
+                      value={newSkinData.skin_id}
+                      onChange={(e) => setNewSkinData({ ...newSkinData, skin_id: e.target.value })}
+                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
+                    >
+                      <option value="">Выберите скин</option>
+                      {allSkins?.map((skin) => (
+                        <option key={skin.id} value={skin.id}>
+                          {skin.name} ({skin.weapon_type}) - {skin.price} монет
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Выберите монетную награду:</label>
+                    <select
+                      value={newSkinData.coin_reward_id}
+                      onChange={(e) => setNewSkinData({ ...newSkinData, coin_reward_id: e.target.value })}
+                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
+                    >
+                      <option value="">Выберите количество монет</option>
+                      {coinRewards?.map((reward) => (
+                        <option key={reward.id} value={reward.id}>
+                          {reward.name} ({reward.amount} монет)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Вероятность (0-9.9999%):</label>
+                    <input
+                      type="number"
+                      placeholder="Вероятность (0-9.9999%)"
+                      value={newSkinData.probability}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        if (value <= 9.9999) {
+                          setNewSkinData({ ...newSkinData, probability: value });
+                        }
+                      }}
+                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
+                      min="0"
+                      max="9.9999"
+                      step="0.0001"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">Кастомная вероятность (опционально):</label>
+                    <input
+                      type="number"
+                      placeholder="Кастомная вероятность (0-9.9999%)"
+                      value={newSkinData.custom_probability || ''}
+                      onChange={(e) => {
+                        const value = e.target.value ? parseFloat(e.target.value) : null;
+                        if (value === null || value <= 9.9999) {
+                          setNewSkinData({ ...newSkinData, custom_probability: value });
+                        }
+                      }}
+                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
+                      min="0"
+                      max="9.9999"
+                      step="0.0001"
+                    />
+                  </div>
+                </div>
+
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -601,7 +700,10 @@ const CaseManagement = ({
               <div className="flex space-x-2 mt-3">
                 <Button
                   onClick={handleAddSkinToCase}
-                  disabled={!newSkinData.skin_id}
+                  disabled={
+                    (newSkinData.reward_type === 'skin' && !newSkinData.skin_id) ||
+                    (newSkinData.reward_type === 'coin_reward' && !newSkinData.coin_reward_id)
+                  }
                   className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
                 >
                   Добавить
@@ -623,20 +725,37 @@ const CaseManagement = ({
                 <div key={item.id} className="bg-gray-700 rounded p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
-                      {item.skins?.image_url && (
-                        <img 
-                          src={item.skins.image_url} 
-                          alt={item.skins.name}
-                          className="w-10 h-10 object-cover rounded"
-                        />
+                      {item.reward_type === 'skin' ? (
+                        <>
+                          {item.skins?.image_url && (
+                            <img 
+                              src={item.skins.image_url} 
+                              alt={item.skins.name}
+                              className="w-10 h-10 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
+                            <p className="text-gray-400 text-xs">
+                              {item.custom_probability || item.probability}%
+                              {item.never_drop && " (не выпадает)"}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-10 h-10 bg-yellow-500 rounded flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">🪙</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{item.coin_rewards?.name}</p>
+                            <p className="text-gray-400 text-xs">
+                              {item.custom_probability || item.probability}%
+                              {item.never_drop && " (не выпадает)"}
+                            </p>
+                          </div>
+                        </>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
-                        <p className="text-gray-400 text-xs">
-                          {item.custom_probability || item.probability}%
-                          {item.never_drop && " (не выпадает)"}
-                        </p>
-                      </div>
                     </div>
                     <Button
                       onClick={() => handleRemoveSkinFromCase(item.id)}
@@ -646,22 +765,24 @@ const CaseManagement = ({
                       <X className="w-3 h-3" />
                     </Button>
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onSkinImageUpload(file, item.skins.id);
-                    }}
-                    className="mt-2 text-xs text-gray-400"
-                    disabled={uploadingImage}
-                  />
+                  {item.reward_type === 'skin' && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) onSkinImageUpload(file, item.skins.id);
+                      }}
+                      className="mt-2 text-xs text-gray-400"
+                      disabled={uploadingImage}
+                    />
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-4">
-              В этом кейсе пока нет скинов
+              В этом кейсе пока нет наград
             </p>
           )}
           
