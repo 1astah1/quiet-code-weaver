@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVibration } from "@/hooks/useVibration";
+import { useSound } from "@/hooks/useSound";
 import { generateUUID } from "@/utils/uuid";
 
 interface UseCaseOpeningProps {
@@ -19,19 +19,23 @@ interface UseCaseOpeningProps {
 export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningProps) => {
   const [isOpening, setIsOpening] = useState(false);
   const [wonSkin, setWonSkin] = useState<any>(null);
+  const [wonCoins, setWonCoins] = useState<number>(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'complete'>('opening');
+  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'complete' | 'bonus'>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
   const [caseSkins, setCaseSkins] = useState<any[]>([]);
+  const [showBonusRoulette, setShowBonusRoulette] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { vibrateError } = useVibration();
+  const { playCaseOpeningSound, playItemRevealSound, playRareItemSound, playCoinsEarnedSound } = useSound();
 
   const openCase = async () => {
     if (isOpening) return;
     
     setIsOpening(true);
     setAnimationPhase('opening');
+    playCaseOpeningSound();
 
     try {
       console.log('Starting case opening for:', caseItem?.name);
@@ -94,52 +98,87 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       setCaseSkins(fetchedCaseSkins);
       console.log('Case skins loaded:', fetchedCaseSkins.length);
 
-      const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
-        return sum + (item.custom_probability || item.probability || 0.01);
-      }, 0);
-      
-      let random = Math.random() * totalProbability;
-      let selectedSkin = fetchedCaseSkins[0];
+      // Определяем, что выпадет - скин или монеты (30% шанс на монеты)
+      const shouldDropCoins = Math.random() < 0.3;
 
-      for (const skin of fetchedCaseSkins) {
-        const probability = skin.custom_probability || skin.probability || 0.01;
-        random -= probability;
-        if (random <= 0) {
-          selectedSkin = skin;
-          break;
+      if (shouldDropCoins) {
+        // Выпали монеты
+        const coinAmount = Math.floor(Math.random() * (caseItem.price * 2)) + 10;
+        setWonCoins(coinAmount);
+        playCoinsEarnedSound();
+        
+        setTimeout(() => {
+          setAnimationPhase('revealing');
+        }, 3000);
+        
+        setTimeout(() => {
+          if (caseItem.is_free) {
+            // Для бесплатных кейсов показываем бонусную рулетку
+            setAnimationPhase('bonus');
+            setShowBonusRoulette(true);
+          } else {
+            // Для платных кейсов сразу начисляем монеты
+            addCoinsToBalance(coinAmount);
+            setAnimationPhase('complete');
+            setIsComplete(true);
+            setIsOpening(false);
+          }
+        }, 8000);
+        
+      } else {
+        // Выпал скин
+        const totalProbability = fetchedCaseSkins.reduce((sum, item) => {
+          return sum + (item.custom_probability || item.probability || 0.01);
+        }, 0);
+        
+        let random = Math.random() * totalProbability;
+        let selectedSkin = fetchedCaseSkins[0];
+
+        for (const skin of fetchedCaseSkins) {
+          const probability = skin.custom_probability || skin.probability || 0.01;
+          random -= probability;
+          if (random <= 0) {
+            selectedSkin = skin;
+            break;
+          }
         }
+
+        if (!selectedSkin?.skins) {
+          throw new Error('Не удалось выбрать скин');
+        }
+
+        console.log('Selected skin:', selectedSkin.skins.name);
+
+        // Звук в зависимости от редкости скина
+        const rarity = selectedSkin.skins.rarity?.toLowerCase();
+        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
+          setTimeout(() => playRareItemSound(), 3000);
+        } else {
+          setTimeout(() => playItemRevealSound(), 3000);
+        }
+
+        setTimeout(() => {
+          setAnimationPhase('revealing');
+          setWonSkin(selectedSkin.skins);
+        }, 3000);
+        
+        setTimeout(() => {
+          setAnimationPhase('complete');
+          setIsComplete(true);
+          setIsOpening(false);
+
+          toast({
+            title: "🎉 Поздравляем!",
+            description: `Вы выиграли ${selectedSkin.skins.name}!`,
+          });
+        }, 8000);
       }
-
-      if (!selectedSkin?.skins) {
-        throw new Error('Не удалось выбрать скин');
-      }
-
-      console.log('Selected skin:', selectedSkin.skins.name);
-
-      // Увеличенное время для новой анимации открытия (3 секунды)
-      setTimeout(() => {
-        setAnimationPhase('revealing');
-        setWonSkin(selectedSkin.skins);
-      }, 3000);
-      
-      // Общее время анимации увеличено до 8 секунд
-      setTimeout(() => {
-        setAnimationPhase('complete');
-        setIsComplete(true);
-        setIsOpening(false);
-
-        toast({
-          title: "🎉 Поздравляем!",
-          description: `Вы выиграли ${selectedSkin.skins.name}!`,
-        });
-      }, 8000);
 
     } catch (error) {
       console.error('Case opening error:', error);
       setIsOpening(false);
       setAnimationPhase('opening');
       
-      // Вибрация при ошибке
       vibrateError();
       
       toast({
@@ -150,6 +189,56 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     }
   };
 
+  const addCoinsToBalance = async (coinsAmount: number) => {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('coins')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (userError) throw userError;
+
+      const newCoins = userData.coins + coinsAmount;
+      const { error: coinsError } = await supabase
+        .from('users')
+        .update({ coins: newCoins })
+        .eq('id', currentUser.id);
+
+      if (coinsError) throw coinsError;
+
+      onCoinsUpdate(newCoins);
+      
+      toast({
+        title: "Монеты получены!",
+        description: `Получено ${coinsAmount} монет`,
+      });
+    } catch (error) {
+      console.error('Add coins error:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить монеты",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBonusComplete = (multiplier: number, finalCoins: number) => {
+    addCoinsToBalance(finalCoins);
+    setShowBonusRoulette(false);
+    setAnimationPhase('complete');
+    setIsComplete(true);
+    setIsOpening(false);
+  };
+
+  const handleBonusSkip = () => {
+    addCoinsToBalance(wonCoins);
+    setShowBonusRoulette(false);
+    setAnimationPhase('complete');
+    setIsComplete(true);
+    setIsOpening(false);
+  };
+
   const addToInventory = async () => {
     if (!wonSkin || isProcessing) return;
     
@@ -157,7 +246,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     try {
       console.log('Adding to inventory:', wonSkin.name);
 
-      // Добавляем в инвентарь
       const { error: inventoryError } = await supabase
         .from('user_inventory')
         .insert({
@@ -173,7 +261,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось добавить в инвентарь');
       }
 
-      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
@@ -188,10 +275,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.error('Recent win error (non-critical):', error);
       }
 
-      // ВАЖНО: Инвалидируем кеш инвентаря
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
-      
-      // Принудительно обновляем данные
       await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
 
       console.log('Successfully added to inventory and invalidated cache');
@@ -203,7 +287,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
     } catch (error) {
       console.error('Add to inventory error:', error);
-      vibrateError(); // Вибрация при ошибке
+      vibrateError();
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось добавить скин в инвентарь",
@@ -245,7 +329,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось обновить баланс');
       }
 
-      // Добавляем в недавние выигрыши
       try {
         await supabase
           .from('recent_wins')
@@ -269,7 +352,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
     } catch (error) {
       console.error('Sell directly error:', error);
-      vibrateError(); // Вибрация при ошибке
+      vibrateError();
       toast({
         title: "Ошибка",
         description: error instanceof Error ? error.message : "Не удалось продать скин",
@@ -292,11 +375,15 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   return {
     isOpening,
     wonSkin,
+    wonCoins,
     isComplete,
     animationPhase,
     isProcessing,
     caseSkins,
+    showBonusRoulette,
     addToInventory,
-    sellDirectly
+    sellDirectly,
+    handleBonusComplete,
+    handleBonusSkip
   };
 };
