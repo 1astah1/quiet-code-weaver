@@ -1,6 +1,6 @@
 
 import { X } from "lucide-react";
-import { useCaseOpening } from "@/hooks/useCaseOpening";
+import { useCaseOpeningSafe } from "@/hooks/useCaseOpeningSafe";
 import { useVibration } from "@/hooks/useVibration";
 import { useEffect } from "react";
 import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
@@ -37,8 +37,9 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     error,
     isLoading,
     rouletteData,
-    handleRouletteComplete
-  } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
+    handleRouletteComplete,
+    openCaseSafely
+  } = useCaseOpeningSafe({ caseItem, currentUser, onCoinsUpdate });
 
   const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
 
@@ -52,6 +53,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     isLoading,
     caseSkinsCount: caseSkins.length
   });
+
+  // Start case opening automatically
+  useEffect(() => {
+    if (caseItem && currentUser && !animationPhase && !error && !isLoading) {
+      console.log('🚀 [CASE_ANIMATION] Auto-starting case opening');
+      openCaseSafely();
+    }
+  }, [caseItem, currentUser, animationPhase, error, isLoading, openCaseSafely]);
 
   // Добавляем вибрацию на разных этапах анимации
   useEffect(() => {
