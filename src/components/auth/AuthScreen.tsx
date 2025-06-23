@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -25,14 +26,12 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       // Очищаем состояние перед входом
       cleanupAuthState();
-
-      // Небольшая задержка для очистки
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = window.location.origin;
       console.log(`🔗 Redirect URL: ${redirectUrl}`);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: redirectUrl,
@@ -52,6 +51,8 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           errorMessage += ' Разрешите всплывающие окна.';
         } else if (error.message.includes('network')) {
           errorMessage += ' Проверьте интернет.';
+        } else if (error.message.includes('redirect')) {
+          errorMessage += ' Проверьте настройки URL в Supabase.';
         }
         
         toast({
@@ -63,6 +64,18 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       }
 
       console.log(`✅ ${provider} auth initiated successfully`);
+      
+      // Ждем немного и проверяем статус
+      setTimeout(() => {
+        const checkAuth = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('✅ Auth successful, user found');
+            onAuthSuccess(session.user);
+          }
+        };
+        checkAuth();
+      }, 2000);
       
     } catch (error) {
       console.error('🚨 Auth error:', error);
@@ -115,12 +128,14 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           </p>
         </div>
 
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center space-x-2 text-sm text-gray-400">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span>Готов к входу</span>
+        {!isLoading && (
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center space-x-2 text-sm text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Готов к входу</span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/30 shadow-2xl">
           <h3 className="text-white text-xl font-semibold text-center mb-6">
@@ -170,12 +185,15 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
           {isLoading && (
             <div className="mt-4 text-center text-sm text-gray-400">
-              <p>Если вход не работает:</p>
-              <ul className="text-xs mt-2 space-y-1">
-                <li>• Разрешите всплывающие окна</li>
-                <li>• Проверьте интернет</li>
-                <li>• Обновите страницу</li>
-              </ul>
+              <p className="mb-2">Выполняется вход...</p>
+              <div className="text-xs space-y-1">
+                <p>Если вход не работает:</p>
+                <ul className="text-xs mt-2 space-y-1">
+                  <li>• Разрешите всплывающие окна</li>
+                  <li>• Проверьте интернет</li>
+                  <li>• Обновите страницу</li>
+                </ul>
+              </div>
             </div>
           )}
 

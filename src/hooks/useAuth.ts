@@ -23,7 +23,7 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchUserData = async (authUser: any) => {
+  const fetchUserData = async (authUser: any): Promise<User | null> => {
     try {
       console.log('👤 Fetching user data for:', authUser.id);
       
@@ -31,82 +31,89 @@ export const useAuth = () => {
         .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ Error fetching user data:', error);
+        return null;
+      }
+
+      if (!data) {
+        console.log('📝 User not found, creating new user...');
+        return await createNewUser(authUser);
+      }
+
+      console.log('✅ User data loaded:', data.username);
+      return mapUserData(data);
+    } catch (error) {
+      console.error('🚨 Error in fetchUserData:', error);
+      return null;
+    }
+  };
+
+  const createNewUser = async (authUser: any): Promise<User | null> => {
+    try {
+      const username = authUser.user_metadata?.full_name || 
+                      authUser.user_metadata?.name || 
+                      authUser.email?.split('@')[0] || 
+                      `User${Date.now()}`;
+
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          auth_id: authUser.id,
+          username: username,
+          email: authUser.email,
+          coins: 1000,
+          referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+          language_code: 'ru',
+          quiz_lives: 3,
+          quiz_streak: 0,
+          is_admin: false
+        })
+        .select()
         .single();
 
-      if (error) {
-        console.error('❌ Error fetching user data:', error);
-        
-        if (error.code === 'PGRST116') {
-          console.log('📝 User not found, creating new user...');
-          
-          const { data: newUser, error: createError } = await supabase
+      if (createError) {
+        console.error('❌ Error creating user:', createError);
+        // Если пользователь уже существует, попробуем получить его
+        if (createError.code === '23505') {
+          const { data: existingUser } = await supabase
             .from('users')
-            .insert({
-              auth_id: authUser.id,
-              username: authUser.user_metadata?.full_name || 
-                       authUser.user_metadata?.name || 
-                       authUser.email?.split('@')[0] || 
-                       `User${authUser.id.slice(0, 8)}`,
-              email: authUser.email,
-              coins: 1000,
-              referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-              language_code: 'ru',
-              quiz_lives: 3,
-              quiz_streak: 0,
-              is_admin: false
-            })
-            .select()
+            .select('*')
+            .eq('auth_id', authUser.id)
             .single();
-
-          if (createError) {
-            console.error('❌ Error creating user:', createError);
-            return null;
-          }
-
-          if (newUser) {
-            console.log('✅ New user created:', newUser.username);
-            const userData: User = {
-              id: newUser.id,
-              username: newUser.username || 'User',
-              email: newUser.email,
-              coins: newUser.coins || 1000,
-              isAdmin: newUser.is_admin || false,
-              quiz_lives: newUser.quiz_lives || 3,
-              quiz_streak: newUser.quiz_streak || 0,
-              referralCode: newUser.referral_code,
-              language_code: newUser.language_code || 'ru',
-              avatar_url: null,
-              isPremium: newUser.premium_until ? new Date(newUser.premium_until) > new Date() : false,
-              steam_trade_url: newUser.steam_trade_url
-            };
-            return userData;
+          
+          if (existingUser) {
+            return mapUserData(existingUser);
           }
         }
         return null;
       }
 
-      if (data) {
-        console.log('✅ User data loaded:', data.username);
-        const userData: User = {
-          id: data.id,
-          username: data.username || 'User',
-          email: data.email,
-          coins: data.coins || 0,
-          isAdmin: data.is_admin || false,
-          quiz_lives: data.quiz_lives || 3,
-          quiz_streak: data.quiz_streak || 0,
-          referralCode: data.referral_code,
-          language_code: data.language_code || 'ru',
-          avatar_url: null,
-          isPremium: data.premium_until ? new Date(data.premium_until) > new Date() : false,
-          steam_trade_url: data.steam_trade_url
-        };
-        return userData;
-      }
+      console.log('✅ New user created:', newUser.username);
+      return mapUserData(newUser);
     } catch (error) {
-      console.error('🚨 Error in fetchUserData:', error);
+      console.error('🚨 Error creating new user:', error);
+      return null;
     }
-    return null;
+  };
+
+  const mapUserData = (data: any): User => {
+    return {
+      id: data.id,
+      username: data.username || 'User',
+      email: data.email,
+      coins: data.coins || 0,
+      isAdmin: data.is_admin || false,
+      quiz_lives: data.quiz_lives || 3,
+      quiz_streak: data.quiz_streak || 0,
+      referralCode: data.referral_code,
+      language_code: data.language_code || 'ru',
+      avatar_url: null,
+      isPremium: data.premium_until ? new Date(data.premium_until) > new Date() : false,
+      steam_trade_url: data.steam_trade_url
+    };
   };
 
   const updateUserCoins = async (newCoins: number) => {
@@ -124,9 +131,7 @@ export const useAuth = () => {
         title: "Выход выполнен",
         description: "Вы успешно вышли из системы",
       });
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      window.location.reload();
     } catch (error) {
       console.error('❌ Error signing out:', error);
       toast({
@@ -137,6 +142,22 @@ export const useAuth = () => {
     }
   };
 
+  const refetchUser = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const userData = await fetchUserData(data.user);
+        if (userData) {
+          setUser(userData);
+        }
+      }
+    } catch (error) {
+      console.error('🚨 Error refetching user:', error);
+    }
+  };
+
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
     
@@ -144,12 +165,14 @@ export const useAuth = () => {
     
     const initAuth = async () => {
       try {
+        setIsLoading(true);
+        
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user && mounted) {
           console.log('🔑 Existing session found');
           const userData = await fetchUserData(session.user);
-          if (userData) {
+          if (userData && mounted) {
             setUser(userData);
           }
         } else {
@@ -173,16 +196,15 @@ export const useAuth = () => {
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
+          setIsLoading(true);
           const userData = await fetchUserData(session.user);
-          if (userData) {
+          if (userData && mounted) {
             setUser(userData);
           }
+          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
-        }
-        
-        if (mounted) {
           setIsLoading(false);
         }
       }
@@ -201,19 +223,6 @@ export const useAuth = () => {
     isLoading,
     updateUserCoins,
     signOut,
-    refetchUser: () => {
-      if (user) {
-        console.log('🔄 Refetching user data');
-        supabase.auth.getUser().then(({ data }) => {
-          if (data.user) {
-            fetchUserData(data.user).then(userData => {
-              if (userData) {
-                setUser(userData);
-              }
-            });
-          }
-        });
-      }
-    }
+    refetchUser
   };
 };

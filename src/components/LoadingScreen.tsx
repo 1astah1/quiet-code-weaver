@@ -11,16 +11,17 @@ const LoadingScreen = ({ timeout = 3000, onTimeout }: LoadingScreenProps) => {
 
   useEffect(() => {
     const duration = timeout;
-    const interval = duration / 100; // 100 шагов прогресса
+    const interval = 50; // Обновляем каждые 50мс
+    const step = 100 / (duration / interval);
     
     const timer = setInterval(() => {
       setProgress((prev) => {
-        const newProgress = prev + 1;
+        const newProgress = Math.min(prev + step, 100);
         
         if (newProgress >= 100) {
           clearInterval(timer);
           if (onTimeout) {
-            setTimeout(onTimeout, 100); // Небольшая задержка для плавности
+            setTimeout(onTimeout, 100);
           }
           return 100;
         }
@@ -53,17 +54,20 @@ const LoadingScreen = ({ timeout = 3000, onTimeout }: LoadingScreenProps) => {
         <div className="w-80 mx-auto mb-4">
           <div className="bg-gray-800 rounded-full h-3 overflow-hidden border border-orange-500/30">
             <div 
-              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300 ease-out relative"
-              style={{ width: `${progress}%` }}
+              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-100 ease-out relative"
+              style={{ width: `${Math.round(progress)}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
             </div>
           </div>
-          <p className="text-orange-300 text-sm mt-2">{progress}%</p>
+          <p className="text-orange-300 text-sm mt-2">{Math.round(progress)}%</p>
         </div>
 
         <div className="text-gray-300 text-lg animate-pulse mb-6">
-          Загружаем приложение...
+          {progress < 30 ? 'Инициализация...' : 
+           progress < 60 ? 'Загрузка данных...' :
+           progress < 90 ? 'Подготовка интерфейса...' : 
+           'Завершение загрузки...'}
         </div>
 
         <div className="mt-8 flex justify-center space-x-4">

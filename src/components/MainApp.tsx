@@ -37,7 +37,12 @@ const MainApp: React.FC = () => {
     }
   }, [isWebView]);
 
-  console.log('🎯 MainApp render state:', { isLoading, hasUser: !!user, userId: user?.id });
+  console.log('🎯 MainApp render state:', { 
+    isLoading, 
+    hasUser: !!user, 
+    userId: user?.id,
+    userEmail: user?.email 
+  });
 
   // Показываем экран загрузки только пока идет загрузка
   if (isLoading) {
@@ -48,7 +53,11 @@ const MainApp: React.FC = () => {
   // Если загрузка завершена и нет пользователя, показываем экран авторизации
   if (!user) {
     console.log('🔐 Showing auth screen - no user found');
-    return <AuthScreen onAuthSuccess={() => {}} />;
+    return (
+      <div className="min-h-screen bg-black">
+        <AuthScreen onAuthSuccess={() => {}} />
+      </div>
+    );
   }
 
   // Если есть пользователь, показываем основное приложение
