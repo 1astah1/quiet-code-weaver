@@ -15,19 +15,14 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
-  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   const { data: users, isLoading, error } = useQuery({
     queryKey: ['admin_users'],
     queryFn: async () => {
       console.log('Загрузка пользователей...');
-      // ИСПРАВЛЕНО: Используем LEFT JOIN вместо INNER JOIN чтобы показать всех пользователей
       const { data, error } = await supabase
         .from('users')
-        .select(`
-          *,
-          user_roles(role)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -40,33 +35,19 @@ const UserManagement = () => {
     }
   });
 
-  const toggleAdminStatus = async (userId: string, hasAdminRole: boolean) => {
-    setLoadingStates(prev => ({ ...prev, [userId]: true }));
-    
+  const toggleAdminStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      console.log('Переключение админ статуса:', { userId, hasAdminRole });
-      
-      const { data, error } = await supabase.rpc('toggle_admin_role', {
-        p_user_id: userId,
-        p_grant_admin: !hasAdminRole
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({ is_admin: !currentStatus })
+        .eq('id', userId);
 
-      if (error) {
-        console.error('Ошибка RPC:', error);
-        throw error;
-      }
-
-      // ИСПРАВЛЕНО: Правильная типизация ответа RPC
-      const result = data as { success: boolean; error?: string };
-      
-      if (!result?.success) {
-        throw new Error(result?.error || 'Неизвестная ошибка');
-      }
+      if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['admin_users'] });
       toast({
         title: "Статус обновлен",
-        description: `Права администратора ${!hasAdminRole ? 'выданы' : 'отозваны'}`,
+        description: `Права администратора ${!currentStatus ? 'выданы' : 'отозваны'}`,
       });
     } catch (error) {
       console.error('Ошибка обновления статуса:', error);
@@ -75,8 +56,6 @@ const UserManagement = () => {
         description: "Не удалось обновить статус пользователя",
         variant: "destructive",
       });
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -97,11 +76,6 @@ const UserManagement = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  // ИСПРАВЛЕНО: Проверяем роли правильно с учетом LEFT JOIN
-  const checkUserHasRole = (user: any, role: string) => {
-    return user.user_roles?.some((userRole: any) => userRole?.role === role) || false;
   };
 
   if (isLoading) {
@@ -163,75 +137,68 @@ const UserManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
-                    const hasAdminRole = checkUserHasRole(user, 'admin');
-                    const isLoading = loadingStates[user.id] || false;
-                    
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">
-                                {user.username?.charAt(0).toUpperCase() || '?'}
-                              </span>
-                            </div>
-                            <span className="font-medium">{user.username || 'Неизвестный'}</span>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">
+                              {user.username?.charAt(0).toUpperCase() || '?'}
+                            </span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-gray-400">
-                          {user.email || 'Не указан'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Coins className="w-4 h-4 text-yellow-500" />
-                            <span>{user.coins || 0}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {hasAdminRole && (
-                              <Badge variant="destructive" className="flex items-center gap-1">
-                                <Shield className="w-3 h-3" />
-                                Админ
-                              </Badge>
-                            )}
-                            {user.premium_until && new Date(user.premium_until) > new Date() && (
-                              <Badge variant="secondary" className="flex items-center gap-1">
-                                <Crown className="w-3 h-3" />
-                                Премиум
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-gray-400">
-                          {user.created_at ? formatDate(user.created_at) : 'Неизвестно'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openBalanceModal(user)}
-                              className="flex items-center gap-1"
-                              disabled={isLoading}
-                            >
-                              <DollarSign className="w-3 h-3" />
-                              Баланс
-                            </Button>
-                            <Button
-                              variant={hasAdminRole ? "destructive" : "default"}
-                              size="sm"
-                              onClick={() => toggleAdminStatus(user.id, hasAdminRole)}
-                              disabled={isLoading}
-                            >
-                              {isLoading ? 'Обновление...' : (hasAdminRole ? 'Убрать админа' : 'Сделать админом')}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          <span className="font-medium">{user.username || 'Неизвестный'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-400">
+                        {user.email || 'Не указан'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Coins className="w-4 h-4 text-yellow-500" />
+                          <span>{user.coins || 0}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {user.is_admin && (
+                            <Badge variant="destructive" className="flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              Админ
+                            </Badge>
+                          )}
+                          {user.premium_until && new Date(user.premium_until) > new Date() && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Crown className="w-3 h-3" />
+                              Премиум
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-400">
+                        {user.created_at ? formatDate(user.created_at) : 'Неизвестно'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openBalanceModal(user)}
+                            className="flex items-center gap-1"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            Баланс
+                          </Button>
+                          <Button
+                            variant={user.is_admin ? "destructive" : "default"}
+                            size="sm"
+                            onClick={() => toggleAdminStatus(user.id, user.is_admin || false)}
+                          >
+                            {user.is_admin ? 'Убрать админа' : 'Сделать админом'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>

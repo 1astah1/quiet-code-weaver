@@ -305,22 +305,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       <PurchaseSuccessModal
         isOpen={purchaseSuccessModal.isOpen}
         onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
-        reward={purchaseSuccessModal.item ? {
-          id: purchaseSuccessModal.item.id,
-          name: purchaseSuccessModal.item.name,
-          rarity: purchaseSuccessModal.item.rarity,
-          price: purchaseSuccessModal.item.price,
-          image_url: purchaseSuccessModal.item.image_url,
-          type: 'skin' as const,
-          weapon_type: purchaseSuccessModal.item.weapon_type
-        } : {
-          id: '',
-          name: '',
-          price: 0,
-          type: 'skin' as const
-        }}
-        newBalance={currentUser.coins}
-        onInventoryUpdate={() => {}}
+        purchasedItem={purchaseSuccessModal.item}
+        onViewInventory={handleViewInventory}
       />
     </div>
   );
