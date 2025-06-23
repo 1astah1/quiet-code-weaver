@@ -61,20 +61,26 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         // Transform the data to match our CaseSkin interface, handling potential errors
-        const transformedData: CaseSkin[] = (data || []).map(item => ({
-          id: item.id,
-          probability: item.probability,
-          custom_probability: item.custom_probability,
-          never_drop: item.never_drop,
-          reward_type: item.reward_type,
-          skins: item.skins || undefined,
-          coin_rewards: (item.coin_rewards && 
-                        item.coin_rewards !== null && 
-                        typeof item.coin_rewards === 'object' && 
-                        !('error' in item.coin_rewards)) 
-            ? item.coin_rewards 
-            : undefined
-        })).filter(item => item.skins || item.coin_rewards);
+        const transformedData: CaseSkin[] = (data || []).map(item => {
+          // Safe coin_rewards handling
+          const coinRewards = item.coin_rewards && 
+                             item.coin_rewards !== null && 
+                             typeof item.coin_rewards === 'object' && 
+                             !Array.isArray(item.coin_rewards) &&
+                             !('error' in (item.coin_rewards as any))
+            ? (item.coin_rewards as { id: string; name: string; amount: number; image_url?: string })
+            : undefined;
+
+          return {
+            id: item.id,
+            probability: item.probability,
+            custom_probability: item.custom_probability,
+            never_drop: item.never_drop,
+            reward_type: item.reward_type,
+            skins: item.skins || undefined,
+            coin_rewards: coinRewards
+          };
+        }).filter(item => item.skins || item.coin_rewards);
         
         return transformedData;
       } catch (error) {
