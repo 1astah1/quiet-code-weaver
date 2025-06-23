@@ -128,7 +128,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                     className={`rounded-lg p-3 border-2 ${
                       isCoinsReward 
                         ? 'border-yellow-400 bg-yellow-900/50' 
-                        : getRarityColor(itemData.rarity || '')
+                        : getRarityColor('rarity' in itemData ? itemData.rarity || '' : '')
                     } hover:scale-105 transition-transform`}
                   >
                     <div className="aspect-square mb-2 bg-gray-800 rounded-lg overflow-hidden">
