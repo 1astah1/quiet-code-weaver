@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { SafeCompleteTaskResponse, SafeClaimTaskRewardResponse } from '@/types/taskProgress';
 
 interface TaskProgress {
   id: string;
@@ -55,13 +56,15 @@ export const useTaskProgress = (userId: string) => {
         throw new Error(error.message);
       }
 
-      if (!data.success) {
-        console.error('❌ Task completion failed:', data.error);
-        throw new Error(data.error);
+      const response = data as SafeCompleteTaskResponse;
+      
+      if (!response.success) {
+        console.error('❌ Task completion failed:', response.error);
+        throw new Error(response.error);
       }
 
       console.log('✅ Task completed successfully');
-      return data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task-progress', userId] });
@@ -95,13 +98,15 @@ export const useTaskProgress = (userId: string) => {
         throw new Error(error.message);
       }
 
-      if (!data.success) {
-        console.error('❌ Reward claim failed:', data.error);
-        throw new Error(data.error);
+      const response = data as SafeClaimTaskRewardResponse;
+
+      if (!response.success) {
+        console.error('❌ Reward claim failed:', response.error);
+        throw new Error(response.error);
       }
 
-      console.log('✅ Reward claimed successfully:', data.reward_coins, 'coins');
-      return data;
+      console.log('✅ Reward claimed successfully:', response.reward_coins, 'coins');
+      return response;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['task-progress', userId] });

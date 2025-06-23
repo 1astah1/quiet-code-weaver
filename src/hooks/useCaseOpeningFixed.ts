@@ -49,17 +49,22 @@ export const useCaseOpeningFixed = ({ caseItem, currentUser, onCoinsUpdate }: Us
   const { logCaseOpening } = useCaseOpeningLogger();
   const { toast } = useToast();
 
-  // Валидация данных рулетки
+  // Валидация данных рулетки с подробным логированием
   const validateRouletteData = (data: any): boolean => {
+    console.log('🔍 [ROULETTE_VALIDATION] Validating roulette data:', data);
+    
     if (!data || !Array.isArray(data.items) || data.items.length === 0) {
-      console.error('❌ Invalid roulette data: missing or empty items');
+      console.error('❌ [ROULETTE_VALIDATION] Invalid roulette data: missing or empty items');
       return false;
     }
     
     if (typeof data.winnerPosition !== 'number' || data.winnerPosition < 0 || data.winnerPosition >= data.items.length) {
-      console.error('❌ Invalid winner position:', data.winnerPosition);
+      console.error('❌ [ROULETTE_VALIDATION] Invalid winner position:', data.winnerPosition, 'Items length:', data.items.length);
       return false;
     }
+
+    const winnerItem = data.items[data.winnerPosition];
+    console.log('🏆 [ROULETTE_VALIDATION] Winner item at position', data.winnerPosition, ':', winnerItem);
     
     return true;
   };
@@ -263,12 +268,16 @@ export const useCaseOpeningFixed = ({ caseItem, currentUser, onCoinsUpdate }: Us
           winnerPosition: response.winner_position
         };
 
+        console.log('🎰 Received roulette data:', rouletteDataToSet);
+        console.log('🎯 Winner position:', response.winner_position);
+        console.log('🏆 Winner item:', response.roulette_items[response.winner_position]);
+
         if (validateRouletteData(rouletteDataToSet)) {
-          console.log('🎰 Setting valid roulette data');
+          console.log('✅ [ROULETTE] Valid roulette data, starting roulette animation');
           setRouletteData(rouletteDataToSet);
           setAnimationPhase('roulette');
         } else {
-          console.log('⚡ Invalid roulette data, showing direct result');
+          console.log('⚡ [ROULETTE] Invalid roulette data, showing direct result');
           handleDirectResult(response.reward);
         }
       } else {
@@ -326,7 +335,7 @@ export const useCaseOpeningFixed = ({ caseItem, currentUser, onCoinsUpdate }: Us
   };
 
   const handleRouletteComplete = (winnerItem: RouletteItem) => {
-    console.log('🏆 Roulette complete, winner:', winnerItem);
+    console.log('🏆 [ROULETTE_COMPLETE] Winner from roulette:', winnerItem);
     
     if (!componentMountedRef.current) {
       console.log('⚠️ Component unmounted, skipping roulette completion');
@@ -334,10 +343,10 @@ export const useCaseOpeningFixed = ({ caseItem, currentUser, onCoinsUpdate }: Us
     }
     
     if (winnerItem.type === 'skin') {
-      console.log('🎨 Winner is skin:', winnerItem.name);
+      console.log('🎨 [ROULETTE_COMPLETE] Winner is skin:', winnerItem.name);
       setWonSkin(winnerItem);
     } else if (winnerItem.type === 'coin_reward') {
-      console.log('🪙 Winner is coins:', winnerItem.amount);
+      console.log('🪙 [ROULETTE_COMPLETE] Winner is coins:', winnerItem.amount);
       setWonCoins(winnerItem.amount || 0);
     }
     

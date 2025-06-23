@@ -37,6 +37,12 @@ const UnifiedCaseRoulette = ({
     console.log('🎯 [ROULETTE] Winner position:', winnerPosition);
     console.log('🏆 [ROULETTE] Winner item:', rouletteItems[winnerPosition]);
 
+    // Проверяем корректность данных
+    if (winnerPosition < 0 || winnerPosition >= rouletteItems.length) {
+      console.error('❌ [ROULETTE] Invalid winner position:', winnerPosition);
+      return;
+    }
+
     // Небольшая задержка перед началом анимации
     const startTimer = setTimeout(() => {
       setIsSpinning(true);
@@ -57,7 +63,10 @@ const UnifiedCaseRoulette = ({
       console.log('🏆 [ROULETTE] Animation complete, winner:', winnerItem?.name);
       
       if (winnerItem) {
+        console.log('✅ [ROULETTE] Calling onComplete with winner item');
         setTimeout(() => onComplete(winnerItem), 1000);
+      } else {
+        console.error('❌ [ROULETTE] Winner item not found at position:', winnerPosition);
       }
     }, 4000);
 
@@ -141,6 +150,14 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
+        {/* Отладочная информация */}
+        <div className="mt-4 text-sm text-gray-400">
+          <p>Позиция победителя: {winnerPosition}</p>
+          <p>Общее количество элементов: {rouletteItems.length}</p>
+          {rouletteItems[winnerPosition] && (
+            <p>Предмет победителя: {rouletteItems[winnerPosition].name}</p>
+          )}
+        </div>
       </div>
     </div>
   );
