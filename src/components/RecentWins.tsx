@@ -46,7 +46,7 @@ const RecentWins = () => {
             id,
             won_at,
             reward_data,
-            users!inner (
+            users (
               username
             )
           `)
@@ -63,7 +63,7 @@ const RecentWins = () => {
         
         // Фильтруем записи с корректными данными
         const validWins = (data || []).filter(win => {
-          if (!win.reward_data || !win.users?.username) return false;
+          if (!win.reward_data) return false;
           
           // Используем type guard для безопасной проверки
           return isValidRewardData(win.reward_data);
@@ -107,7 +107,7 @@ const RecentWins = () => {
                 id,
                 won_at,
                 reward_data,
-                users!inner (
+                users (
                   username
                 )
               `)
@@ -119,7 +119,7 @@ const RecentWins = () => {
               return;
             }
 
-            if (newWinData && newWinData.reward_data && newWinData.users?.username) {
+            if (newWinData && newWinData.reward_data) {
               if (isValidRewardData(newWinData.reward_data)) {
                 const newWin = {
                   ...newWinData,

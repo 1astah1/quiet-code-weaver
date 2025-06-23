@@ -37,26 +37,36 @@ const UserBalanceModal = ({ isOpen, onClose, user, onBalanceUpdate }: UserBalanc
     setIsLoading(true);
     try {
       const amountNum = parseInt(amount);
-      let newBalance = user.coins;
+      let coinChange = 0;
 
       switch (operation) {
         case 'add':
-          newBalance = user.coins + amountNum;
+          coinChange = amountNum;
           break;
         case 'subtract':
-          newBalance = Math.max(0, user.coins - amountNum);
+          coinChange = -amountNum;
           break;
         case 'set':
-          newBalance = Math.max(0, amountNum);
+          // Для установки точного баланса вычисляем разницу
+          coinChange = amountNum - user.coins;
           break;
       }
 
-      const { error } = await supabase
-        .from('users')
-        .update({ coins: newBalance })
-        .eq('id', user.id);
+      console.log('🔄 [ADMIN_BALANCE] Operation:', operation, 'Amount:', amountNum, 'Change:', coinChange);
 
-      if (error) throw error;
+      // Используем безопасную функцию обновления монет
+      const { data, error } = await supabase.rpc('safe_update_coins', {
+        p_user_id: user.id,
+        p_coin_change: coinChange,
+        p_operation_type: 'admin_update'
+      });
+
+      if (error) {
+        console.error('❌ [ADMIN_BALANCE] Error:', error);
+        throw error;
+      }
+
+      console.log('✅ [ADMIN_BALANCE] Success:', data);
 
       onBalanceUpdate();
       onClose();
@@ -67,13 +77,22 @@ const UserBalanceModal = ({ isOpen, onClose, user, onBalanceUpdate }: UserBalanc
       
       toast({
         title: "Баланс обновлен",
-        description: `Пользователю ${user.username} ${operationText} ${amountNum} монет`,
+        description: `Пользователю ${user.username} ${operationText} ${Math.abs(coinChange)} монет`,
       });
-    } catch (error) {
-      console.error('Ошибка обновления баланса:', error);
+    } catch (error: any) {
+      console.error('❌ [ADMIN_BALANCE] Failed:', error);
+      
+      let errorMessage = "Не удалось обновить баланс пользователя";
+      
+      if (error.message?.includes('Insufficient funds')) {
+        errorMessage = "Недостаточно средств для списания";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить баланс пользователя",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
