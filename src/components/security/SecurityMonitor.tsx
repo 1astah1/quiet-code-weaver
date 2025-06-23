@@ -19,8 +19,8 @@ const SecurityMonitor: React.FC = () => {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // Check if user is admin
-  const isAdmin = user?.is_admin || false;
+  // Check if user is admin - using correct property name
+  const isAdmin = user?.isAdmin || false;
 
   useEffect(() => {
     if (!user) {

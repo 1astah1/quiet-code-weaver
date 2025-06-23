@@ -18,8 +18,8 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
     timestamp: Date;
   }>>([]);
 
-  // Check if user is admin
-  const isAdmin = user?.is_admin || false;
+  // Check if user is admin - using correct property name
+  const isAdmin = user?.isAdmin || false;
 
   useEffect(() => {
     // Skip all security checks for admin users
