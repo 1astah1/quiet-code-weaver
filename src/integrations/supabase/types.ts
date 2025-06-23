@@ -981,7 +981,7 @@ export type Database = {
           steam_trade_url: string | null
           total_cases_opened: number | null
           total_spent: number | null
-          username: string
+          username: string | null
           vibration_enabled: boolean | null
         }
         Insert: {
@@ -1010,7 +1010,7 @@ export type Database = {
           steam_trade_url?: string | null
           total_cases_opened?: number | null
           total_spent?: number | null
-          username: string
+          username?: string | null
           vibration_enabled?: boolean | null
         }
         Update: {
@@ -1039,7 +1039,7 @@ export type Database = {
           steam_trade_url?: string | null
           total_cases_opened?: number | null
           total_spent?: number | null
-          username?: string
+          username?: string | null
           vibration_enabled?: boolean | null
         }
         Relationships: []

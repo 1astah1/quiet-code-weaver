@@ -37,19 +37,20 @@ export const useAuth = () => {
         console.error('❌ Error fetching user data:', error);
         
         if (error.code === 'PGRST116') {
-          console.log('📝 Creating new user profile...');
-          await createUserProfile(authUser);
-          return;
+          console.log('📝 User not found, will be created by trigger');
+          // Ждем создания пользователя триггером
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchUserData(authUser);
         }
         
-        throw error;
+        return;
       }
 
       if (data) {
         console.log('✅ User data loaded:', data.username);
         const userData: User = {
           id: data.id,
-          username: data.username,
+          username: data.username || 'User',
           email: data.email,
           coins: data.coins || 0,
           isAdmin: data.is_admin || false,
@@ -65,85 +66,6 @@ export const useAuth = () => {
       }
     } catch (error) {
       console.error('🚨 Error in fetchUserData:', error);
-      toast({
-        title: "Ошибка загрузки профиля",
-        description: "Не удалось загрузить данные пользователя.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const createUserProfile = async (authUser: any) => {
-    try {
-      console.log('🆕 Creating user profile for:', authUser.id);
-      
-      const fullName = authUser.user_metadata?.full_name || 
-                      authUser.user_metadata?.name || 
-                      authUser.user_metadata?.preferred_username;
-      
-      const username = fullName || 
-                      authUser.email?.split('@')[0] || 
-                      'User' + Math.random().toString(36).substring(2, 8);
-
-      const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          auth_id: authUser.id,
-          username: username,
-          email: authUser.email,
-          coins: 1000,
-          referral_code: referralCode,
-          language_code: 'ru',
-          quiz_lives: 3,
-          quiz_streak: 0,
-          is_admin: false
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creating user profile:', error);
-        
-        if (error.code === '23505') {
-          console.log('🔄 User already exists, fetching existing data...');
-          await fetchUserData(authUser);
-          return;
-        }
-        
-        throw error;
-      }
-
-      console.log('✅ User profile created:', data.username);
-      
-      const userData: User = {
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        coins: data.coins,
-        isAdmin: data.is_admin || false,
-        quiz_lives: data.quiz_lives || 3,
-        quiz_streak: data.quiz_streak || 0,
-        referralCode: data.referral_code,
-        language_code: data.language_code || 'ru',
-        avatar_url: null,
-        isPremium: false,
-        steam_trade_url: null
-      };
-      setUser(userData);
-
-      toast({
-        title: "Добро пожаловать!",
-        description: `Ваш профиль создан. Баланс: ${data.coins} монет`,
-      });
-    } catch (error) {
-      console.error('🚨 Error creating user profile:', error);
-      toast({
-        title: "Ошибка создания профиля",
-        description: "Попробуйте войти еще раз.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -184,7 +106,9 @@ export const useAuth = () => {
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
-          await fetchUserData(session.user);
+          setTimeout(() => {
+            fetchUserData(session.user);
+          }, 100);
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);

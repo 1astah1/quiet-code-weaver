@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,22 +23,16 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       console.log(`🚀 Starting ${provider} authentication...`);
 
-      // Очищаем состояние
+      // Очищаем состояние перед входом
       cleanupAuthState();
 
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        console.log('Previous signout attempt:', err);
-      }
-
-      // Небольшая задержка
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Небольшая задержка для очистки
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const redirectUrl = `${window.location.origin}/`;
       console.log(`🔗 Redirect URL: ${redirectUrl}`);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: redirectUrl,
@@ -74,18 +67,9 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     } catch (error) {
       console.error('🚨 Auth error:', error);
       
-      let errorMessage = "Ошибка авторизации";
-      if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Проблема с подключением к серверу.";
-        } else if (error.message.includes('popup')) {
-          errorMessage = "Разрешите всплывающие окна.";
-        }
-      }
-      
       toast({
         title: "Ошибка",
-        description: errorMessage,
+        description: "Ошибка авторизации. Попробуйте еще раз.",
         variant: "destructive",
       });
     } finally {
@@ -209,7 +193,7 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
                 onClick={() => setShowPrivacyModal(true)}
                 className="text-orange-400 hover:text-orange-300 underline"
               >
-                Политикой конфи конфиденциальности
+                Политикой конфиденциальности
               </button>
             </p>
           </div>
