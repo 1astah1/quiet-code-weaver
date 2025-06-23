@@ -73,7 +73,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     setCurrentIndex(index);
   }, [banners.length]);
 
-  // Автоматическое переключение слайдов
+  // Автоматическое переключение слайдов - только если больше одного баннера
   useEffect(() => {
     if (banners.length <= 1) return;
 
@@ -142,7 +142,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     );
   }
 
-  // Безопасное получение текущего баннера
+  // Безопасное получение текущего баннера с проверкой
   const safeCurrentIndex = Math.max(0, Math.min(currentIndex, banners.length - 1));
   const currentBanner = banners[safeCurrentIndex];
 
@@ -186,7 +186,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
 
   return (
     <div 
-      className="relative w-full h-48 sm:h-64 md:h-80 overflow-hidden rounded-xl group"
+      className="relative w-full h-48 sm:h-64 md:h-80 overflow-hidden rounded-xl"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -217,26 +217,6 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
           {currentBanner.button_text}
         </button>
       </div>
-
-      {/* Navigation arrows - только если больше одного баннера */}
-      {banners.length > 1 && (
-        <>
-          <button
-            onClick={prevSlide}
-            className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Предыдущий слайд"
-          >
-            ←
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Следующий слайд"
-          >
-            →
-          </button>
-        </>
-      )}
 
       {/* Indicators - только если больше одного баннера */}
       {banners.length > 1 && (

@@ -29,7 +29,7 @@ interface Skin {
   image_url: string | null;
 }
 
-const ITEMS_PER_PAGE = 24; // Увеличил для лучшего отображения
+const ITEMS_PER_PAGE = 24;
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
@@ -68,7 +68,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error('Слишком много покупок. Подождите немного.');
         }
 
-        console.log('Starting purchase:', { skin: skin.name, price: skin.price, userCoins: currentUser.coins, userId: currentUser.id });
+        console.log('💰 [SHOP] Starting purchase:', { 
+          skinName: skin.name, 
+          skinPrice: skin.price, 
+          userCoins: currentUser.coins, 
+          userId: currentUser.id 
+        });
 
         if (!isValidUUID(currentUser.id)) {
           throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
@@ -78,83 +83,48 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
         }
 
-        const { data: existingUser, error: userCheckError } = await supabase
-          .from('users')
-          .select('id, coins')
-          .eq('id', currentUser.id)
-          .single();
+        // Используем RPC функцию для безопасной покупки
+        const { data, error } = await supabase.rpc('safe_purchase_skin', {
+          p_user_id: currentUser.id,
+          p_skin_id: skin.id,
+          p_skin_price: skin.price
+        });
 
-        let userCoins = currentUser.coins;
-        
-        if (userCheckError && userCheckError.code === 'PGRST116') {
-          console.log('Creating new user:', currentUser.id);
-          const { error: createError } = await supabase
-            .from('users')
-            .insert({
-              id: currentUser.id,
-              username: currentUser.username,
-              coins: currentUser.coins
-            });
-
-          if (createError) {
-            console.error('Error creating user:', createError);
-            throw new Error('Не удалось создать пользователя');
-          }
-        } else if (userCheckError) {
-          console.error('Error checking user:', userCheckError);
-          throw new Error('Ошибка проверки пользователя');
-        } else {
-          userCoins = existingUser.coins;
+        if (error) {
+          console.error('❌ [SHOP] RPC purchase error:', error);
+          throw new Error(error.message || 'Не удалось совершить покупку');
         }
 
-        if (userCoins < skin.price) {
-          throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${userCoins}`);
+        if (!data || !data.success) {
+          throw new Error(data?.error || 'Покупка не удалась');
         }
 
-        const newCoins = userCoins - skin.price;
-        const { error: coinsError } = await supabase
-          .from('users')
-          .update({ coins: newCoins })
-          .eq('id', currentUser.id);
+        console.log('✅ [SHOP] Purchase successful:', {
+          newBalance: data.new_balance,
+          inventoryId: data.inventory_id
+        });
 
-        if (coinsError) {
-          console.error('Error updating coins:', coinsError);
-          throw new Error('Не удалось списать монеты');
-        }
-
-        const { error: inventoryError } = await supabase
-          .from('user_inventory')
-          .insert({
-            id: generateUUID(),
-            user_id: currentUser.id,
-            skin_id: skin.id,
-            obtained_at: new Date().toISOString(),
-            is_sold: false
-          });
-
-        if (inventoryError) {
-          console.error('Error adding to inventory:', inventoryError);
-          await supabase
-            .from('users')
-            .update({ coins: userCoins })
-            .eq('id', currentUser.id);
-          throw new Error('Не удалось добавить в инвентарь');
-        }
-
-        console.log('Purchase successful, new coins:', newCoins);
-        return { newCoins, purchasedSkin: skin };
+        return { 
+          newCoins: data.new_balance, 
+          purchasedSkin: skin,
+          inventoryId: data.inventory_id
+        };
       } catch (error) {
-        console.error('Purchase error:', error);
+        console.error('💥 [SHOP] Purchase error:', error);
         throw error;
       }
     },
     onSuccess: async (data) => {
+      console.log('🎉 [SHOP] Purchase completed, updating UI...');
+      
+      // Обновляем баланс пользователя
       onCoinsUpdate(data.newCoins);
       
+      // Инвалидируем кэш инвентаря
       await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
       await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
       
-      console.log('Purchase completed, inventory cache invalidated');
+      console.log('✅ [SHOP] Inventory cache invalidated');
       
       setPurchaseSuccessModal({
         isOpen: true,
@@ -167,7 +137,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       });
     },
     onError: (error: any) => {
-      console.error('Purchase mutation error:', error);
+      console.error('🚨 [SHOP] Purchase mutation error:', error);
       toast({
         title: "Ошибка покупки",
         description: error.message || "Не удалось совершить покупку",
@@ -210,7 +180,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const currentSkins = filteredAndSortedSkins.slice(startIndex, endIndex);
 
   const handlePurchase = (skin: Skin) => {
-    console.log('Handle purchase clicked for:', skin.name);
+    console.log('🛒 [SHOP] Handle purchase clicked for:', skin.name);
     
     const remaining = purchaseLimiter.getRemainingRequests(currentUser.id);
     if (remaining === 0) {
@@ -223,25 +193,25 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     }
     
     if (purchaseMutation.isPending) {
-      console.log('Purchase already in progress, ignoring click');
+      console.log('⏳ [SHOP] Purchase already in progress, ignoring click');
       return;
     }
+    
     purchaseMutation.mutate(skin);
   };
 
   const handlePriceRangeChange = (min: number, max: number) => {
     setPriceRange({ min, max });
-    setCurrentPage(1); // Сбрасываем на первую страницу при изменении фильтров
+    setCurrentPage(1);
   };
 
   const handleSortChange = (sort: string) => {
     setSortBy(sort);
-    setCurrentPage(1); // Сбрасываем на первую страницу при изменении сортировки
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Прокручиваем страницу вверх при смене страницы
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -251,7 +221,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     }
   };
 
-  // Сбрасываем страницу при изменении фильтров
   const handleRarityChange = (rarity: string) => {
     setSelectedRarity(rarity);
     setCurrentPage(1);
@@ -288,7 +257,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         onSortChange={handleSortChange}
       />
 
-      {/* Информация о результатах */}
       <div className="flex justify-between items-center text-xs sm:text-sm text-slate-400 px-1">
         <span>
           Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
@@ -300,7 +268,6 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         )}
       </div>
 
-      {/* Улучшенная сетка для скинов - более компактная */}
       <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
         {currentSkins.map((skin) => (
           <ShopSkinCard
@@ -315,14 +282,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
       {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
 
-      {/* Пагинация */}
       <ShopPagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
       />
 
-      {/* Purchase Success Modal */}
       <PurchaseSuccessModal
         isOpen={purchaseSuccessModal.isOpen}
         onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}

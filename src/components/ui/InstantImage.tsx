@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface InstantImageProps {
   src?: string | null;
@@ -18,13 +18,27 @@ const InstantImage: React.FC<InstantImageProps> = ({
 }) => {
   const [hasError, setHasError] = useState(false);
 
+  // Reset error state when src changes
+  useEffect(() => {
+    if (src) {
+      console.log('🖼️ [INSTANT_IMAGE] Source changed, resetting error state:', src);
+      setHasError(false);
+    }
+  }, [src]);
+
   const handleError = () => {
+    console.log('❌ [INSTANT_IMAGE] Image failed to load:', src);
     setHasError(true);
     onError?.();
   };
 
+  const handleLoad = () => {
+    console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', src);
+  };
+
   // Show fallback immediately if no src or if error occurred
   if (!src || hasError) {
+    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError);
     return (
       <div className={`flex items-center justify-center ${className}`}>
         {fallback || (
@@ -44,6 +58,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
       alt={alt}
       className={className}
       onError={handleError}
+      onLoad={handleLoad}
       loading="eager"
       decoding="sync"
     />

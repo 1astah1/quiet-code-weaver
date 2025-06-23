@@ -236,9 +236,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Сервер не вернул данных');
       }
 
-      console.log('📋 [CASE_OPENING] RPC response received:', data);
-      console.log('📋 [CASE_OPENING] Response type:', typeof data);
-
       const response = data as unknown as SafeOpenCaseResponse;
       console.log('📋 [CASE_OPENING] Parsed response:', response);
       
@@ -360,7 +357,14 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     setIsProcessing(true);
     try {
       if (wonSkin) {
-        console.log('💰 [CASE_OPENING] Selling skin directly for', wonSkin.price, 'coins');
+        console.log('💰 [CASE_OPENING] WARNING: Direct sell bypasses server validation!');
+        console.log('💰 [CASE_OPENING] This should use a proper RPC function instead');
+        
+        // ВНИМАНИЕ: Это небезопасно! Нужно создать RPC функцию для продажи
+        // Временно отключаем прямую продажу
+        throw new Error('Прямая продажа временно недоступна. Добавьте скин в инвентарь.');
+        
+        /*
         const newCoins = currentUser.coins + wonSkin.price;
         onCoinsUpdate(newCoins);
         console.log('✅ [CASE_OPENING] Direct sale completed, new balance:', newCoins);
@@ -369,12 +373,17 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           title: "Скин продан!",
           description: `Получено ${wonSkin.price} монет`,
         });
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        */
       }
     } catch (error) {
       console.error('❌ [CASE_OPENING] Error in sellDirectly:', error);
-      setError('Не удалось продать скин');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось продать скин';
+      setError(errorMessage);
+      toast({
+        title: "Ошибка продажи",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
