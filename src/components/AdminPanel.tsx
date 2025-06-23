@@ -68,34 +68,31 @@ const AdminPanel = () => {
     try {
       console.log(`🪣 [BUCKET_CHECK] Checking bucket: ${bucketName}`);
       
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      // Проверяем bucket через попытку листинга файлов
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .list('', { limit: 1 });
       
-      if (listError) {
-        console.error('❌ [BUCKET_CHECK] Error listing buckets:', listError);
-        throw listError;
+      if (!error) {
+        console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} exists and accessible`);
+        return true;
       }
       
-      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+      console.warn(`⚠️ [BUCKET_CHECK] Bucket access issue:`, error);
       
-      if (!bucketExists) {
-        console.log(`🆕 [BUCKET_CREATE] Creating bucket: ${bucketName}`);
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: ['image/*'],
-          fileSizeLimit: 5242880 // 5MB
-        });
-        
-        if (createError && !createError.message.includes('already exists')) {
-          console.error('❌ [BUCKET_CREATE] Error creating bucket:', createError);
-          throw createError;
-        }
-        
-        console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} created successfully`);
-      } else {
-        console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} already exists`);
+      // Если bucket не найден, он не существует
+      if (error.message.includes('not found') || error.message.includes('does not exist')) {
+        throw new Error(`Bucket ${bucketName} не существует. Обратитесь к администратору.`);
       }
       
-      return true;
+      // Если это RLS ошибка, bucket существует, но нет прав
+      if (error.message.includes('RLS') || error.message.includes('policy')) {
+        throw new Error(`Нет прав доступа к bucket ${bucketName}. Убедитесь, что у вас есть админские права.`);
+      }
+      
+      // Для других ошибок выбрасываем как есть
+      throw error;
+      
     } catch (error: any) {
       console.error(`❌ [BUCKET_ERROR] Error with bucket ${bucketName}:`, error);
       throw new Error(`Ошибка с bucket ${bucketName}: ${error.message}`);
@@ -133,7 +130,7 @@ const AdminPanel = () => {
       // Определяем bucket и папку
       const { bucketName, folder } = getBucketAndFolder(activeTable, fieldName);
       
-      // Проверяем/создаем bucket
+      // Проверяем bucket
       await ensureBucketExists(bucketName);
 
       // Генерируем уникальное имя файла
@@ -155,7 +152,15 @@ const AdminPanel = () => {
 
       if (uploadError) {
         console.error('❌ [IMAGE_UPLOAD] Upload error:', uploadError);
-        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+        
+        let errorMessage = uploadError.message;
+        
+        // Обработка специфичных ошибок
+        if (uploadError.message.includes('RLS') || uploadError.message.includes('policy')) {
+          errorMessage = 'Нет прав для загрузки файлов. Убедитесь, что у вас есть админские права.';
+        }
+        
+        throw new Error(`Ошибка загрузки: ${errorMessage}`);
       }
 
       // Получаем публичный URL

@@ -17,40 +17,32 @@ export const ensureBucketExists = async (bucketName: string, retries: number = 3
         return true;
       }
       
-      // Если bucket не найден, пытаемся создать
+      console.warn(`⚠️ [BUCKET_CHECK] Bucket ${bucketName} check failed:`, error);
+      
+      // Если bucket не найден, значит он не существует (но политики RLS теперь должны работать)
       if (error.message.includes('not found') || error.message.includes('does not exist')) {
-        console.log(`🆕 [BUCKET_CREATE] Creating bucket: ${bucketName}`);
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: ['image/*'],
-          fileSizeLimit: 5242880 // 5MB
-        });
-        
-        if (createError) {
-          if (createError.message.includes('already exists')) {
-            console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} already exists`);
-            return true;
-          } else {
-            console.error(`❌ [BUCKET_CREATE] Attempt ${attempt} failed:`, createError);
-            if (attempt === retries) throw createError;
-            continue;
-          }
-        }
-        
-        console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} created successfully`);
-        return true;
-      } else {
-        console.error(`❌ [BUCKET_ERROR] Unexpected error on attempt ${attempt}:`, error);
-        if (attempt === retries) throw error;
+        console.log(`❌ [BUCKET_CHECK] Bucket ${bucketName} does not exist`);
+        throw new Error(`Bucket ${bucketName} не существует. Обратитесь к администратору.`);
       }
       
-      // Ждем перед повторной попыткой с экспоненциальной задержкой
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+      // Если это RLS ошибка, bucket существует, но нет прав
+      if (error.message.includes('RLS') || error.message.includes('policy')) {
+        console.log(`🔒 [BUCKET_CHECK] RLS policy issue for bucket ${bucketName}`);
+        throw new Error(`Нет прав доступа к bucket ${bucketName}. Убедитесь, что у вас есть админские права.`);
+      }
+      
+      // Для других ошибок продолжаем попытки
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Ждем перед повторной попыткой
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       
     } catch (error: any) {
       console.error(`❌ [BUCKET_ERROR] Attempt ${attempt}/${retries} failed:`, error);
       if (attempt === retries) {
-        throw new Error(`Не удалось создать/проверить bucket ${bucketName}: ${error.message}`);
+        throw new Error(`Не удалось проверить bucket ${bucketName}: ${error.message}`);
       }
     }
   }
@@ -61,7 +53,7 @@ export const ensureBucketExists = async (bucketName: string, retries: number = 3
 export const uploadBannerImage = async (file: File): Promise<string> => {
   if (!file) throw new Error('Файл не выбран');
   
-  const uploadTimeout = 45000; // Увеличен timeout до 45 секунд
+  const uploadTimeout = 45000;
   
   try {
     console.log('🖼️ [BANNER_UPLOAD] Starting banner image upload:', { 
@@ -84,7 +76,7 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       throw new Error('Поддерживаемые форматы: JPG, PNG, WebP, GIF');
     }
 
-    // Проверяем/создаем bucket с улучшенной retry логикой
+    // Проверяем bucket с улучшенной обработкой ошибок
     console.log('🔍 [BANNER_UPLOAD] Ensuring bucket exists...');
     await ensureBucketExists('banner-images');
 
@@ -102,8 +94,7 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       .from('banner-images')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: false,
-        duplex: 'half' // Помогает с загрузкой больших файлов
+        upsert: false
       });
 
     const timeoutPromise = new Promise((_, reject) => {
@@ -117,7 +108,11 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       console.error('❌ [BANNER_UPLOAD] Upload error:', uploadError);
       
       let errorMessage = uploadError.message;
-      if (uploadError.message.includes('duplicate')) {
+      
+      // Обработка специфичных ошибок RLS
+      if (uploadError.message.includes('RLS') || uploadError.message.includes('policy')) {
+        errorMessage = 'Нет прав для загрузки файлов. Убедитесь, что у вас есть админские права.';
+      } else if (uploadError.message.includes('duplicate')) {
         errorMessage = 'Файл с таким именем уже существует';
       } else if (uploadError.message.includes('size')) {
         errorMessage = 'Файл слишком большой';
@@ -139,17 +134,6 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
 
     if (!publicUrl) {
       throw new Error('Не удалось получить публичный URL');
-    }
-
-    // Проверяем доступность загруженного файла
-    try {
-      const testResponse = await fetch(publicUrl, { method: 'HEAD' });
-      if (!testResponse.ok) {
-        console.warn('⚠️ [BANNER_UPLOAD] File may not be immediately accessible:', testResponse.status);
-      }
-    } catch (testError) {
-      console.warn('⚠️ [BANNER_UPLOAD] Could not verify file accessibility:', testError);
-      // Не прерываем выполнение, так как файл может стать доступным позже
     }
 
     console.log('✅ [BANNER_UPLOAD] Upload successful:', {
@@ -176,8 +160,8 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       errorMessage = "Файл слишком большой. Максимальный размер: 5MB";
     } else if (error.message.includes('должен быть изображением') || error.message.includes('Поддерживаемые форматы')) {
       errorMessage = error.message;
-    } else if (error.message.includes('bucket')) {
-      errorMessage = "Ошибка хранилища. Попробуйте позже";
+    } else if (error.message.includes('bucket') || error.message.includes('RLS') || error.message.includes('policy')) {
+      errorMessage = error.message;
     } else if (error.message.includes('network') || error.message.includes('fetch')) {
       errorMessage = "Ошибка сети. Проверьте подключение к интернету";
     } else {

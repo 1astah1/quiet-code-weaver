@@ -922,6 +922,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_storage_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       safe_claim_task_reward: {
         Args: { p_user_id: string; p_task_id: string }
         Returns: Json
