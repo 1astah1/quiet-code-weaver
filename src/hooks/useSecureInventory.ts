@@ -12,9 +12,18 @@ export const useSecureInventory = () => {
       setIsLoading(true);
       setError(null);
 
-      console.log('💰 [SECURE_INVENTORY] Selling skin:', { inventoryItemId, skinPrice, userId });
+      console.log('💰 [SECURE_INVENTORY] Starting skin sale:', { 
+        inventoryItemId, 
+        skinPrice, 
+        userId 
+      });
 
-      // Используем новую безопасную функцию продажи
+      // Проверяем валидность параметров
+      if (!inventoryItemId || !userId || skinPrice <= 0) {
+        throw new Error('Неверные параметры для продажи скина');
+      }
+
+      // Используем безопасную функцию продажи
       const { data, error: sellError } = await supabase.rpc('safe_sell_skin', {
         p_user_id: userId,
         p_inventory_id: inventoryItemId,
@@ -22,20 +31,38 @@ export const useSecureInventory = () => {
       });
 
       if (sellError) {
-        console.error('❌ [SECURE_INVENTORY] Sell error:', sellError);
+        console.error('❌ [SECURE_INVENTORY] RPC error:', sellError);
         throw new Error(sellError.message || 'Не удалось продать скин');
+      }
+
+      if (!data) {
+        throw new Error('Сервер не вернул результат операции');
       }
 
       // Типизируем ответ от RPC функции
       const result = data as unknown as SafeSellSkinResponse;
 
-      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', result);
-      return { success: true, newBalance: result?.new_balance };
+      if (!result.success) {
+        throw new Error('Операция продажи не была выполнена');
+      }
+
+      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', {
+        newBalance: result.new_balance,
+        soldPrice: skinPrice
+      });
+
+      return { 
+        success: true, 
+        newBalance: result.new_balance 
+      };
     } catch (err) {
       console.error('💥 [SECURE_INVENTORY] Error selling skin:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка при продаже';
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
     } finally {
       setIsLoading(false);
     }
@@ -44,6 +71,7 @@ export const useSecureInventory = () => {
   return {
     sellSkin,
     isLoading,
-    error
+    error,
+    clearError: () => setError(null)
   };
 };

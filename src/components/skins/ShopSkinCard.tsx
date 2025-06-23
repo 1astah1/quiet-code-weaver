@@ -37,8 +37,15 @@ const ShopSkinCard: React.FC<ShopSkinCardProps> = ({
     return colors[rarity as keyof typeof colors] || 'from-gray-500 to-gray-600';
   };
 
+  const handlePurchaseClick = () => {
+    if (!isPurchasing && canAfford) {
+      console.log('🛒 [SHOP_SKIN_CARD] Purchase initiated for:', skin.name);
+      onPurchase(skin);
+    }
+  };
+
   return (
-    <div className={`bg-gradient-to-br ${getRarityColor(skin.rarity)} p-0.5 rounded-lg hover:scale-105 transition-transform`}>
+    <div className={`bg-gradient-to-br ${getRarityColor(skin.rarity)} p-0.5 rounded-lg hover:scale-105 transition-transform duration-200`}>
       <div className="bg-slate-900 rounded-lg p-2 sm:p-3 h-full flex flex-col">
         <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-slate-800">
           <OptimizedImage
@@ -53,15 +60,18 @@ const ShopSkinCard: React.FC<ShopSkinCardProps> = ({
                 </div>
               </div>
             }
+            onError={() => {
+              console.warn('🖼️ [SHOP_SKIN_CARD] Image failed for skin:', skin.name);
+            }}
           />
         </div>
         
         <div className="flex-1 flex flex-col">
-          <h3 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2 leading-tight">
+          <h3 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2 leading-tight" title={skin.name}>
             {skin.name}
           </h3>
           
-          <p className="text-slate-400 text-xs mb-1 truncate">
+          <p className="text-slate-400 text-xs mb-1 truncate" title={skin.weapon_type}>
             {skin.weapon_type}
           </p>
           
@@ -75,16 +85,25 @@ const ShopSkinCard: React.FC<ShopSkinCardProps> = ({
             </div>
             
             <Button
-              onClick={() => onPurchase(skin)}
+              onClick={handlePurchaseClick}
               disabled={!canAfford || isPurchasing}
               size="sm"
-              className={`w-full text-xs ${
+              className={`w-full text-xs transition-all duration-200 ${
                 canAfford 
-                  ? 'bg-green-600 hover:bg-green-700' 
-                  : 'bg-gray-600 cursor-not-allowed'
+                  ? 'bg-green-600 hover:bg-green-700 active:bg-green-800' 
+                  : 'bg-gray-600 cursor-not-allowed opacity-60'
               }`}
             >
-              {isPurchasing ? 'Покупка...' : canAfford ? 'Купить' : 'Мало монет'}
+              {isPurchasing ? (
+                <div className="flex items-center justify-center space-x-1">
+                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Покупка...</span>
+                </div>
+              ) : canAfford ? (
+                'Купить'
+              ) : (
+                'Мало монет'
+              )}
             </Button>
           </div>
         </div>

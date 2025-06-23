@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +22,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'bonus' | null>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBonusRoulette, setShowBonusRoulette] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { logCaseOpening } = useCaseOpeningLogger();
   const secureCaseOpening = useSecureCaseOpening();
 
@@ -32,6 +32,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       if (!caseItem?.id) return [];
       
       try {
+        console.log('🔍 [CASE_OPENING] Loading skins for case:', caseItem.id);
+        
         const { data, error } = await supabase
           .from('case_skins')
           .select(`
@@ -54,8 +56,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           .not('skins', 'is', null);
         
         if (error) {
-          console.error('Error loading case skins:', error);
-          return [];
+          console.error('❌ [CASE_OPENING] Error loading case skins:', error);
+          throw new Error(`Failed to load case contents: ${error.message}`);
         }
         
         const transformedData: CaseSkin[] = (data || []).map(item => ({
@@ -68,24 +70,39 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         })).filter(item => item.skins);
         
         console.log('✅ [CASE_OPENING] Loaded case skins:', transformedData.length);
+        
+        if (transformedData.length === 0) {
+          throw new Error('Этот кейс не содержит доступных предметов');
+        }
+        
         return transformedData;
       } catch (error) {
         console.error('💥 [CASE_OPENING] Case skins query error:', error);
-        return [];
+        throw error;
       }
     },
-    enabled: !!caseItem?.id
+    enabled: !!caseItem?.id,
+    retry: 2,
+    staleTime: 30000
   });
 
   useEffect(() => {
-    if (caseItem && currentUser && caseSkins.length > 0) {
+    if (caseItem && currentUser && caseSkins.length > 0 && !error) {
       startCaseOpening();
     }
-  }, [caseItem, currentUser, caseSkins]);
+  }, [caseItem, currentUser, caseSkins, error]);
 
   const startCaseOpening = async () => {
-    console.log('🚀 [CASE_OPENING] Starting case opening animation');
+    console.log('🚀 [CASE_OPENING] Starting case opening for:', caseItem.name);
+    setError(null);
     setAnimationPhase('opening');
+
+    // Проверяем баланс перед открытием платного кейса
+    if (!caseItem.is_free && currentUser.coins < caseItem.price) {
+      setError(`Недостаточно монет. Нужно: ${caseItem.price}, у вас: ${currentUser.coins}`);
+      setAnimationPhase(null);
+      return;
+    }
 
     // Начинаем анимацию открытия
     setTimeout(() => {
@@ -97,6 +114,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const simulateCaseResult = async () => {
     if (caseSkins.length === 0) {
       console.error('❌ [CASE_OPENING] No skins available for case');
+      setError('В кейсе нет доступных предметов');
       return;
     }
 
@@ -128,22 +146,36 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         });
 
         if (result.success && result.skin) {
-          console.log('✅ [CASE_OPENING] Case opened successfully');
+          console.log('✅ [CASE_OPENING] Case opened successfully, skin received:', result.skin.name);
           setWonSkin(result.skin);
           
           // Обновляем баланс только если кейс платный
           if (!caseItem.is_free && caseItem.price) {
             const newCoins = Math.max(0, currentUser.coins - caseItem.price);
             onCoinsUpdate(newCoins);
-            console.log('💰 [CASE_OPENING] Updated coins:', newCoins);
+            console.log('💰 [CASE_OPENING] Balance updated from', currentUser.coins, 'to', newCoins);
           }
+          
+          // Логируем успешное открытие
+          await logCaseOpening({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            case_name: caseItem.name,
+            is_free: caseItem.is_free || false,
+            phase: 'complete',
+            reward_type: 'skin',
+            reward_data: result.skin
+          });
         } else {
-          console.error('❌ [CASE_OPENING] Case opening failed');
-          setWonSkin(selectedSkin.skins);
+          console.error('❌ [CASE_OPENING] Case opening failed - no result');
+          setError('Не удалось открыть кейс. Попробуйте снова.');
+          setWonSkin(selectedSkin.skins); // Показываем выбранный скин как fallback
         }
       }
     } catch (error) {
       console.error('💥 [CASE_OPENING] Error in simulateCaseResult:', error);
+      setError(error instanceof Error ? error.message : 'Произошла ошибка при открытии кейса');
+      
       // В случае ошибки показываем случайный скин без реального открытия
       const randomIndex = Math.floor(Math.random() * caseSkins.length);
       const fallbackSkin = caseSkins[randomIndex];
@@ -152,6 +184,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
     }
 
+    // Завершаем анимацию через 3 секунды
     setTimeout(() => {
       setIsComplete(true);
       setAnimationPhase(null);
@@ -160,22 +193,37 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
   const addToInventory = async () => {
     setIsProcessing(true);
-    console.log('📦 [CASE_OPENING] Adding to inventory (already done by RPC)');
-    setTimeout(() => {
+    try {
+      console.log('📦 [CASE_OPENING] Skin already added to inventory by RPC function');
+      // Ждем немного для UX
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ [CASE_OPENING] Inventory action completed');
+    } catch (error) {
+      console.error('❌ [CASE_OPENING] Error in addToInventory:', error);
+      setError('Не удалось добавить в инвентарь');
+    } finally {
       setIsProcessing(false);
-    }, 1000);
+    }
   };
 
   const sellDirectly = async () => {
     setIsProcessing(true);
-    if (wonSkin) {
-      console.log('💰 [CASE_OPENING] Selling skin directly for', wonSkin.price, 'coins');
-      const newCoins = currentUser.coins + wonSkin.price;
-      onCoinsUpdate(newCoins);
-    }
-    setTimeout(() => {
+    try {
+      if (wonSkin) {
+        console.log('💰 [CASE_OPENING] Selling skin directly for', wonSkin.price, 'coins');
+        const newCoins = currentUser.coins + wonSkin.price;
+        onCoinsUpdate(newCoins);
+        console.log('✅ [CASE_OPENING] Direct sale completed, new balance:', newCoins);
+        
+        // Ждем немного для UX
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      console.error('❌ [CASE_OPENING] Error in sellDirectly:', error);
+      setError('Не удалось продать скин');
+    } finally {
       setIsProcessing(false);
-    }, 1000);
+    }
   };
 
   const handleBonusComplete = (multiplier: number, finalCoins: number) => {
@@ -212,6 +260,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     addToInventory,
     sellDirectly,
     caseSkins,
+    error,
+    isLoading,
     handleBonusComplete,
     handleBonusSkip,
     handleFreeCaseResult

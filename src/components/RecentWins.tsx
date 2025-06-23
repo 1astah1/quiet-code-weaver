@@ -18,7 +18,7 @@ interface RecentWin {
 }
 
 const RecentWins = () => {
-  const { data: recentWins = [], isLoading } = useQuery({
+  const { data: recentWins = [], isLoading, error } = useQuery({
     queryKey: ['recent-wins'],
     queryFn: async () => {
       console.log('🏆 [RECENT_WINS] Loading recent wins...');
@@ -40,18 +40,29 @@ const RecentWins = () => {
 
         if (error) {
           console.error('❌ [RECENT_WINS] Error loading recent wins:', error);
-          return [];
+          throw new Error(`Failed to load recent wins: ${error.message}`);
         }
 
         console.log('✅ [RECENT_WINS] Loaded wins:', data?.length || 0);
-        return data as RecentWin[];
+        
+        // Фильтруем записи с корректными данными
+        const validWins = (data || []).filter(win => 
+          win.reward_data && 
+          typeof win.reward_data === 'object' && 
+          win.reward_data.name &&
+          win.users?.username
+        );
+
+        console.log('✅ [RECENT_WINS] Valid wins after filtering:', validWins.length);
+        return validWins as RecentWin[];
       } catch (error) {
         console.error('💥 [RECENT_WINS] Unexpected error:', error);
-        return [];
+        throw error;
       }
     },
     refetchInterval: 30000,
-    staleTime: 15000
+    staleTime: 15000,
+    retry: 2
   });
 
   const getRarityColor = (rarity?: string) => {
@@ -69,20 +80,41 @@ const RecentWins = () => {
   };
 
   const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'только что';
-    if (diffMins < 60) return `${diffMins} мин назад`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} ч назад`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} д назад`;
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return 'только что';
+      if (diffMins < 60) return `${diffMins} мин назад`;
+      
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours} ч назад`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays} д назад`;
+    } catch {
+      return 'недавно';
+    }
   };
+
+  if (error) {
+    console.error('🚨 [RECENT_WINS] Component error:', error);
+    return (
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
+          <span className="mr-2">🏆</span>
+          Последние выигрыши
+        </h2>
+        <div className="text-center py-6">
+          <div className="text-4xl mb-2">⚠️</div>
+          <p className="text-red-400">Ошибка загрузки выигрышей</p>
+          <p className="text-slate-500 text-sm mt-1">Попробуйте обновить страницу</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -134,13 +166,18 @@ const RecentWins = () => {
         {recentWins.map((win) => {
           const rewardData = win.reward_data;
           
+          if (!rewardData) {
+            console.warn('🚨 [RECENT_WINS] Invalid reward data for win:', win.id);
+            return null;
+          }
+          
           return (
             <div key={win.id} className="flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
-              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData?.rarity)} p-0.5`}>
+              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData.rarity)} p-0.5 flex-shrink-0`}>
                 <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                   <OptimizedImage
-                    src={rewardData?.image_url}
-                    alt={rewardData?.name || 'Скин'}
+                    src={rewardData.image_url}
+                    alt={rewardData.name}
                     className="w-full h-full object-cover"
                     fallback={
                       <div className="w-full h-full flex items-center justify-center text-slate-400">
@@ -152,20 +189,20 @@ const RecentWins = () => {
               </div>
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 mb-1">
                   <span className="text-slate-300 font-medium text-sm truncate">
                     {win.users?.username || 'Игрок'}
                   </span>
                   <span className="text-green-400 text-xs">выиграл</span>
                 </div>
                 <p className="text-white font-medium text-sm truncate">
-                  {rewardData?.name || 'Неизвестный предмет'}
+                  {rewardData.name}
                 </p>
               </div>
               
-              <div className="text-right">
+              <div className="text-right flex-shrink-0">
                 <div className="text-yellow-400 font-bold text-sm">
-                  {rewardData?.price || 0}₽
+                  {rewardData.price || 0}₽
                 </div>
                 <div className="text-slate-500 text-xs">
                   {formatTimeAgo(win.won_at)}
