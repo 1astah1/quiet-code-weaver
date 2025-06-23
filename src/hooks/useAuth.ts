@@ -37,30 +37,48 @@ export const useAuth = () => {
         console.error('❌ Error fetching user data:', error);
         
         if (error.code === 'PGRST116') {
-          console.log('📝 User not found, creating...');
-          // Ждем создания пользователя через триггер
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.log('📝 User not found, creating new user...');
           
-          const { data: retryData, error: retryError } = await supabase
+          // Создаем нового пользователя
+          const { data: newUser, error: createError } = await supabase
             .from('users')
-            .select('*')
-            .eq('auth_id', authUser.id)
+            .insert({
+              auth_id: authUser.id,
+              username: authUser.user_metadata?.full_name || 
+                       authUser.user_metadata?.name || 
+                       authUser.email?.split('@')[0] || 
+                       `User${authUser.id.slice(0, 8)}`,
+              email: authUser.email,
+              coins: 1000,
+              referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+              language_code: 'ru',
+              quiz_lives: 3,
+              quiz_streak: 0,
+              is_admin: false
+            })
+            .select()
             .single();
-          
-          if (!retryError && retryData) {
+
+          if (createError) {
+            console.error('❌ Error creating user:', createError);
+            return;
+          }
+
+          if (newUser) {
+            console.log('✅ New user created:', newUser.username);
             const userData: User = {
-              id: retryData.id,
-              username: retryData.username || 'User',
-              email: retryData.email,
-              coins: retryData.coins || 0,
-              isAdmin: retryData.is_admin || false,
-              quiz_lives: retryData.quiz_lives || 3,
-              quiz_streak: retryData.quiz_streak || 0,
-              referralCode: retryData.referral_code,
-              language_code: retryData.language_code || 'ru',
+              id: newUser.id,
+              username: newUser.username || 'User',
+              email: newUser.email,
+              coins: newUser.coins || 1000,
+              isAdmin: newUser.is_admin || false,
+              quiz_lives: newUser.quiz_lives || 3,
+              quiz_streak: newUser.quiz_streak || 0,
+              referralCode: newUser.referral_code,
+              language_code: newUser.language_code || 'ru',
               avatar_url: null,
-              isPremium: retryData.premium_until ? new Date(retryData.premium_until) > new Date() : false,
-              steam_trade_url: retryData.steam_trade_url
+              isPremium: newUser.premium_until ? new Date(newUser.premium_until) > new Date() : false,
+              steam_trade_url: newUser.steam_trade_url
             };
             setUser(userData);
           }
@@ -122,18 +140,14 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
     
-    // Завершаем загрузку через 3 секунды максимум
-    const loadingTimeout = setTimeout(() => {
-      console.log('⏰ Loading timeout reached');
-      setIsLoading(false);
-    }, 3000);
+    let mounted = true;
     
     const initAuth = async () => {
       try {
         // Проверяем существующую сессию
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (session?.user) {
+        if (session?.user && mounted) {
           console.log('🔑 Existing session found');
           await fetchUserData(session.user);
         } else {
@@ -142,8 +156,10 @@ export const useAuth = () => {
       } catch (error) {
         console.error('🚨 Error getting session:', error);
       } finally {
-        setIsLoading(false);
-        clearTimeout(loadingTimeout);
+        if (mounted) {
+          console.log('✅ Auth initialization complete');
+          setIsLoading(false);
+        }
       }
     };
 
@@ -151,6 +167,8 @@ export const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event);
+        
+        if (!mounted) return;
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
@@ -161,15 +179,14 @@ export const useAuth = () => {
         }
         
         setIsLoading(false);
-        clearTimeout(loadingTimeout);
       }
     );
 
     initAuth();
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
-      clearTimeout(loadingTimeout);
     };
   }, []);
 

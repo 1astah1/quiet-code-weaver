@@ -10,21 +10,27 @@ const LoadingScreen = ({ timeout = 3000, onTimeout }: LoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const duration = timeout;
+    const interval = duration / 100; // 100 шагов прогресса
+    
+    const timer = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
+        const newProgress = prev + 1;
+        
+        if (newProgress >= 100) {
+          clearInterval(timer);
           if (onTimeout) {
-            onTimeout();
+            setTimeout(onTimeout, 100); // Небольшая задержка для плавности
           }
           return 100;
         }
-        return prev + 10;
+        
+        return newProgress;
       });
-    }, 200);
+    }, interval);
 
-    return () => clearInterval(interval);
-  }, [onTimeout]);
+    return () => clearInterval(timer);
+  }, [timeout, onTimeout]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center z-50">
