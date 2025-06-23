@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
 
-export interface CaseOpeningResult {
+export interface CaseOpeningWithAdResult {
   success: boolean;
   reward?: any;
   inventory_id?: string;
@@ -17,7 +17,7 @@ export interface CaseOpeningResult {
   next_available?: string;
 }
 
-export const useCaseOpening = () => {
+export const useCaseOpeningWithAd = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -38,7 +38,7 @@ export const useCaseOpening = () => {
       coinRewardId?: string | null;
     }) => {
       try {
-        console.log('🎮 [CASE_OPENING] Starting case opening:', { 
+        console.log('🎮 [CASE_OPENING_AD] Starting case opening with ad:', { 
           userId, 
           caseId, 
           isFree, 
@@ -51,6 +51,14 @@ export const useCaseOpening = () => {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
         }
 
+        // Для бесплатных кейсов требуется просмотр рекламы
+        if (isFree && !adWatched) {
+          return {
+            success: false,
+            error: 'Ad view required for free case'
+          };
+        }
+
         const { data, error } = await supabase.rpc('safe_open_case', {
           p_user_id: userId,
           p_case_id: caseId,
@@ -61,22 +69,22 @@ export const useCaseOpening = () => {
         });
 
         if (error) {
-          console.error('❌ [CASE_OPENING] RPC error:', error);
+          console.error('❌ [CASE_OPENING_AD] RPC error:', error);
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        const result = data as CaseOpeningResult;
-        console.log('✅ [CASE_OPENING] Case opened successfully:', result);
+        const result = data as CaseOpeningWithAdResult;
+        console.log('✅ [CASE_OPENING_AD] Case opened successfully:', result);
         
         return result;
       } catch (error) {
-        console.error('💥 [CASE_OPENING] Case opening failed:', error);
+        console.error('💥 [CASE_OPENING_AD] Case opening failed:', error);
         throw error;
       }
     },
     onSuccess: async (data, variables) => {
       if (data.success) {
-        console.log('🎉 [CASE_OPENING] Invalidating queries after successful opening...');
+        console.log('🎉 [CASE_OPENING_AD] Invalidating queries after successful opening...');
         
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] }),
@@ -91,10 +99,13 @@ export const useCaseOpening = () => {
             ? `Получено ${data.reward.amount} монет` 
             : `Получен скин: ${data.reward?.name}`,
         });
+      } else {
+        // Обрабатываем ошибки без показа toast, так как они будут обработаны в UI
+        console.log('⚠️ [CASE_OPENING_AD] Case opening failed:', data.error);
       }
     },
     onError: (error: any) => {
-      console.error('🚨 [CASE_OPENING] Mutation error:', error);
+      console.error('🚨 [CASE_OPENING_AD] Mutation error:', error);
       toast({
         title: "Ошибка открытия кейса",
         description: error.message || "Не удалось открыть кейс",

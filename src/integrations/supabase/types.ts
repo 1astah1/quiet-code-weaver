@@ -493,6 +493,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ad_views: {
+        Row: {
+          case_id: string
+          case_opened_at: string | null
+          created_at: string | null
+          id: string
+          user_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          case_id: string
+          case_opened_at?: string | null
+          created_at?: string | null
+          id?: string
+          user_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          case_id?: string
+          case_opened_at?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: []
+      }
       user_daily_rewards: {
         Row: {
           claimed_at: string | null
@@ -904,13 +931,22 @@ export type Database = {
         Returns: Json
       }
       safe_open_case: {
-        Args: {
-          p_user_id: string
-          p_case_id: string
-          p_skin_id?: string
-          p_coin_reward_id?: string
-          p_is_free?: boolean
-        }
+        Args:
+          | {
+              p_user_id: string
+              p_case_id: string
+              p_skin_id?: string
+              p_coin_reward_id?: string
+              p_is_free?: boolean
+            }
+          | {
+              p_user_id: string
+              p_case_id: string
+              p_skin_id?: string
+              p_coin_reward_id?: string
+              p_is_free?: boolean
+              p_ad_watched?: boolean
+            }
         Returns: Json
       }
       safe_sell_skin: {
