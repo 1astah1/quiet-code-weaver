@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Coins, Package, CheckCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 
@@ -22,7 +21,6 @@ interface PurchaseSuccessModalProps {
     amount?: number;
   };
   newBalance: number;
-  inventoryId?: string;
   onInventoryUpdate: () => void;
 }
 
@@ -31,7 +29,6 @@ const PurchaseSuccessModal = ({
   onClose,
   reward,
   newBalance,
-  inventoryId,
   onInventoryUpdate
 }: PurchaseSuccessModalProps) => {
   const { toast } = useToast();
@@ -48,51 +45,6 @@ const PurchaseSuccessModal = ({
       'Consumer Grade': 'from-gray-500 to-gray-600',
     };
     return colors[rarity as keyof typeof colors] || 'from-gray-500 to-gray-600';
-  };
-
-  const handleSellItem = async () => {
-    if (!inventoryId || reward.type !== 'skin' || isProcessing) return;
-    
-    setIsProcessing(true);
-    try {
-      const sellPrice = Math.floor(reward.price * 0.8);
-      
-      const { data, error } = await supabase.rpc('safe_sell_case_reward', {
-        p_user_id: (await supabase.auth.getUser()).data.user?.id,
-        p_skin_id: reward.id,
-        p_sell_price: sellPrice
-      });
-
-      if (error) throw error;
-
-      // Правильная типизация ответа RPC
-      const result = data as { success: boolean; error?: string };
-
-      if (result?.success) {
-        toast({
-          title: "Скин продан!",
-          description: `Получено ${sellPrice} монет`,
-        });
-        setHasPerformedAction(true);
-        onInventoryUpdate();
-        
-        // Автоматически закрываем модальное окно через 2 секунды
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-      } else {
-        throw new Error(result?.error || 'Ошибка продажи');
-      }
-    } catch (error) {
-      console.error('Ошибка продажи:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось продать предмет",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   const handleAddToInventory = () => {
@@ -119,8 +71,6 @@ const PurchaseSuccessModal = ({
       onClose();
     }
   };
-
-  const sellPrice = reward.type === 'skin' ? Math.floor(reward.price * 0.8) : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
@@ -191,26 +141,14 @@ const PurchaseSuccessModal = ({
             ) : (
               <>
                 {reward.type === 'skin' && (
-                  <>
-                    <Button
-                      onClick={handleAddToInventory}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      disabled={isProcessing}
-                    >
-                      <Package className="w-4 h-4 mr-2" />
-                      {isProcessing ? 'Добавление...' : 'Добавить в инвентарь'}
-                    </Button>
-                    
-                    <Button
-                      onClick={handleSellItem}
-                      variant="outline"
-                      className="w-full border-orange-500 text-orange-400 hover:bg-orange-500/10"
-                      disabled={isProcessing}
-                    >
-                      <Coins className="w-4 h-4 mr-2" />
-                      {isProcessing ? 'Продаем...' : `Продать за ${sellPrice} монет`}
-                    </Button>
-                  </>
+                  <Button
+                    onClick={handleAddToInventory}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={isProcessing}
+                  >
+                    <Package className="w-4 h-4 mr-2" />
+                    {isProcessing ? 'Добавление...' : 'Добавить в инвентарь'}
+                  </Button>
                 )}
 
                 {reward.type === 'coin_reward' && (
