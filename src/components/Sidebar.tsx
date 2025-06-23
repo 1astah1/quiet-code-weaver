@@ -3,25 +3,21 @@ import { useState } from "react";
 import { X, Settings, LogOut, Crown, Shield, Coins } from "lucide-react";
 import { Screen } from "@/components/MainApp";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser: {
-    username: string;
-    coins: number;
-    isPremium: boolean;
-    isAdmin: boolean;
-    avatar_url?: string;
-    language_code?: string;
-  };
+  currentScreen: Screen;
   onScreenChange: (screen: Screen) => void;
-  onSignOut: () => void;
 }
 
-const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: SidebarProps) => {
-  const { t } = useTranslation(currentUser.language_code);
+const Sidebar = ({ isOpen, onClose, currentScreen, onScreenChange }: SidebarProps) => {
+  const { user, signOut } = useAuth();
+  const { t } = useTranslation(user?.language_code);
   const [showSettings, setShowSettings] = useState(false);
+
+  if (!user) return null;
 
   const handleSettingsClick = () => {
     setShowSettings(true);
@@ -59,31 +55,31 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
           <div className="bg-gray-800/50 rounded-xl p-4 mb-6 border border-orange-500/20">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-r from-orange-400 to-red-500 flex items-center justify-center">
-                {currentUser.avatar_url ? (
+                {user.avatar_url ? (
                   <img 
-                    src={currentUser.avatar_url} 
+                    src={user.avatar_url} 
                     alt="Avatar" 
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <span className="text-white text-xl font-bold">
-                    {currentUser.username.charAt(0).toUpperCase()}
+                    {user.username.charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-1">
-                  <h3 className="text-white font-bold">{currentUser.username}</h3>
-                  {currentUser.isPremium && (
+                  <h3 className="text-white font-bold">{user.username}</h3>
+                  {user.isPremium && (
                     <Crown className="w-4 h-4 text-yellow-400" />
                   )}
-                  {currentUser.isAdmin && (
+                  {user.isAdmin && (
                     <Shield className="w-4 h-4 text-red-400" />
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <Coins className="w-4 h-4 text-yellow-400" />
-                  <span className="text-yellow-400 font-bold">{currentUser.coins.toLocaleString()}</span>
+                  <span className="text-yellow-400 font-bold">{user.coins.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -99,7 +95,7 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
               <span className="font-medium">{t('settings')}</span>
             </button>
 
-            {currentUser.isAdmin && (
+            {user.isAdmin && (
               <button
                 onClick={() => {
                   onScreenChange('admin');
@@ -116,7 +112,7 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
           {/* Sign Out */}
           <div className="absolute bottom-6 left-6 right-6">
             <button
-              onClick={onSignOut}
+              onClick={signOut}
               className="w-full flex items-center justify-center space-x-2 p-3 bg-red-600/20 hover:bg-red-600/30 rounded-xl text-red-400 hover:text-red-300 transition-all border border-red-500/30"
             >
               <LogOut className="w-5 h-5" />

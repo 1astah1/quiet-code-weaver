@@ -1,27 +1,27 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { AuthScreen } from '@/components/auth/AuthScreen';
-import { MainScreen } from '@/components/screens/MainScreen';
-import { InventoryScreen } from '@/components/inventory/InventoryScreen';
-import { SkinsScreen } from '@/components/screens/SkinsScreen';
-import { QuizScreen } from '@/components/screens/QuizScreen';
-import { TasksScreen } from '@/components/screens/TasksScreen';
-import { SettingsScreen } from '@/components/settings/SettingsScreen';
-import { AdminPanel } from '@/components/AdminPanel';
-import { Header } from '@/components/Header';
-import { BottomNavigation } from '@/components/BottomNavigation';
-import { Sidebar } from '@/components/Sidebar';
-import { LoadingScreen } from '@/components/LoadingScreen';
-import { SecurityMonitor } from '@/components/security/SecurityMonitor';
+import AuthScreen from '@/components/auth/AuthScreen';
+import MainScreen from '@/components/screens/MainScreen';
+import InventoryScreen from '@/components/inventory/InventoryScreen';
+import SkinsScreen from '@/components/screens/SkinsScreen';
+import QuizScreen from '@/components/screens/QuizScreen';
+import TasksScreen from '@/components/screens/TasksScreen';
+import SettingsScreen from '@/components/settings/SettingsScreen';
+import AdminPanel from '@/components/AdminPanel';
+import Header from '@/components/Header';
+import BottomNavigation from '@/components/BottomNavigation';
+import Sidebar from '@/components/Sidebar';
+import LoadingScreen from '@/components/LoadingScreen';
+import SecurityMonitor from '@/components/security/SecurityMonitor';
 import { Toaster } from '@/components/ui/toaster';
 import { useWebViewDetection } from '@/hooks/useWebViewDetection';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 
-type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
+export type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
 
 const MainApp: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [currentScreen, setCurrentScreen] = React.useState<Screen>('main');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
@@ -32,11 +32,12 @@ const MainApp: React.FC = () => {
     if (isWebView) {
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
+      // @ts-ignore - webkitTouchCallout is a valid property for iOS
       document.body.style.webkitTouchCallout = 'none';
     }
   }, [isWebView]);
 
-  if (loading) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
@@ -57,7 +58,7 @@ const MainApp: React.FC = () => {
       case 'settings':
         return <SettingsScreen />;
       case 'admin':
-        return user.is_admin ? <AdminPanel /> : <MainScreen />;
+        return user.isAdmin ? <AdminPanel /> : <MainScreen />;
       default:
         return <MainScreen />;
     }
