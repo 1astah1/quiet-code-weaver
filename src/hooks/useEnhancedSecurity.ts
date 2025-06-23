@@ -13,6 +13,83 @@ interface User {
   is_admin?: boolean;
 }
 
+// Клиентский rate limiter с localStorage
+class ClientRateLimiter {
+  private static getStorageKey(userId: string, action: string): string {
+    return `rateLimit_${userId}_${action}`;
+  }
+
+  static canPerformAction(
+    userId: string, 
+    action: string, 
+    maxAttempts: number = 5, 
+    windowMs: number = 10 * 60 * 1000, // 10 минут
+    isAdmin: boolean = false
+  ): boolean {
+    // Администраторы всегда могут выполнять действия
+    if (isAdmin) {
+      console.log(`👑 [CLIENT_RATE_LIMIT] Admin user bypassing rate limit for ${action}`);
+      return true;
+    }
+
+    const key = this.getStorageKey(userId, action);
+    const now = Date.now();
+    
+    try {
+      const stored = localStorage.getItem(key);
+      const attempts: number[] = stored ? JSON.parse(stored) : [];
+      
+      // Фильтруем старые попытки
+      const recentAttempts = attempts.filter(timestamp => now - timestamp < windowMs);
+      
+      if (recentAttempts.length >= maxAttempts) {
+        console.warn(`🚫 [CLIENT_RATE_LIMIT] Rate limit exceeded for ${userId}:${action} (${recentAttempts.length}/${maxAttempts})`);
+        return false;
+      }
+      
+      // Добавляем текущую попытку
+      recentAttempts.push(now);
+      localStorage.setItem(key, JSON.stringify(recentAttempts));
+      
+      return true;
+    } catch (error) {
+      console.error('Rate limiter storage error:', error);
+      return true; // Если ошибка в localStorage, разрешаем действие
+    }
+  }
+
+  static getRemainingAttempts(userId: string, action: string, maxAttempts: number = 5, windowMs: number = 10 * 60 * 1000): number {
+    const key = this.getStorageKey(userId, action);
+    const now = Date.now();
+    
+    try {
+      const stored = localStorage.getItem(key);
+      const attempts: number[] = stored ? JSON.parse(stored) : [];
+      const recentAttempts = attempts.filter(timestamp => now - timestamp < windowMs);
+      
+      return Math.max(0, maxAttempts - recentAttempts.length);
+    } catch {
+      return maxAttempts;
+    }
+  }
+
+  static getNextResetTime(userId: string, action: string, windowMs: number = 10 * 60 * 1000): number {
+    const key = this.getStorageKey(userId, action);
+    
+    try {
+      const stored = localStorage.getItem(key);
+      const attempts: number[] = stored ? JSON.parse(stored) : [];
+      
+      if (attempts.length === 0) return 0;
+      
+      const oldestAttempt = Math.min(...attempts);
+      return oldestAttempt + windowMs;
+    } catch {
+      return 0;
+    }
+  }
+}
+
 export const useEnhancedSecurity = (user: User) => {
   const [metrics, setMetrics] = useState<SecurityMetrics>({
     rateLimitViolations: 0,
@@ -24,51 +101,63 @@ export const useEnhancedSecurity = (user: User) => {
   // Проверяем статус администратора
   const isAdmin = user.is_admin || false;
 
-  // Проверка rate limit через RPC функцию
+  // Улучшенная проверка rate limit
   const checkRateLimit = useCallback(async (
     action: string, 
-    maxAttempts: number = 10, 
-    windowMinutes: number = 60
+    maxAttempts: number = 5, 
+    windowMinutes: number = 10
   ): Promise<boolean> => {
     try {
-      // ИСПРАВЛЕНО: Администраторы всегда проходят проверку rate limit
+      // Администраторы всегда проходят проверку
       if (isAdmin) {
         console.log(`👑 [SECURITY] Admin user bypassing rate limit for action: ${action}`);
         return true;
       }
 
-      console.log(`🔒 Checking rate limit for action: ${action}`);
+      const windowMs = windowMinutes * 60 * 1000;
       
-      const { data, error } = await supabase.rpc('check_rate_limit', {
-        p_user_id: user.id,
-        p_action: action,
-        p_max_attempts: maxAttempts,
-        p_window_minutes: windowMinutes
-      });
-
-      if (error) {
-        console.error('❌ Rate limit check error:', error);
-        return false; // В случае ошибки блокируем действие
-      }
-
-      const canProceed = data as boolean;
-      
-      if (!canProceed) {
-        console.warn(`🚫 Rate limit exceeded for action: ${action}`);
+      // Сначала проверяем клиентский лимит
+      if (!ClientRateLimiter.canPerformAction(user.id, action, maxAttempts, windowMs, isAdmin)) {
+        const remaining = ClientRateLimiter.getRemainingAttempts(user.id, action, maxAttempts, windowMs);
+        const resetTime = ClientRateLimiter.getNextResetTime(user.id, action, windowMs);
+        
+        console.warn(`🚫 Client rate limit exceeded for ${action}. Remaining: ${remaining}, Reset: ${new Date(resetTime).toLocaleString()}`);
+        
         setMetrics(prev => ({
           ...prev,
           rateLimitViolations: prev.rateLimitViolations + 1,
           lastViolation: new Date()
         }));
-        setIsBlocked(true);
         
-        // Снимаем блокировку через 5 минут
+        // Временная блокировка на 3 секунды вместо 5 минут
+        setIsBlocked(true);
         setTimeout(() => {
           setIsBlocked(false);
-        }, 5 * 60 * 1000);
+        }, 3000);
+        
+        return false;
       }
 
-      return canProceed;
+      // Проверяем серверный rate limit (только для критических действий)
+      if (['purchase_skin', 'open_case', 'sell_skin'].includes(action)) {
+        console.log(`🔒 Checking server rate limit for action: ${action}`);
+        
+        const { data, error } = await supabase.rpc('check_rate_limit', {
+          p_user_id: user.id,
+          p_action: action,
+          p_max_attempts: maxAttempts * 2, // Более мягкий серверный лимит
+          p_window_minutes: windowMinutes
+        });
+
+        if (error) {
+          console.error('❌ Server rate limit check error:', error);
+          return true; // При ошибке разрешаем действие
+        }
+
+        return data as boolean;
+      }
+
+      return true;
     } catch (error) {
       console.error('💥 Security check failed:', error);
       return isAdmin; // Администраторы проходят даже при ошибках
@@ -110,13 +199,13 @@ export const useEnhancedSecurity = (user: User) => {
       .slice(0, 1000);
   }, []);
 
-  // Логирование подозрительной активности
+  // Логирование подозрительной активности (только для не-админов)
   const logSuspiciousActivity = useCallback(async (
     activity: string,
     details: Record<string, any>
   ): Promise<void> => {
     try {
-      // ИСПРАВЛЕНО: Не логируем активность администраторов как подозрительную
+      // Не логируем активность администраторов как подозрительную
       if (isAdmin) {
         console.log(`👑 [SECURITY] Admin activity ignored: ${activity}`, details);
         return;
@@ -131,12 +220,31 @@ export const useEnhancedSecurity = (user: User) => {
       }));
 
       // В реальном приложении здесь был бы вызов к серверу для логирования
-      // await supabase.from('security_audit_log').insert({...})
       
     } catch (error) {
       console.error('Failed to log suspicious activity:', error);
     }
   }, [isAdmin]);
+
+  // Получение информации о rate limit
+  const getRateLimitInfo = useCallback((action: string) => {
+    if (isAdmin) {
+      return {
+        remaining: Infinity,
+        resetTime: 0,
+        canPerform: true
+      };
+    }
+
+    const remaining = ClientRateLimiter.getRemainingAttempts(user.id, action);
+    const resetTime = ClientRateLimiter.getNextResetTime(user.id, action);
+    
+    return {
+      remaining,
+      resetTime: resetTime > 0 ? new Date(resetTime) : null,
+      canPerform: remaining > 0
+    };
+  }, [user.id, isAdmin]);
 
   return {
     metrics,
@@ -145,6 +253,7 @@ export const useEnhancedSecurity = (user: User) => {
     validateInput,
     sanitizeString,
     logSuspiciousActivity,
+    getRateLimitInfo,
     isAdmin
   };
 };

@@ -1,8 +1,9 @@
-import { Button } from "@/components/ui/button";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Coins } from "lucide-react";
+import { Crown, Coins, AlertCircle } from "lucide-react";
 import InstantImage from "@/components/ui/InstantImage";
+import SecureButton from "@/components/ui/SecureButton";
 
 interface Skin {
   id: string;
@@ -16,9 +17,9 @@ interface Skin {
 interface ShopSkinCardProps {
   skin: Skin;
   canAfford: boolean;
-  onPurchase: (skin: Skin) => void;
+  onPurchase: (skin: Skin) => Promise<void>;
   isPurchasing: boolean;
-  isAdmin?: boolean; // ДОБАВЛЕНО: Проп для статуса администратора
+  isAdmin?: boolean;
 }
 
 const ShopSkinCard = ({ 
@@ -41,13 +42,16 @@ const ShopSkinCard = ({
     return colors[rarity] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleSecurePurchase = async () => {
+    await onPurchase(skin);
+  };
+
   return (
     <Card className={`group hover:shadow-lg transition-all duration-200 ${
       !canAfford ? 'opacity-60' : 'hover:scale-105'
     } ${isAdmin ? 'ring-2 ring-yellow-300 bg-gradient-to-br from-yellow-50 to-white' : ''}`}>
       <CardContent className="p-2 sm:p-3">
         <div className="aspect-square mb-2 relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200">
-          {/* ДОБАВЛЕНО: Индикатор администратора */}
           {isAdmin && (
             <div className="absolute top-1 left-1 z-10">
               <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-300 text-xs">
@@ -90,7 +94,6 @@ const ShopSkinCard = ({
                 }`}>
                   {skin.price}
                 </span>
-                {/* ДОБАВЛЕНО: Показываем "БЕСПЛАТНО" для администраторов */}
                 {isAdmin && (
                   <span className="text-xs font-bold text-green-600 ml-1">
                     БЕСПЛАТНО
@@ -100,22 +103,22 @@ const ShopSkinCard = ({
             </div>
           </div>
 
-          <Button
+          <SecureButton
             size="sm"
-            onClick={() => onPurchase(skin)}
-            disabled={isPurchasing || (!canAfford && !isAdmin)}
+            onSecureClick={handleSecurePurchase}
+            disabled={!canAfford && !isAdmin}
+            debounceMs={500}
+            cooldownMs={2000}
+            maxAttempts={3}
+            loadingText="Покупка..."
+            blockedText="Подождите..."
             className={`w-full text-xs h-7 sm:h-8 ${
               isAdmin 
                 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white' 
                 : ''
             }`}
           >
-            {isPurchasing ? (
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Покупка...</span>
-              </div>
-            ) : isAdmin ? (
+            {isAdmin ? (
               <div className="flex items-center gap-1">
                 <Crown className="h-3 w-3" />
                 <span>Получить</span>
@@ -123,7 +126,14 @@ const ShopSkinCard = ({
             ) : (
               'Купить'
             )}
-          </Button>
+          </SecureButton>
+
+          {!canAfford && !isAdmin && (
+            <div className="flex items-center gap-1 text-xs text-red-600 mt-1">
+              <AlertCircle className="h-3 w-3" />
+              <span>Недостаточно монет</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
