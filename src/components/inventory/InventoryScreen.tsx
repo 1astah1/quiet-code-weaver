@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Coins, Package, Sparkles } from "lucide-react";
@@ -52,8 +51,8 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     sellAllMutation.mutate(
       { userId: currentUser.id },
       {
-        onSuccess: (totalValue) => {
-          onCoinsUpdate(currentUser.coins + totalValue);
+        onSuccess: (result) => {
+          onCoinsUpdate(currentUser.coins + result);
         }
       }
     );

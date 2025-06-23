@@ -11,8 +11,12 @@ import QuizScreen from "@/components/screens/QuizScreen";
 import TasksScreen from "@/components/screens/TasksScreen";
 import ProfileScreen from "@/components/screens/ProfileScreen";
 import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
-import { SecurityStatus } from "@/components/security/SecurityStatus";
+import MainScreen from "@/components/screens/MainScreen";
+import InventoryScreen from "@/components/inventory/InventoryScreen";
+import SecurityStatus from "@/components/security/SecurityStatus";
 import { createTestUser } from "@/utils/uuid";
+
+export type Screen = "main" | "skins" | "quiz" | "tasks" | "profile" | "leaderboard" | "inventory" | "settings" | "admin";
 
 interface User {
   id: string;
@@ -28,7 +32,7 @@ interface User {
 const MainApp = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const [currentScreen, setCurrentScreen] = useState("home");
+  const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { toast } = useToast();
 
@@ -112,11 +116,23 @@ const MainApp = () => {
     }
   };
 
+  const handleLivesUpdate = (newLives: number) => {
+    if (user) {
+      setUser({ ...user, quiz_lives: newLives });
+    }
+  };
+
+  const handleStreakUpdate = (newStreak: number) => {
+    if (user) {
+      setUser({ ...user, quiz_streak: newStreak });
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
-      setCurrentScreen("home");
+      setCurrentScreen("main");
       setSidebarOpen(false);
       toast({
         title: "Выход выполнен",
@@ -142,18 +158,28 @@ const MainApp = () => {
 
   const renderScreen = () => {
     switch (currentScreen) {
+      case "main":
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
       case "skins":
         return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "quiz":
-        return <QuizScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
+        return <QuizScreen 
+          currentUser={user} 
+          onCoinsUpdate={handleCoinsUpdate}
+          onBack={() => setCurrentScreen("main")}
+          onLivesUpdate={handleLivesUpdate}
+          onStreakUpdate={handleStreakUpdate}
+        />;
       case "tasks":
         return <TasksScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "profile":
         return <ProfileScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       case "leaderboard":
         return <LeaderboardScreen />;
+      case "inventory":
+        return <InventoryScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
       default:
-        return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
+        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
     }
   };
 
@@ -181,8 +207,7 @@ const MainApp = () => {
       <BottomNavigation
         currentScreen={currentScreen}
         onScreenChange={setCurrentScreen}
-        onMenuClick={() => setSidebarOpen(true)}
-        userCoins={user.coins}
+        currentLanguage={user.language_code}
       />
 
       <SecurityStatus />
@@ -191,3 +216,4 @@ const MainApp = () => {
 };
 
 export default MainApp;
+export type { Screen };
