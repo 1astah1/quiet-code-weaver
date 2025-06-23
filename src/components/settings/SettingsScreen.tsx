@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock, FileText, ScrollText } from "lucide-react";
+import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock, FileText, ScrollText, Users, Copy, Share } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
 import FAQModal from "./FAQModal";
 import PremiumModal from "./PremiumModal";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useGenerateReferralCode } from "@/hooks/useReferral";
 
 interface SettingsScreenProps {
   currentUser: {
@@ -22,6 +23,7 @@ interface SettingsScreenProps {
     sound_enabled?: boolean;
     vibration_enabled?: boolean;
     profile_private?: boolean;
+    referralCode?: string;
   };
   onCoinsUpdate: (newCoins: number) => void;
 }
@@ -39,6 +41,7 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
   const [vibrationEnabled, setVibrationEnabled] = useState(currentUser.vibration_enabled ?? true);
   const [profilePrivate, setProfilePrivate] = useState(currentUser.profile_private ?? false);
   const { toast } = useToast();
+  const generateReferralCode = useGenerateReferralCode();
 
   const handleLanguageChange = async (languageCode: string) => {
     try {
@@ -101,6 +104,76 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
     }
   };
 
+  const handleGenerateReferralCode = async () => {
+    try {
+      await generateReferralCode.mutateAsync(currentUser.id);
+    } catch (error) {
+      console.error('Error generating referral code:', error);
+    }
+  };
+
+  const handleCopyReferralLink = async () => {
+    if (!currentUser.referralCode) {
+      toast({
+        title: "Создайте реферальный код",
+        description: "Сначала нужно создать реферальный код",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const referralLink = `${window.location.origin}/ref/${currentUser.referralCode}`;
+    
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      toast({
+        title: "Ссылка скопирована!",
+        description: "Реферальная ссылка скопирована в буфер обмена",
+      });
+    } catch (error) {
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = referralLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      toast({
+        title: "Ссылка скопирована!",
+        description: "Реферальная ссылка скопирована в буфер обмена",
+      });
+    }
+  };
+
+  const handleShareReferralLink = async () => {
+    if (!currentUser.referralCode) {
+      toast({
+        title: "Создайте реферальный код",
+        description: "Сначала нужно создать реферальный код",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const referralLink = `${window.location.origin}/ref/${currentUser.referralCode}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'FastMarket - Открывай кейсы CS2!',
+          text: 'Присоединяйся к FastMarket и получи бонус за регистрацию!',
+          url: referralLink,
+        });
+      } catch (error) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // Fallback - копируем ссылку
+      handleCopyReferralLink();
+    }
+  };
+
   return (
     <div className="min-h-screen pb-20 px-4 pt-4">
       {/* Header */}
@@ -131,6 +204,66 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
           >
             {t('getPremium')}
           </Button>
+        </div>
+
+        {/* Referral Section */}
+        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <Users className="w-8 h-8 text-purple-400" />
+              <div>
+                <h3 className="text-xl font-bold text-white">Пригласить друзей</h3>
+                <p className="text-purple-300 text-sm">Получайте 50 монет за каждого друга</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-purple-400 font-bold text-lg">50 монет</div>
+              <div className="text-purple-300 text-xs">за приглашение</div>
+            </div>
+          </div>
+          
+          {currentUser.referralCode ? (
+            <div className="space-y-3">
+              <div className="bg-slate-700/30 rounded-lg p-3 border border-slate-600/50">
+                <p className="text-slate-300 text-sm mb-2">Ваш реферальный код:</p>
+                <p className="text-white font-mono text-lg">{currentUser.referralCode}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleCopyReferralLink}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Копировать ссылку
+                </Button>
+                <Button 
+                  onClick={handleShareReferralLink}
+                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white"
+                >
+                  <Share className="w-4 h-4 mr-2" />
+                  Поделиться
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleGenerateReferralCode}
+              disabled={generateReferralCode.isPending}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-xl"
+            >
+              {generateReferralCode.isPending ? (
+                <div className="flex items-center">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Создание...
+                </div>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Создать реферальный код
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Account Settings */}

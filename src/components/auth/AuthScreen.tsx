@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
 import PrivacyPolicyModal from "@/components/settings/PrivacyPolicyModal";
+import { useProcessReferral } from "@/hooks/useReferral";
 
 interface AuthScreenProps {
   onAuthSuccess: (user: any) => void;
@@ -16,6 +16,7 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { toast } = useToast();
+  const processReferral = useProcessReferral();
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     try {
@@ -43,7 +44,17 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         return;
       }
 
-      // Успешная авторизация будет обработана в useEffect MainApp
+      // Проверяем реферальный код после успешной авторизации
+      const pendingReferralCode = localStorage.getItem('pending_referral_code');
+      if (pendingReferralCode) {
+        console.log('🎁 Обрабатываем реферальный код для нового пользователя:', pendingReferralCode);
+        
+        // Небольшая задержка, чтобы пользователь был создан в базе данных
+        setTimeout(() => {
+          handleReferralCode(pendingReferralCode);
+        }, 2000);
+      }
+
     } catch (error) {
       console.error('Auth error:', error);
       toast({
@@ -54,6 +65,35 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
+    }
+  };
+
+  const handleReferralCode = async (referralCode: string) => {
+    try {
+      // Получаем текущего пользователя
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        console.log('🎁 Применяем реферальный код для пользователя:', user.id);
+        
+        await processReferral.mutateAsync({
+          referralCode,
+          newUserId: user.id
+        });
+        
+        // Удаляем сохраненный код
+        localStorage.removeItem('pending_referral_code');
+        
+        toast({
+          title: "Бонус получен!",
+          description: "Вы получили бонус за регистрацию по приглашению!",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при обработке реферального кода:', error);
+      // Не показываем ошибку пользователю, так как это не критично
+      localStorage.removeItem('pending_referral_code');
     }
   };
 
