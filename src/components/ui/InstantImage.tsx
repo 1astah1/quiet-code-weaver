@@ -25,6 +25,8 @@ const InstantImage: React.FC<InstantImageProps> = ({
       console.log('🖼️ [INSTANT_IMAGE] Source changed:', src);
       setHasError(false);
       setIsLoading(true);
+    } else {
+      setIsLoading(false);
     }
   }, [src]);
 
@@ -41,13 +43,20 @@ const InstantImage: React.FC<InstantImageProps> = ({
     setHasError(false);
   };
 
-  // Show fallback if no src, error occurred, or for problematic URLs
-  if (!src || hasError) {
-    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError);
+  // Check if URL is likely invalid (points to non-existent static files)
+  const isInvalidStaticPath = src && (
+    src.startsWith('/lovable-uploads/') || 
+    src.startsWith('./lovable-uploads/') ||
+    src.includes('lovable-uploads/')
+  );
+
+  // Show fallback if no src, error occurred, or for invalid static paths
+  if (!src || hasError || isInvalidStaticPath) {
+    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError, 'isInvalidStaticPath:', isInvalidStaticPath);
     return (
       <div className={`flex items-center justify-center ${className}`}>
         {fallback || (
-          <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300">
+          <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 rounded">
             <div className="text-2xl mb-1">🖼️</div>
             <div className="text-xs font-medium">Изображение</div>
           </div>
@@ -60,7 +69,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
   return (
     <div className={`relative ${className}`}>
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 rounded">
           <div className="text-sm">Загрузка...</div>
         </div>
       )}

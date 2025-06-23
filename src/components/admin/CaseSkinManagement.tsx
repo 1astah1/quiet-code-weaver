@@ -502,6 +502,9 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       <h6 className="text-white font-medium">{item.skins?.name}</h6>
                       <p className="text-gray-400 text-sm">
                         {item.skins?.weapon_type} • {item.skins?.price} монет
+                        {!item.skins?.image_url && (
+                          <span className="text-yellow-400 ml-2">• Нет изображения</span>
+                        )}
                       </p>
                     </div>
                   </>

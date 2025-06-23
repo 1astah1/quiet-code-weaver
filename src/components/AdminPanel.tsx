@@ -11,6 +11,7 @@ import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
 import UserManagement from "./admin/UserManagement";
 import PromoCodeManagement from "./admin/PromoCodeManagement";
 import SuspiciousActivityManagement from "./admin/SuspiciousActivityManagement";
+import DatabaseImageCleanup from "./admin/DatabaseImageCleanup";
 import { TableName } from "@/types/admin";
 
 const AdminPanel = () => {
@@ -401,6 +402,11 @@ const AdminPanel = () => {
       />
 
       <div className="space-y-4">
+        {/* Добавляем утилиту очистки БД */}
+        {activeTable === 'skins' && (
+          <DatabaseImageCleanup />
+        )}
+
         {activeTable === 'users' && (
           <>
             <UserManagement />
