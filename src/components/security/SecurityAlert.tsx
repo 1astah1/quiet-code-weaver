@@ -22,6 +22,7 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
       const criticalActions = ['complete_task', 'claim_task_reward', 'sell_skin'];
       
       for (const action of criticalActions) {
+        // ИСПРАВЛЕНО: Используем существующий метод
         const canPerform = await SecurityMonitor.checkRateLimit(userId, action);
         
         if (!canPerform) {
