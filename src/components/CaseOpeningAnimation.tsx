@@ -19,9 +19,10 @@ interface CaseOpeningAnimationProps {
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
-  console.log('CaseOpeningAnimation: Rendering', { 
+  console.log('🎬 [CASE_ANIMATION] Rendering CaseOpeningAnimation', { 
     caseName: caseItem?.name, 
-    isFree: caseItem?.is_free 
+    isFree: caseItem?.is_free,
+    userId: currentUser?.id 
   });
 
   const {
@@ -41,7 +42,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
   const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
 
-  console.log('CaseOpeningAnimation: State', { 
+  console.log('🎬 [CASE_ANIMATION] Component state', { 
     animationPhase, 
     isComplete, 
     hasWonSkin: !!wonSkin,
@@ -54,10 +55,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
   // Добавляем вибрацию на разных этапах анимации
   useEffect(() => {
     if (animationPhase === 'opening') {
+      console.log('📳 [CASE_ANIMATION] Vibrating for opening phase');
       vibrateLight();
     } else if (animationPhase === 'roulette') {
+      console.log('📳 [CASE_ANIMATION] Vibrating for roulette phase');
       vibrateLight();
     } else if (isComplete && (wonSkin || wonCoins > 0)) {
+      console.log('📳 [CASE_ANIMATION] Vibrating for completion');
       if (wonSkin) {
         const rarity = wonSkin.rarity?.toLowerCase();
         if (rarity === 'covert' || rarity === 'classified') {
@@ -72,14 +76,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
   }, [animationPhase, isComplete, wonSkin, wonCoins, vibrateLight, vibrateSuccess, vibrateRare]);
 
   const handleAddToInventory = async () => {
-    console.log('Adding to inventory');
+    console.log('📦 [CASE_ANIMATION] Adding to inventory');
     vibrateLight();
     await addToInventory();
     onClose();
   };
 
   const handleSellDirectly = async () => {
-    console.log('Selling directly');
+    console.log('💰 [CASE_ANIMATION] Selling directly');
     vibrateLight();
     await sellDirectly();
     onClose();
@@ -87,6 +91,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
   // Показываем ошибку если есть
   if (error) {
+    console.error('❌ [CASE_ANIMATION] Showing error:', error);
     return (
       <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
         <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-md mx-auto relative border border-red-500/30 p-6">
@@ -115,6 +120,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
   // Показываем загрузку
   if (isLoading) {
+    console.log('⏳ [CASE_ANIMATION] Showing loading state');
     return (
       <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
         <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-md mx-auto relative border border-orange-500/30 p-6">

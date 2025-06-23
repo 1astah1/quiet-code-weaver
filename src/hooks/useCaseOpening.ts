@@ -47,7 +47,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const { data: caseSkins = [], isLoading } = useQuery({
     queryKey: ['case-skins', caseItem?.id],
     queryFn: async () => {
-      if (!caseItem?.id) return [];
+      if (!caseItem?.id) {
+        console.error('❌ [CASE_OPENING] No case ID provided');
+        return [];
+      }
       
       try {
         console.log('🔍 [CASE_OPENING] Loading skins for case:', caseItem.id);
@@ -90,6 +93,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.log('✅ [CASE_OPENING] Loaded case skins:', transformedData.length);
         
         if (transformedData.length === 0) {
+          console.warn('⚠️ [CASE_OPENING] Case has no available items');
           throw new Error('Этот кейс не содержит доступных предметов');
         }
         
@@ -106,37 +110,55 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
   useEffect(() => {
     if (caseItem && currentUser && caseSkins.length > 0 && !error) {
+      console.log('🚀 [CASE_OPENING] Starting case opening process');
       startCaseOpening();
     }
   }, [caseItem, currentUser, caseSkins, error]);
 
   const startCaseOpening = async () => {
-    console.log('🚀 [CASE_OPENING] Starting case opening for:', caseItem.name);
-    setError(null);
-    setAnimationPhase('opening');
+    try {
+      console.log('🎯 [CASE_OPENING] Starting case opening for:', caseItem.name);
+      console.log('💰 [CASE_OPENING] User balance:', currentUser.coins);
+      console.log('💳 [CASE_OPENING] Case price:', caseItem.price);
+      console.log('🆓 [CASE_OPENING] Is free case:', caseItem.is_free);
+      
+      setError(null);
+      setAnimationPhase('opening');
 
-    // Проверяем баланс для платных кейсов
-    if (!caseItem.is_free && currentUser.coins < caseItem.price) {
-      const errorMsg = `Недостаточно монет. Нужно: ${caseItem.price}, у вас: ${currentUser.coins}`;
-      setError(errorMsg);
+      // Проверяем баланс для платных кейсов
+      if (!caseItem.is_free && currentUser.coins < caseItem.price) {
+        const errorMsg = `Недостаточно монет. Нужно: ${caseItem.price}, у вас: ${currentUser.coins}`;
+        console.error('❌ [CASE_OPENING] Insufficient funds:', errorMsg);
+        setError(errorMsg);
+        setAnimationPhase(null);
+        toast({
+          title: "Недостаточно монет",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Анимация открытия (2 секунды)
+      setTimeout(() => {
+        openCaseWithRPC();
+      }, 2000);
+    } catch (error) {
+      console.error('💥 [CASE_OPENING] Error in startCaseOpening:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при запуске открытия кейса';
+      setError(errorMessage);
       setAnimationPhase(null);
-      toast({
-        title: "Недостаточно монет",
-        description: errorMsg,
-        variant: "destructive",
-      });
-      return;
     }
-
-    // Анимация открытия (2 секунды)
-    setTimeout(() => {
-      openCaseWithRPC();
-    }, 2000);
   };
 
   const openCaseWithRPC = async () => {
     try {
-      console.log('🎯 [CASE_OPENING] Calling RPC function for case opening');
+      console.log('📡 [CASE_OPENING] Calling RPC function safe_open_case');
+      console.log('📊 [CASE_OPENING] RPC parameters:', {
+        p_user_id: currentUser.id,
+        p_case_id: caseItem.id,
+        p_is_free: caseItem.is_free || false
+      });
       
       // Вызываем RPC функцию БЕЗ указания конкретного скина
       // Сервер сам выберет случайную награду
@@ -149,20 +171,38 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       });
 
       if (error) {
-        console.error('❌ [CASE_OPENING] RPC error:', error);
-        throw new Error(error.message || 'Не удалось открыть кейс');
+        console.error('❌ [CASE_OPENING] RPC error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`Ошибка сервера: ${error.message}`);
       }
+
+      if (!data) {
+        console.error('❌ [CASE_OPENING] RPC returned null data');
+        throw new Error('Сервер не вернул данных');
+      }
+
+      console.log('📋 [CASE_OPENING] RPC response received:', data);
 
       const response = data as unknown as SafeOpenCaseResponse;
       
       if (!response.success) {
+        console.error('❌ [CASE_OPENING] RPC returned failure:', response);
         if (response.error === 'Insufficient funds') {
           throw new Error(`Недостаточно монет. Нужно: ${response.required}, у вас: ${response.current}`);
         }
         throw new Error(response.error || 'Сервер не вернул успешный результат');
       }
 
-      console.log('✅ [CASE_OPENING] Case opened successfully:', response);
+      console.log('✅ [CASE_OPENING] Case opened successfully');
+      console.log('🎁 [CASE_OPENING] Reward received:', response.reward);
+      console.log('🎰 [CASE_OPENING] Roulette data:', {
+        itemsCount: response.roulette_items?.length,
+        winnerPosition: response.winner_position
+      });
       
       // Обновляем баланс пользователя
       if (response.new_balance !== undefined) {
@@ -172,12 +212,14 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       
       // Устанавливаем данные рулетки и запускаем анимацию
       if (response.roulette_items && response.winner_position !== undefined) {
+        console.log('🎰 [CASE_OPENING] Setting roulette data');
         setRouletteData({
           items: response.roulette_items,
           winnerPosition: response.winner_position
         });
         setAnimationPhase('roulette');
       } else {
+        console.log('⚡ [CASE_OPENING] No roulette data, showing direct result');
         // Если нет данных рулетки, сразу показываем результат
         handleDirectResult(response.reward);
       }
@@ -196,6 +238,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     } catch (error) {
       console.error('💥 [CASE_OPENING] Error in openCaseWithRPC:', error);
       const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при открытии кейса';
+      console.error('💥 [CASE_OPENING] Error message for user:', errorMessage);
       setError(errorMessage);
       setAnimationPhase(null);
       
@@ -208,10 +251,16 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   };
 
   const handleDirectResult = (reward: any) => {
+    console.log('🎯 [CASE_OPENING] Handling direct result:', reward);
+    
     if (reward?.type === 'skin') {
+      console.log('🎨 [CASE_OPENING] Setting won skin:', reward.name);
       setWonSkin(reward);
     } else if (reward?.type === 'coin_reward') {
+      console.log('🪙 [CASE_OPENING] Setting won coins:', reward.amount);
       setWonCoins(reward.amount || 0);
+    } else {
+      console.warn('⚠️ [CASE_OPENING] Unknown reward type:', reward);
     }
     
     setAnimationPhase('complete');
@@ -224,8 +273,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     console.log('🏆 [CASE_OPENING] Roulette complete, winner:', winnerItem);
     
     if (winnerItem.type === 'skin') {
+      console.log('🎨 [CASE_OPENING] Winner is skin:', winnerItem.name);
       setWonSkin(winnerItem);
     } else if (winnerItem.type === 'coin_reward') {
+      console.log('🪙 [CASE_OPENING] Winner is coins:', winnerItem.amount);
       setWonCoins(winnerItem.amount || 0);
     }
     
