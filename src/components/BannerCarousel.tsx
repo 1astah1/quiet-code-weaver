@@ -23,7 +23,7 @@ const BannerCarousel = () => {
           return;
         }
 
-        setBanners((data as Banner[]) || []);
+        setBanners((data as Banner[] || []));
       } catch (error) {
         console.error('Unexpected error fetching banners:', error);
       } finally {

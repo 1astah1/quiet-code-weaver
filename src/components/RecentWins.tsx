@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -23,7 +22,13 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         const { data: winsData, error: winsError } = await supabase
           .from('recent_wins')
           .select(`
-            *
+            id,
+            user_id,
+            case_id,
+            skin_id,
+            won_at,
+            reward_type,
+            reward_data
           `)
           .order('won_at', { ascending: false })
           .limit(10);
@@ -64,13 +69,13 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
             userId: win.user_id,
             foundUser: !!user,
             username: user?.username,
-            rewardType: win.reward_type || 'skin', // По умолчанию скин если не указано
+            rewardType: win.reward_type || 'skin',
             rewardData: win.reward_data
           });
           
           return {
             ...win,
-            reward_type: win.reward_type || 'skin', // Добавляем значение по умолчанию
+            reward_type: win.reward_type || 'skin',
             reward_data: win.reward_data || {},
             users: user || null
           };

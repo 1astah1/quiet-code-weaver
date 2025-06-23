@@ -59,7 +59,7 @@ export interface RecentWin {
   users?: {
     id: string;
     username: string;
-  };
+  } | null;
 }
 
 export interface ExtendedUser {

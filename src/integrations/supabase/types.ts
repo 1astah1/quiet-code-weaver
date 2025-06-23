@@ -289,6 +289,8 @@ export type Database = {
         Row: {
           case_id: string | null
           id: string
+          reward_data: Json | null
+          reward_type: string | null
           skin_id: string | null
           user_id: string | null
           won_at: string | null
@@ -296,6 +298,8 @@ export type Database = {
         Insert: {
           case_id?: string | null
           id?: string
+          reward_data?: Json | null
+          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -303,6 +307,8 @@ export type Database = {
         Update: {
           case_id?: string | null
           id?: string
+          reward_data?: Json | null
+          reward_type?: string | null
           skin_id?: string | null
           user_id?: string | null
           won_at?: string | null
@@ -459,6 +465,7 @@ export type Database = {
           created_at: string | null
           description: string
           id: string
+          image_url: string | null
           is_active: boolean | null
           reward_coins: number
           task_url: string | null
@@ -468,6 +475,7 @@ export type Database = {
           created_at?: string | null
           description: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           reward_coins: number
           task_url?: string | null
@@ -477,6 +485,7 @@ export type Database = {
           created_at?: string | null
           description?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           reward_coins?: number
           task_url?: string | null
@@ -757,6 +766,7 @@ export type Database = {
           email: string | null
           id: string
           is_admin: boolean | null
+          language_code: string | null
           last_ad_life_restore: string | null
           last_daily_login: string | null
           last_free_case_notification: string | null
@@ -769,10 +779,12 @@ export type Database = {
           quiz_streak: number | null
           referral_code: string | null
           referred_by: string | null
+          sound_enabled: boolean | null
           steam_connected: boolean | null
           total_cases_opened: number | null
           total_spent: number | null
           username: string
+          vibration_enabled: boolean | null
         }
         Insert: {
           auth_id?: string | null
@@ -782,6 +794,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_admin?: boolean | null
+          language_code?: string | null
           last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
@@ -794,10 +807,12 @@ export type Database = {
           quiz_streak?: number | null
           referral_code?: string | null
           referred_by?: string | null
+          sound_enabled?: boolean | null
           steam_connected?: boolean | null
           total_cases_opened?: number | null
           total_spent?: number | null
           username: string
+          vibration_enabled?: boolean | null
         }
         Update: {
           auth_id?: string | null
@@ -807,6 +822,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_admin?: boolean | null
+          language_code?: string | null
           last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
@@ -819,10 +835,12 @@ export type Database = {
           quiz_streak?: number | null
           referral_code?: string | null
           referred_by?: string | null
+          sound_enabled?: boolean | null
           steam_connected?: boolean | null
           total_cases_opened?: number | null
           total_spent?: number | null
           username?: string
+          vibration_enabled?: boolean | null
         }
         Relationships: []
       }
