@@ -1132,6 +1132,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      sell_all_user_skins: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
