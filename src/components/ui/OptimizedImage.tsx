@@ -32,10 +32,20 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       return;
     }
 
+    // Преобразуем неправильные URL из /lovable-uploads/ в fallback
+    let finalSrc = src;
+    if (src.includes('/lovable-uploads/')) {
+      console.warn('🖼️ [OPTIMIZED_IMAGE] Detected /lovable-uploads/ URL, using fallback:', src);
+      setImageState('error');
+      onError?.();
+      return;
+    }
+
     // Простая валидация URL
     try {
-      new URL(src);
+      new URL(finalSrc);
     } catch {
+      console.warn('🖼️ [OPTIMIZED_IMAGE] Invalid URL:', finalSrc);
       setImageState('error');
       onError?.();
       return;
@@ -44,12 +54,14 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     const img = new Image();
     
     const handleLoad = () => {
-      setImageSrc(src);
+      console.log('🖼️ [OPTIMIZED_IMAGE] Image loaded successfully:', finalSrc);
+      setImageSrc(finalSrc);
       setImageState('loaded');
       onLoad?.();
     };
 
     const handleError = () => {
+      console.warn('🖼️ [OPTIMIZED_IMAGE] Image failed to load:', finalSrc);
       setImageState('error');
       onError?.();
     };
@@ -60,11 +72,12 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     // Таймаут для медленных изображений
     const timeoutId = setTimeout(() => {
       if (imageState === 'loading') {
+        console.warn('🖼️ [OPTIMIZED_IMAGE] Image load timeout:', finalSrc);
         handleError();
       }
     }, timeout);
 
-    img.src = src;
+    img.src = finalSrc;
 
     return () => {
       clearTimeout(timeoutId);
@@ -103,7 +116,10 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       alt={alt}
       className={`${className} transition-opacity duration-200`}
       loading="lazy"
-      onError={() => setImageState('error')}
+      onError={() => {
+        console.warn('🖼️ [OPTIMIZED_IMAGE] Image element error:', imageSrc);
+        setImageState('error');
+      }}
     />
   );
 };

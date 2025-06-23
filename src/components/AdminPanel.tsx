@@ -36,6 +36,32 @@ const AdminPanel = () => {
     }
   });
 
+  const ensureBucketExists = async (bucketName: string) => {
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+      
+      if (!bucketExists) {
+        console.log(`Creating bucket: ${bucketName}`);
+        const { error } = await supabase.storage.createBucket(bucketName, {
+          public: true,
+          allowedMimeTypes: ['image/*'],
+          fileSizeLimit: 5242880 // 5MB
+        });
+        
+        if (error && !error.message.includes('already exists')) {
+          throw error;
+        }
+      }
+      
+      return true;
+    } catch (error: any) {
+      console.error(`Error ensuring bucket ${bucketName} exists:`, error);
+      // Продолжаем выполнение, bucket может уже существовать
+      return true;
+    }
+  };
+
   const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
     if (!file) return;
     
@@ -51,24 +77,36 @@ const AdminPanel = () => {
         throw new Error('Файл должен быть изображением');
       }
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      
-      // Выбираем папку в зависимости от типа таблицы
+      // Определяем bucket и папку
+      let bucketName = 'case-images';
       let folder = 'case-covers';
-      if (activeTable === 'skins') folder = 'skin-images';
-      if (activeTable === 'quiz_questions') folder = 'quiz-images';
-      if (activeTable === 'tasks') folder = 'task-images';
+      
+      if (activeTable === 'banners') {
+        bucketName = 'banner-images';
+        folder = 'banners';
+      } else if (activeTable === 'skins') {
+        folder = 'skin-images';
+      } else if (activeTable === 'quiz_questions') {
+        folder = 'quiz-images';
+      } else if (activeTable === 'tasks') {
+        folder = 'task-images';
+      }
+      
       if (fieldName === 'cover_image_url') folder = 'case-covers';
       if (fieldName === 'image_url' && activeTable === 'skins') folder = 'skin-images';
       if (fieldName === 'image_url' && activeTable === 'tasks') folder = 'task-images';
-      
+
+      // Убеждаемся что bucket существует
+      await ensureBucketExists(bucketName);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
-      console.log('Uploading file:', filePath);
+      console.log('Uploading file to:', { bucketName, filePath });
 
       const { error: uploadError } = await supabase.storage
-        .from('case-images')
+        .from(bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -80,10 +118,10 @@ const AdminPanel = () => {
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('case-images')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
-      console.log('Public URL:', publicUrl);
+      console.log('Generated public URL:', publicUrl);
 
       if (isEdit && itemId) {
         const { error } = await supabase
@@ -119,6 +157,8 @@ const AdminPanel = () => {
   const handleSkinImageUpload = async (file: File, skinId: string) => {
     setUploadingImage(true);
     try {
+      await ensureBucketExists('case-images');
+      
       const fileExt = file.name.split('.').pop();
       const fileName = `skin_${skinId}_${Date.now()}.${fileExt}`;
       const filePath = `skin-images/${fileName}`;

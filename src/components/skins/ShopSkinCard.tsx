@@ -61,7 +61,7 @@ const ShopSkinCard: React.FC<ShopSkinCardProps> = ({
               </div>
             }
             onError={() => {
-              console.warn('🖼️ [SHOP_SKIN_CARD] Image failed for skin:', skin.name);
+              console.warn('🖼️ [SHOP_SKIN_CARD] Image failed for skin:', skin.name, 'URL:', skin.image_url);
             }}
           />
         </div>

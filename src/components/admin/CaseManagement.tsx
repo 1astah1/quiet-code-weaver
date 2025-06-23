@@ -127,6 +127,8 @@ const CaseManagement = ({
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `case-covers/${fileName}`;
 
+      console.log('Uploading case cover to:', filePath);
+
       const { error: uploadError } = await supabase.storage
         .from('case-images')
         .upload(filePath, file, {
@@ -134,15 +136,21 @@ const CaseManagement = ({
           upsert: false
         });
 
-      if (uploadError) throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('case-images')
         .getPublicUrl(filePath);
 
+      console.log('Generated public URL:', publicUrl);
+
       setNewCaseData({ ...newCaseData, [fieldName]: publicUrl });
       toast({ title: "Изображение загружено успешно" });
     } catch (error: any) {
+      console.error('Upload error:', error);
       toast({ 
         title: "Ошибка загрузки", 
         description: error.message,
