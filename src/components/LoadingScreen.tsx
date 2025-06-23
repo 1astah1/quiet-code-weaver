@@ -1,8 +1,14 @@
 
 import { useState, useEffect } from "react";
 
-const LoadingScreen = () => {
+interface LoadingScreenProps {
+  timeout?: number;
+  onTimeout?: () => void;
+}
+
+const LoadingScreen = ({ timeout = 10000, onTimeout }: LoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
+  const [showTimeout, setShowTimeout] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -12,14 +18,47 @@ const LoadingScreen = () => {
       });
     }, 60);
 
-    return () => clearInterval(interval);
-  }, []);
+    // Таймаут для предотвращения бесконечной загрузки
+    const timeoutId = setTimeout(() => {
+      setShowTimeout(true);
+      if (onTimeout) {
+        onTimeout();
+      }
+    }, timeout);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
+  }, [timeout, onTimeout]);
+
+  if (showTimeout) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center z-50">
+        <div className="text-center z-10 max-w-md px-4">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-red-400 mb-4">
+            Превышено время загрузки
+          </h2>
+          <p className="text-gray-300 mb-6">
+            Приложение загружается слишком долго. Попробуйте перезагрузить страницу.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            Перезагрузить страницу
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center z-50">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KPGcgZmlsbD0iIzAwMDAwMCIgZmlsbC1vcGFjaXR5PSIwLjEiPgo8Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxIi8+CjwvZz4KPC9nPgo8L3N2Zz4=')]"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZmZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KPGcgZmlsbD0iIzAwMDAwMCIgZmlsbC1vcGFjaXR5PSIwLjEiPgo8Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxIi8+CjwvZz4KPC9nPgo8L3N2Zz4=')]"></div>
       </div>
 
       <div className="text-center z-10">
@@ -46,12 +85,12 @@ const LoadingScreen = () => {
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
             </div>
           </div>
-          <p className="text-orange-300 text-sm mt-2">{progress}%</p>
+          <p className="text-orange-300 text-sm mt-2">{Math.min(progress, 100)}%</p>
         </div>
 
         {/* Loading Text */}
         <div className="text-gray-300 text-lg animate-pulse">
-          Загрузка приложения...
+          Проверяем авторизацию...
         </div>
 
         {/* CS2 Style Elements */}
@@ -60,6 +99,13 @@ const LoadingScreen = () => {
           <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping delay-150"></div>
           <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping delay-300"></div>
         </div>
+
+        {/* Debug info for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-6 text-xs text-gray-500">
+            Если загрузка занимает слишком много времени, проверьте консоль браузера
+          </div>
+        )}
       </div>
     </div>
   );

@@ -58,7 +58,7 @@ export const useAuth = () => {
           quiz_streak: data.quiz_streak || 0,
           referralCode: data.referral_code,
           language_code: data.language_code || 'ru',
-          avatar_url: null, // This would come from auth.users metadata
+          avatar_url: null,
           isPremium: data.premium_until ? new Date(data.premium_until) > new Date() : false,
           steam_trade_url: data.steam_trade_url
         };
@@ -95,6 +95,9 @@ export const useAuth = () => {
         description: "Не удалось загрузить данные пользователя",
         variant: "destructive",
       });
+    } finally {
+      // КРИТИЧЕСКИ ВАЖНО: всегда завершаем загрузку
+      setIsLoading(false);
     }
   };
 
@@ -113,7 +116,7 @@ export const useAuth = () => {
           auth_id: authUser.id,
           username: username,
           email: authUser.email,
-          coins: 1000, // Starting coins
+          coins: 1000,
           referral_code: generateReferralCode(),
           language_code: 'ru'
         })
@@ -166,6 +169,9 @@ export const useAuth = () => {
         description: "Не удалось создать профиль пользователя",
         variant: "destructive",
       });
+    } finally {
+      // КРИТИЧЕСКИ ВАЖНО: всегда завершаем загрузку
+      setIsLoading(false);
     }
   };
 
@@ -232,27 +238,33 @@ export const useAuth = () => {
 
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
+    let mounted = true;
     
     // Get current session
     const getSession = async () => {
       try {
+        console.log('🔍 Checking for existing session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('❌ Error getting session:', error);
-          throw error;
+          return;
         }
+
+        if (!mounted) return;
 
         if (session?.user) {
           console.log('🔑 Existing session found for:', session.user.id);
           await fetchUserData(session.user);
         } else {
           console.log('🚫 No existing session found');
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('🚨 Error getting session:', error);
-      } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -261,25 +273,27 @@ export const useAuth = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         console.log('🔄 Auth state changed:', event);
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
+          setIsLoading(true);
           await fetchUserData(session.user);
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
+          setIsLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('🔄 Token refreshed for:', session.user.id);
-          // Optionally refresh user data
         }
-        
-        setIsLoading(false);
       }
     );
 
     return () => {
       console.log('🧹 Cleaning up auth subscription');
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -292,9 +306,12 @@ export const useAuth = () => {
     refetchUser: () => {
       if (user) {
         console.log('🔄 Refetching user data');
+        setIsLoading(true);
         supabase.auth.getUser().then(({ data }) => {
           if (data.user) {
             fetchUserData(data.user);
+          } else {
+            setIsLoading(false);
           }
         });
       }

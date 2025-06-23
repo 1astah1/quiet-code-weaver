@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -37,8 +36,13 @@ const MainApp: React.FC = () => {
     }
   }, [isWebView]);
 
+  const handleLoadingTimeout = () => {
+    console.error('🚨 Loading timeout reached - forcing reload');
+    window.location.reload();
+  };
+
   if (isLoading) {
-    return <LoadingScreen />;
+    return <LoadingScreen onTimeout={handleLoadingTimeout} />;
   }
 
   if (!user) {
