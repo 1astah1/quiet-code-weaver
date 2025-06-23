@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCaseOpeningLogger } from './useCaseOpeningLogger';
 import { useToast } from '@/hooks/use-toast';
 import type { CaseSkin } from '@/utils/supabaseTypes';
+import type { SafeOpenCaseResponse } from '@/types/rpc';
 
 interface UseCaseOpeningProps {
   caseItem: any;
@@ -16,30 +17,29 @@ interface UseCaseOpeningProps {
   onCoinsUpdate: (newCoins: number) => void;
 }
 
-// Updated type for RPC response
-interface SafeOpenCaseResponse {
-  success: boolean;
-  reward: {
-    id: string;
-    name: string;
-    weapon_type?: string;
-    rarity?: string;
-    price: number;
-    image_url?: string;
-    type: 'skin' | 'coin_reward';
-    amount?: number;
-  };
-  inventory_id?: string;
+interface RouletteItem {
+  id: string;
+  name: string;
+  weapon_type?: string;
+  rarity?: string;
+  price: number;
+  image_url?: string | null;
+  type: 'skin' | 'coin_reward';
+  amount?: number;
 }
 
 export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningProps) => {
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [wonCoins, setWonCoins] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'bonus' | null>('opening');
+  const [animationPhase, setAnimationPhase] = useState<'opening' | 'roulette' | 'complete' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showBonusRoulette, setShowBonusRoulette] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rouletteData, setRouletteData] = useState<{
+    items: RouletteItem[];
+    winnerPosition: number;
+  } | null>(null);
+  
   const { logCaseOpening } = useCaseOpeningLogger();
   const { toast } = useToast();
 
@@ -130,7 +130,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
     // Анимация открытия
     setTimeout(() => {
-      setAnimationPhase('revealing');
+      setAnimationPhase('roulette');
       openCaseWithRPC();
     }, 2000);
   };
@@ -169,7 +169,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
         p_skin_id: selectedSkin.skins.id,
-        p_coin_reward_id: null, // Всегда null для обычных скинов
+        p_coin_reward_id: null,
         p_is_free: caseItem.is_free || false
       });
 
@@ -178,38 +178,29 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error(error.message || 'Не удалось открыть кейс');
       }
 
-      // Безопасная проверка и приведение типов
-      if (!data || typeof data !== 'object') {
-        throw new Error('Некорректный ответ от сервера');
-      }
-
       const response = data as unknown as SafeOpenCaseResponse;
       
-      if (!response.success || !response.reward) {
-        throw new Error('Сервер не вернул успешный результат');
+      if (!response.success) {
+        if (response.error === 'Insufficient funds') {
+          throw new Error(`Недостаточно монет. Нужно: ${response.required}, у вас: ${response.current}`);
+        }
+        throw new Error(response.error || 'Сервер не вернул успешный результат');
       }
 
       console.log('✅ [CASE_OPENING] Case opened successfully:', response);
       
-      // Проверяем тип награды и устанавливаем соответствующий скин
-      if (response.reward.type === 'skin') {
-        setWonSkin({
-          id: response.reward.id,
-          name: response.reward.name,
-          weapon_type: response.reward.weapon_type,
-          rarity: response.reward.rarity,
-          price: response.reward.price,
-          image_url: response.reward.image_url
+      // Устанавливаем данные рулетки
+      if (response.roulette_items && response.winner_position !== undefined) {
+        setRouletteData({
+          items: response.roulette_items,
+          winnerPosition: response.winner_position
         });
-      } else if (response.reward.type === 'coin_reward') {
-        setWonCoins(response.reward.amount || 0);
       }
       
-      // Обновляем баланс если кейс платный
-      if (!caseItem.is_free && caseItem.price) {
-        const newCoins = Math.max(0, currentUser.coins - caseItem.price);
-        onCoinsUpdate(newCoins);
-        console.log('💰 [CASE_OPENING] Balance updated from', currentUser.coins, 'to', newCoins);
+      // Обновляем баланс пользователя
+      if (response.new_balance !== undefined) {
+        onCoinsUpdate(response.new_balance);
+        console.log('💰 [CASE_OPENING] Balance updated to:', response.new_balance);
       }
       
       // Логируем успешное открытие
@@ -219,45 +210,43 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         case_name: caseItem.name,
         is_free: caseItem.is_free || false,
         phase: 'complete',
-        reward_type: response.reward.type,
+        reward_type: response.reward?.type || 'skin',
         reward_data: response.reward
       });
-
-      // Завершаем анимацию через 3 секунды
-      setTimeout(() => {
-        setIsComplete(true);
-        setAnimationPhase(null);
-      }, 3000);
 
     } catch (error) {
       console.error('💥 [CASE_OPENING] Error in openCaseWithRPC:', error);
       const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при открытии кейса';
       setError(errorMessage);
+      setAnimationPhase(null);
       
       toast({
         title: "Ошибка открытия кейса",
         description: errorMessage,
         variant: "destructive",
       });
-      
-      // В случае ошибки показываем fallback скин
-      const randomIndex = Math.floor(Math.random() * caseSkins.length);
-      const fallbackSkin = caseSkins[randomIndex];
-      if (fallbackSkin?.skins) {
-        setWonSkin(fallbackSkin.skins);
-        setTimeout(() => {
-          setIsComplete(true);
-          setAnimationPhase(null);
-        }, 2000);
-      }
     }
+  };
+
+  const handleRouletteComplete = (winnerItem: RouletteItem) => {
+    console.log('🏆 [CASE_OPENING] Roulette complete, winner:', winnerItem);
+    
+    if (winnerItem.type === 'skin') {
+      setWonSkin(winnerItem);
+    } else if (winnerItem.type === 'coin_reward') {
+      setWonCoins(winnerItem.amount || 0);
+    }
+    
+    setAnimationPhase('complete');
+    setTimeout(() => {
+      setIsComplete(true);
+    }, 1000);
   };
 
   const addToInventory = async () => {
     setIsProcessing(true);
     try {
       console.log('📦 [CASE_OPENING] Skin already added to inventory by RPC function');
-      // Ждем немного для UX
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log('✅ [CASE_OPENING] Inventory action completed');
     } catch (error) {
@@ -292,44 +281,18 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     }
   };
 
-  const handleBonusComplete = (multiplier: number, finalCoins: number) => {
-    const newCoins = currentUser.coins + finalCoins;
-    onCoinsUpdate(newCoins);
-    setIsComplete(true);
-  };
-
-  const handleBonusSkip = () => {
-    const newCoins = currentUser.coins + wonCoins;
-    onCoinsUpdate(newCoins);
-    setIsComplete(true);
-  };
-
-  const handleFreeCaseResult = (result: any) => {
-    if (result.type === 'skin') {
-      setWonSkin(result);
-    } else {
-      setWonCoins(result.amount);
-    }
-    setTimeout(() => {
-      setIsComplete(true);
-      setAnimationPhase(null);
-    }, 2000);
-  };
-
   return {
     wonSkin,
     wonCoins,
     isComplete,
     animationPhase,
     isProcessing,
-    showBonusRoulette,
     addToInventory,
     sellDirectly,
     caseSkins,
     error,
     isLoading,
-    handleBonusComplete,
-    handleBonusSkip,
-    handleFreeCaseResult
+    rouletteData,
+    handleRouletteComplete
   };
 };

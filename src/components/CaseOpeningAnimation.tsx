@@ -4,10 +4,8 @@ import { useCaseOpening } from "@/hooks/useCaseOpening";
 import { useVibration } from "@/hooks/useVibration";
 import { useEffect } from "react";
 import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
-import FreeCaseRoulette from "@/components/animations/FreeCaseRoulette";
-import NewCaseRoulette from "@/components/animations/NewCaseRoulette";
+import UnifiedCaseRoulette from "@/components/animations/UnifiedCaseRoulette";
 import CaseCompletePhase from "@/components/animations/CaseCompletePhase";
-import BonusMultiplierRoulette from "@/components/animations/BonusMultiplierRoulette";
 
 interface CaseOpeningAnimationProps {
   caseItem: any;
@@ -32,15 +30,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     isComplete,
     animationPhase,
     isProcessing,
-    showBonusRoulette,
     addToInventory,
     sellDirectly,
     caseSkins,
-    handleBonusComplete,
-    handleBonusSkip,
-    handleFreeCaseResult,
     error,
-    isLoading
+    isLoading,
+    rouletteData,
+    handleRouletteComplete
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
   const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
@@ -50,8 +46,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     isComplete, 
     hasWonSkin: !!wonSkin,
     hasWonCoins: wonCoins > 0,
-    showBonusRoulette,
-    hasCaseSkins: !!caseSkins?.length,
+    hasRouletteData: !!rouletteData,
     error,
     isLoading
   });
@@ -60,7 +55,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
   useEffect(() => {
     if (animationPhase === 'opening') {
       vibrateLight();
-    } else if (animationPhase === 'revealing') {
+    } else if (animationPhase === 'roulette') {
       vibrateLight();
     } else if (isComplete && (wonSkin || wonCoins > 0)) {
       if (wonSkin) {
@@ -87,20 +82,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     console.log('Selling directly');
     vibrateLight();
     await sellDirectly();
-    onClose();
-  };
-
-  const handleRevealComplete = () => {
-    console.log('Reveal phase complete');
-  };
-
-  const handleBonusRouletteComplete = (multiplier: number, finalCoins: number) => {
-    handleBonusComplete(multiplier, finalCoins);
-    onClose();
-  };
-
-  const handleBonusRouletteSkip = () => {
-    handleBonusSkip();
     onClose();
   };
 
@@ -168,38 +149,12 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           {/* Фаза открытия */}
           {animationPhase === 'opening' && <CaseOpeningPhase />}
           
-          {/* Фаза раскрытия */}
-          {animationPhase === 'revealing' && (
-            <>
-              {caseItem?.is_free ? (
-                <FreeCaseRoulette 
-                  caseSkins={caseSkins} 
-                  onComplete={handleFreeCaseResult}
-                />
-              ) : wonSkin ? (
-                <NewCaseRoulette 
-                  caseSkins={caseSkins} 
-                  wonSkin={wonSkin} 
-                  onComplete={handleRevealComplete}
-                />
-              ) : (
-                <div className="min-h-[500px] flex items-center justify-center bg-slate-900">
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">🎰</div>
-                    <div className="text-white text-3xl font-bold mb-4">Определяем результат...</div>
-                    <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Бонусная рулетка */}
-          {animationPhase === 'bonus' && showBonusRoulette && wonCoins > 0 && (
-            <BonusMultiplierRoulette
-              baseCoins={wonCoins}
-              onMultiplierSelected={handleBonusRouletteComplete}
-              onSkip={handleBonusRouletteSkip}
+          {/* Фаза рулетки */}
+          {animationPhase === 'roulette' && rouletteData && (
+            <UnifiedCaseRoulette 
+              rouletteItems={rouletteData.items}
+              winnerPosition={rouletteData.winnerPosition}
+              onComplete={handleRouletteComplete}
             />
           )}
 
