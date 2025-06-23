@@ -24,18 +24,17 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       console.log(`🚀 Starting ${provider} authentication...`);
 
-      // Очищаем предыдущее состояние аутентификации
+      // Очищаем состояние
       cleanupAuthState();
 
-      // Пытаемся выйти из всех сессий перед новым входом
       try {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {
         console.log('Previous signout attempt:', err);
       }
 
-      // Небольшая задержка для очистки состояния
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Небольшая задержка
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const redirectUrl = `${window.location.origin}/`;
       console.log(`🔗 Redirect URL: ${redirectUrl}`);
@@ -46,7 +45,7 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account', // Позволяет выбрать аккаунт для Google
+            prompt: 'select_account',
           }
         }
       });
@@ -54,15 +53,12 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       if (error) {
         console.error(`❌ ${provider} auth error:`, error);
         
-        // Более подробное описание ошибок
         let errorMessage = `Не удалось войти через ${provider}.`;
         
         if (error.message.includes('popup')) {
-          errorMessage += ' Попробуйте разрешить всплывающие окна в браузере.';
+          errorMessage += ' Разрешите всплывающие окна.';
         } else if (error.message.includes('network')) {
-          errorMessage += ' Проверьте подключение к интернету.';
-        } else if (error.message.includes('unauthorized')) {
-          errorMessage += ' Проблема с настройками OAuth.';
+          errorMessage += ' Проверьте интернет.';
         }
         
         toast({
@@ -75,16 +71,15 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       console.log(`✅ ${provider} auth initiated successfully`);
       
-      // Успешная авторизация будет обработана в useAuth через onAuthStateChange
     } catch (error) {
       console.error('🚨 Auth error:', error);
       
-      let errorMessage = "Произошла ошибка при авторизации";
+      let errorMessage = "Ошибка авторизации";
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Проблема с подключением к серверу. Проверьте интернет-соединение.";
+          errorMessage = "Проблема с подключением к серверу.";
         } else if (error.message.includes('popup')) {
-          errorMessage = "Не удалось открыть окно авторизации. Разрешите всплывающие окна.";
+          errorMessage = "Разрешите всплывающие окна.";
         }
       }
       
@@ -101,39 +96,29 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
-      case 'google':
-        return '🔍';
-      case 'apple':
-        return '🍎';
-      case 'facebook':
-        return '📘';
-      default:
-        return '🔐';
+      case 'google': return '🔍';
+      case 'apple': return '🍎';
+      case 'facebook': return '📘';
+      default: return '🔐';
     }
   };
 
   const getProviderName = (provider: string) => {
     switch (provider) {
-      case 'google':
-        return 'Google';
-      case 'apple':
-        return 'Apple';
-      case 'facebook':
-        return 'Facebook';
-      default:
-        return provider;
+      case 'google': return 'Google';
+      case 'apple': return 'Apple';
+      case 'facebook': return 'Facebook';
+      default: return provider;
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center px-4">
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KPGcgZmlsbD0iIzAwMDAwMCIgZmlsbC1vcGFjaXR5PSIwLjEiPgo8Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxIi8+CjwvZz4KPC9nPgo8L3N2Zz4=')]"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-orange-400 via-red-500 to-orange-600 bg-clip-text mb-2">
             FastMarket
@@ -146,22 +131,19 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           </p>
         </div>
 
-        {/* Connection Status */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center space-x-2 text-sm text-gray-400">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span>Подключение к серверу</span>
+            <span>Готов к входу</span>
           </div>
         </div>
 
-        {/* Auth Card */}
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/30 shadow-2xl">
           <h3 className="text-white text-xl font-semibold text-center mb-6">
             Выберите способ входа
           </h3>
 
           <div className="space-y-4">
-            {/* Google Auth */}
             <button
               onClick={() => handleSocialAuth('google')}
               disabled={isLoading}
@@ -175,7 +157,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
               <span>Войти через {getProviderName('google')}</span>
             </button>
 
-            {/* Apple Auth */}
             <button
               onClick={() => handleSocialAuth('apple')}
               disabled={isLoading}
@@ -189,7 +170,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
               <span>Войти через {getProviderName('apple')}</span>
             </button>
 
-            {/* Facebook Auth */}
             <button
               onClick={() => handleSocialAuth('facebook')}
               disabled={isLoading}
@@ -204,19 +184,17 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
             </button>
           </div>
 
-          {/* Troubleshooting Info */}
           {isLoading && (
             <div className="mt-4 text-center text-sm text-gray-400">
               <p>Если вход не работает:</p>
               <ul className="text-xs mt-2 space-y-1">
                 <li>• Разрешите всплывающие окна</li>
-                <li>• Проверьте интернет-соединение</li>
-                <li>• Попробуйте обновить страницу</li>
+                <li>• Проверьте интернет</li>
+                <li>• Обновите страницу</li>
               </ul>
             </div>
           )}
 
-          {/* Terms */}
           <div className="mt-6 text-center">
             <p className="text-gray-400 text-sm">
               Входя в систему, вы соглашаетесь с{' '}
@@ -231,13 +209,12 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
                 onClick={() => setShowPrivacyModal(true)}
                 className="text-orange-400 hover:text-orange-300 underline"
               >
-                Политикой конфиденциальности
+                Политикой конфи конфиденциальности
               </button>
             </p>
           </div>
         </div>
 
-        {/* Features Preview */}
         <div className="mt-8 grid grid-cols-3 gap-4 text-center">
           <div className="bg-gray-800/50 rounded-lg p-4 border border-orange-500/20">
             <div className="text-2xl mb-2">🎁</div>
@@ -254,7 +231,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         </div>
       </div>
 
-      {/* Modals */}
       <TermsOfServiceModal 
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}

@@ -6,7 +6,7 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://tskvrnrctesqmctyncad.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRza3ZybnJjdGVzcW1jdHluY2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MTgzNjMsImV4cCI6MjA2NDA5NDM2M30.w8FwPznqG_vo_ADXnM6LxpWGDbn3cogR8AaRF5ajYQ0";
 
-// Улучшенная конфигурация клиента с настройками для стабильности
+// Надежная конфигурация клиента
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
@@ -14,7 +14,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    // Добавляем больше времени для OAuth потоков
     debug: process.env.NODE_ENV === 'development'
   },
   realtime: {
@@ -32,7 +31,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Функция для очистки состояния аутентификации
+// Функция для полной очистки состояния аутентификации
 export const cleanupAuthState = () => {
   if (typeof window === 'undefined') return;
   
@@ -44,7 +43,7 @@ export const cleanupAuthState = () => {
       }
     });
     
-    // Удаляем из sessionStorage если используется
+    // Удаляем из sessionStorage
     if (sessionStorage) {
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('supabase.') || key.includes('sb-')) {
@@ -52,6 +51,8 @@ export const cleanupAuthState = () => {
         }
       });
     }
+    
+    console.log('🧹 Auth state cleaned up');
   } catch (error) {
     console.warn('Error cleaning auth state:', error);
   }

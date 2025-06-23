@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -31,20 +32,25 @@ const MainApp: React.FC = () => {
     if (isWebView) {
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
-      // @ts-ignore - webkitTouchCallout is a valid property for iOS
+      // @ts-ignore
       document.body.style.webkitTouchCallout = 'none';
     }
   }, [isWebView]);
 
-  const handleLoadingTimeout = () => {
-    console.error('🚨 Loading timeout reached - forcing reload');
-    window.location.reload();
-  };
-
+  // Показываем экран загрузки только если действительно загружается
   if (isLoading) {
-    return <LoadingScreen onTimeout={handleLoadingTimeout} />;
+    return (
+      <LoadingScreen 
+        timeout={8000}
+        onTimeout={() => {
+          console.error('🚨 Loading timeout - reloading page');
+          window.location.reload();
+        }} 
+      />
+    );
   }
 
+  // Если нет пользователя, показываем экран авторизации
   if (!user) {
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
