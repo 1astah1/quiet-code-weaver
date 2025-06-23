@@ -43,6 +43,7 @@ export const useAuth = () => {
           return fetchUserData(authUser);
         }
         
+        setIsLoading(false);
         return;
       }
 
@@ -64,8 +65,10 @@ export const useAuth = () => {
         };
         setUser(userData);
       }
+      setIsLoading(false);
     } catch (error) {
       console.error('🚨 Error in fetchUserData:', error);
+      setIsLoading(false);
     }
   };
 
@@ -100,41 +103,41 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
     
+    const initAuth = async () => {
+      try {
+        // Проверяем существующую сессию
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          console.log('🔑 Existing session found');
+          await fetchUserData(session.user);
+        } else {
+          console.log('❌ No existing session');
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('🚨 Error getting session:', error);
+        setIsLoading(false);
+      }
+    };
+
+    // Устанавливаем слушатель изменений состояния аутентификации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event);
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
-          setTimeout(() => {
-            fetchUserData(session.user);
-          }, 100);
+          await fetchUserData(session.user);
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
-    // Проверяем существующую сессию
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          console.log('🔑 Existing session found');
-          await fetchUserData(session.user);
-        }
-      } catch (error) {
-        console.error('🚨 Error getting session:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    getSession();
+    initAuth();
 
     return () => {
       subscription.unsubscribe();

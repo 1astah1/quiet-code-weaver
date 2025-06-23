@@ -6,28 +6,34 @@ interface LoadingScreenProps {
   onTimeout?: () => void;
 }
 
-const LoadingScreen = ({ timeout = 8000, onTimeout }: LoadingScreenProps) => {
+const LoadingScreen = ({ timeout = 5000, onTimeout }: LoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
   const [showTimeout, setShowTimeout] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 95) return 95;
-        return prev + 3;
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 5;
       });
     }, 100);
 
     // Показываем кнопку обновления после таймаута
     const timeoutTimer = setTimeout(() => {
       setShowTimeout(true);
+      if (onTimeout) {
+        onTimeout();
+      }
     }, timeout);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeoutTimer);
     };
-  }, [timeout]);
+  }, [timeout, onTimeout]);
 
   const handleReload = () => {
     window.location.reload();
@@ -55,7 +61,7 @@ const LoadingScreen = ({ timeout = 8000, onTimeout }: LoadingScreenProps) => {
           <div className="bg-gray-800 rounded-full h-3 overflow-hidden border border-orange-500/30">
             <div 
               className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300 ease-out relative"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${Math.min(progress, 100)}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
             </div>
