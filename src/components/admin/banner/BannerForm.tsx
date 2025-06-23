@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { X, Save, Upload, Image, Loader2 } from "lucide-react";
+import { X, Save, Upload, Image, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
@@ -25,6 +24,20 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const validateImageUrl = (url: string): boolean => {
+    if (!url) return true; // Пустой URL валиден
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,13 +47,21 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
       return;
     }
 
+    // Валидация URL изображения
+    if (formData.image_url && !validateImageUrl(formData.image_url)) {
+      setImageError('Некорректный URL изображения');
+      return;
+    }
+
     setIsSubmitting(true);
+    setImageError(null);
     console.log('📝 [BANNER_FORM] Form submitted with data:', formData);
     
     try {
       await onSave(formData);
     } catch (error) {
       console.error('❌ [BANNER_FORM] Form submission error:', error);
+      setImageError('Ошибка сохранения баннера');
     } finally {
       setIsSubmitting(false);
     }
@@ -49,15 +70,46 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && !uploadingImage) {
+      setImageError(null);
+      setUploadProgress(0);
+      
+      // Симуляция прогресса загрузки
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
       try {
-        console.log('📁 [BANNER_FORM] File selected for upload:', { name: file.name, size: file.size, type: file.type });
+        console.log('📁 [BANNER_FORM] File selected for upload:', { 
+          name: file.name, 
+          size: file.size, 
+          type: file.type 
+        });
+        
         const imageUrl = await onImageUpload(file);
         console.log('✅ [BANNER_FORM] Upload successful, URL:', imageUrl);
+        
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        
         setFormData({ ...formData, image_url: imageUrl });
+        setImageError(null);
+        
+        // Очищаем прогресс через секунду
+        setTimeout(() => setUploadProgress(0), 1000);
+        
         // Очищаем input для возможности повторной загрузки того же файла
         e.target.value = '';
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ [BANNER_FORM] Failed to upload image:', error);
+        clearInterval(progressInterval);
+        setUploadProgress(0);
+        setImageError(error.message || 'Ошибка загрузки изображения');
         e.target.value = '';
       }
     }
@@ -66,6 +118,28 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
   const handleRemoveImage = () => {
     console.log('🗑️ [BANNER_FORM] Removing image');
     setFormData({ ...formData, image_url: '' });
+    setImageError(null);
+  };
+
+  const handleImageUrlChange = (url: string) => {
+    setFormData({ ...formData, image_url: url });
+    setImageError(null);
+    
+    if (url && !validateImageUrl(url)) {
+      setImageError('Некорректный формат URL');
+    }
+  };
+
+  const retryImageLoad = () => {
+    setImageLoading(true);
+    setImageError(null);
+    // Форсируем перезагрузку изображения
+    const currentUrl = formData.image_url;
+    setFormData({ ...formData, image_url: '' });
+    setTimeout(() => {
+      setFormData({ ...formData, image_url: currentUrl });
+      setImageLoading(false);
+    }, 100);
   };
 
   const isLoading = isSubmitting || isSaving || uploadingImage;
@@ -108,15 +182,37 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
                   alt="Preview"
                   className="w-full h-full object-cover"
                   fallback={
-                    <div className="w-full h-full flex items-center justify-center bg-gray-600">
-                      <Image className="w-8 h-8 text-gray-400" />
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-600 text-gray-400 p-2">
+                      <Image className="w-8 h-8 mb-2" />
+                      <span className="text-xs text-center">Ошибка загрузки</span>
+                      <button
+                        type="button"
+                        onClick={retryImageLoad}
+                        className="mt-1 text-xs text-blue-400 hover:text-blue-300 flex items-center"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Повторить
+                      </button>
                     </div>
                   }
-                  timeout={3000}
+                  timeout={10000}
+                  onLoad={() => {
+                    setImageLoading(false);
+                    setImageError(null);
+                  }}
                   onError={() => {
                     console.error('❌ [BANNER_FORM] Preview image failed to load:', formData.image_url);
+                    setImageLoading(false);
+                    setImageError('Изображение не загружается');
                   }}
                 />
+                
+                {imageLoading && (
+                  <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                  </div>
+                )}
+                
                 <button
                   type="button"
                   onClick={handleRemoveImage}
@@ -129,34 +225,50 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
             </div>
           )}
 
-          <div className="flex items-center space-x-3">
-            <label className={`cursor-pointer bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center space-x-2 ${uploadingImage ? 'opacity-50' : ''}`}>
-              {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              <span>{uploadingImage ? 'Загрузка...' : 'Загрузить изображение'}</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                disabled={uploadingImage || isLoading}
-                className="hidden"
-              />
-            </label>
-            
-            {!formData.image_url && (
-              <div>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <label className={`cursor-pointer bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center space-x-2 ${uploadingImage ? 'opacity-50' : ''}`}>
+                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                <span>{uploadingImage ? 'Загрузка...' : 'Загрузить изображение'}</span>
                 <input
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="Или введите URL изображения"
-                  className="bg-gray-700 text-white rounded-lg px-3 py-2 disabled:opacity-50"
-                  disabled={isLoading}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploadingImage || isLoading}
+                  className="hidden"
                 />
-              </div>
-            )}
+              </label>
+              
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="flex-1 bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <input
+                type="url"
+                value={formData.image_url}
+                onChange={(e) => handleImageUrlChange(e.target.value)}
+                placeholder="Или введите URL изображения"
+                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 disabled:opacity-50"
+                disabled={isLoading}
+              />
+            </div>
           </div>
+
+          {imageError && (
+            <div className="mt-2 flex items-center text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              {imageError}
+            </div>
+          )}
           
-          <p className="text-gray-400 text-xs mt-1">
+          <p className="text-gray-400 text-xs mt-2">
             Рекомендуемый размер: 800x400px, форматы: JPG, PNG, WebP, максимум 5MB
           </p>
         </div>
@@ -215,7 +327,7 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
         <div className="flex space-x-2">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !!imageError}
             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center space-x-2"
           >
             {isSubmitting || isSaving ? (
