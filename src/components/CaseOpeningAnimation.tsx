@@ -38,7 +38,9 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     caseSkins,
     handleBonusComplete,
     handleBonusSkip,
-    handleFreeCaseResult
+    handleFreeCaseResult,
+    error,
+    isLoading
   } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
 
   const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
@@ -49,7 +51,9 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     hasWonSkin: !!wonSkin,
     hasWonCoins: wonCoins > 0,
     showBonusRoulette,
-    hasCaseSkins: !!caseSkins?.length
+    hasCaseSkins: !!caseSkins?.length,
+    error,
+    isLoading
   });
 
   // Добавляем вибрацию на разных этапах анимации
@@ -61,7 +65,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     } else if (isComplete && (wonSkin || wonCoins > 0)) {
       if (wonSkin) {
         const rarity = wonSkin.rarity?.toLowerCase();
-        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
+        if (rarity === 'covert' || rarity === 'classified') {
           vibrateRare();
         } else {
           vibrateSuccess();
@@ -100,6 +104,56 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
     onClose();
   };
 
+  // Показываем ошибку если есть
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-md mx-auto relative border border-red-500/30 p-6">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-white mb-4">Ошибка</h2>
+            <p className="text-red-400 mb-6">{error}</p>
+            <button
+              onClick={onClose}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Показываем загрузку
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-md mx-auto relative border border-orange-500/30 p-6">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="text-center">
+            <div className="text-6xl mb-4">📦</div>
+            <h2 className="text-2xl font-bold text-white mb-4">Загрузка...</h2>
+            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
       <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-6xl mx-auto relative border border-orange-500/30 max-h-[95vh] overflow-y-auto">
@@ -111,9 +165,10 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         </button>
 
         <div className="p-3 sm:p-6">
-          {/* Показываем текущую фазу */}
+          {/* Фаза открытия */}
           {animationPhase === 'opening' && <CaseOpeningPhase />}
           
+          {/* Фаза раскрытия */}
           {animationPhase === 'revealing' && (
             <>
               {caseItem?.is_free ? (
@@ -127,19 +182,19 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                   wonSkin={wonSkin} 
                   onComplete={handleRevealComplete}
                 />
-              ) : wonCoins > 0 ? (
+              ) : (
                 <div className="min-h-[500px] flex items-center justify-center bg-slate-900">
                   <div className="text-center">
-                    <div className="text-6xl mb-4">🪙</div>
-                    <div className="text-white text-3xl font-bold mb-4">Выпали монеты!</div>
-                    <div className="text-yellow-400 text-5xl font-bold">{wonCoins}</div>
-                    <div className="text-gray-400 text-lg mt-2">монет</div>
+                    <div className="text-6xl mb-4">🎰</div>
+                    <div className="text-white text-3xl font-bold mb-4">Определяем результат...</div>
+                    <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 </div>
-              ) : null}
+              )}
             </>
           )}
 
+          {/* Бонусная рулетка */}
           {animationPhase === 'bonus' && showBonusRoulette && wonCoins > 0 && (
             <BonusMultiplierRoulette
               baseCoins={wonCoins}
@@ -148,6 +203,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
             />
           )}
 
+          {/* Завершение - показ скина */}
           {isComplete && wonSkin && (
             <CaseCompletePhase
               wonSkin={wonSkin}
@@ -157,6 +213,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
             />
           )}
 
+          {/* Завершение - монеты */}
           {isComplete && wonCoins > 0 && !wonSkin && (
             <div className="min-h-[500px] flex items-center justify-center bg-slate-900">
               <div className="text-center">
@@ -170,16 +227,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                 >
                   Отлично!
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Резервный контент если что-то пошло не так */}
-          {!animationPhase && !isComplete && (
-            <div className="min-h-[400px] flex items-center justify-center bg-slate-900">
-              <div className="text-center">
-                <div className="text-white text-xl mb-4">Загрузка...</div>
-                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
               </div>
             </div>
           )}
