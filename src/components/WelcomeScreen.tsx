@@ -132,10 +132,7 @@ const WelcomeScreen = () => {
       } else {
         toast({
           title: "Регистрация успешна!",
-          description: "Добро пожа
-
-
-ловать в FastMarket!",
+          description: "Добро пожаловать в FastMarket!",
         });
       }
       
