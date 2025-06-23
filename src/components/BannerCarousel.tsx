@@ -32,6 +32,8 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
         console.log('✅ [BANNER_CAROUSEL] Banners loaded:', data?.length || 0);
         if (data && Array.isArray(data)) {
           setBanners(data);
+          // Сбрасываем currentIndex при загрузке новых данных
+          setCurrentIndex(0);
         }
       } catch (error) {
         console.error('❌ [BANNER_CAROUSEL] Unexpected error:', error);
@@ -41,16 +43,32 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     fetchBanners();
   }, []);
 
+  // Валидация currentIndex при изменении banners
+  useEffect(() => {
+    if (banners.length > 0 && currentIndex >= banners.length) {
+      console.log('🔧 [BANNER_CAROUSEL] Resetting currentIndex due to invalid value');
+      setCurrentIndex(0);
+    }
+  }, [banners.length, currentIndex]);
+
   const nextSlide = () => {
-    setCurrentIndex((prevIndex) => 
-      prevIndex === banners.length - 1 ? 0 : prevIndex + 1
-    );
+    if (banners.length === 0) return;
+    
+    setCurrentIndex((prevIndex) => {
+      const newIndex = prevIndex === banners.length - 1 ? 0 : prevIndex + 1;
+      console.log('➡️ [BANNER_CAROUSEL] Next slide:', prevIndex, '->', newIndex);
+      return newIndex;
+    });
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prevIndex) => 
-      prevIndex === 0 ? banners.length - 1 : prevIndex - 1
-    );
+    if (banners.length === 0) return;
+    
+    setCurrentIndex((prevIndex) => {
+      const newIndex = prevIndex === 0 ? banners.length - 1 : prevIndex - 1;
+      console.log('⬅️ [BANNER_CAROUSEL] Previous slide:', prevIndex, '->', newIndex);
+      return newIndex;
+    });
   };
 
   useEffect(() => {
@@ -108,7 +126,16 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     );
   }
 
-  const currentBanner = banners[currentIndex];
+  // Дополнительная валидация перед рендером
+  const safeCurrentIndex = Math.max(0, Math.min(currentIndex, banners.length - 1));
+  const currentBanner = banners[safeCurrentIndex];
+
+  if (!currentBanner) {
+    console.error('❌ [BANNER_CAROUSEL] Current banner is undefined:', { currentIndex, safeCurrentIndex, bannersLength: banners.length });
+    return null;
+  }
+
+  console.log('🎨 [BANNER_CAROUSEL] Rendering banner:', { currentIndex, safeCurrentIndex, bannerTitle: currentBanner.title });
 
   const BannerImageFallback = () => (
     <div className="w-full h-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
@@ -159,9 +186,12 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
           {banners.map((_, index) => (
             <button
               key={index}
-              onClick={() => setCurrentIndex(index)}
+              onClick={() => {
+                console.log('🎯 [BANNER_CAROUSEL] Manual slide change:', index);
+                setCurrentIndex(index);
+              }}
               className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all ${
-                index === currentIndex ? 'bg-white' : 'bg-white/50'
+                index === safeCurrentIndex ? 'bg-white' : 'bg-white/50'
               }`}
             />
           ))}

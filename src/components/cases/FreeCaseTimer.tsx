@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Clock, Play } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import AdModal from '@/components/ads/AdModal';
-import { useCaseOpening } from '@/hooks/useCaseOpeningFixed';
+import { useCaseOpeningWithAd } from '@/hooks/useCaseOpeningWithAd';
 
 interface FreeCaseTimerProps {
   caseId: string;
@@ -24,7 +23,7 @@ const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
   const [lastOpenTime, setLastOpenTime] = useState<Date | null>(null);
   
-  const caseOpeningMutation = useCaseOpening();
+  const caseOpeningMutation = useCaseOpeningWithAd();
 
   // Проверяем время последнего открытия бесплатного кейса
   useEffect(() => {
