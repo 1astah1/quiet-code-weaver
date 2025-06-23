@@ -107,21 +107,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
             <div className="text-6xl mb-4">⚠️</div>
             <h2 className="text-2xl font-bold text-white mb-4">Ошибка открытия кейса</h2>
             <p className="text-red-400 mb-4">{error}</p>
-            
-            {/* Debug information */}
-            <div className="text-left bg-slate-800 rounded p-3 mb-4 text-sm">
-              <h3 className="text-white font-semibold mb-2">Информация для отладки:</h3>
-              <div className="text-gray-300 space-y-1">
-                <div>Кейс: {caseItem?.name || 'Неизвестно'}</div>
-                <div>ID кейса: {caseItem?.id || 'Отсутствует'}</div>
-                <div>Цена: {caseItem?.price || 'Неизвестно'}</div>
-                <div>Бесплатный: {caseItem?.is_free ? 'Да' : 'Нет'}</div>
-                <div>Баланс пользователя: {currentUser?.coins || 'Неизвестно'}</div>
-                <div>Скинов в кейсе: {caseSkins.length}</div>
-                <div>Фаза анимации: {animationPhase || 'Отсутствует'}</div>
-              </div>
-            </div>
-            
             <button
               onClick={onClose}
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold"
@@ -151,15 +136,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
             <div className="text-6xl mb-4">📦</div>
             <h2 className="text-2xl font-bold text-white mb-4">Загрузка кейса...</h2>
             <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            
-            {/* Debug information */}
-            <div className="text-left bg-slate-800 rounded p-3 text-sm">
-              <div className="text-gray-300 space-y-1">
-                <div>Проверяем содержимое кейса...</div>
-                <div>Кейс: {caseItem?.name}</div>
-                <div>Пользователь: {currentUser?.username}</div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -218,17 +194,6 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
                   Отлично!
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Debug panel - показываем только в development */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="fixed bottom-4 left-4 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
-              <div>Phase: {animationPhase}</div>
-              <div>Complete: {isComplete ? 'Yes' : 'No'}</div>
-              <div>Skins: {caseSkins.length}</div>
-              <div>Error: {error || 'None'}</div>
-              <div>Loading: {isLoading ? 'Yes' : 'No'}</div>
             </div>
           )}
         </div>

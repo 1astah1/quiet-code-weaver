@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCaseOpeningLogger } from './useCaseOpeningLogger';
@@ -39,6 +39,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     items: RouletteItem[];
     winnerPosition: number;
   } | null>(null);
+  
+  // Добавляем флаг для предотвращения повторных запусков
+  const [hasStarted, setHasStarted] = useState(false);
+  const isProcessingRef = useRef(false);
   
   const { logCaseOpening } = useCaseOpeningLogger();
   const { toast } = useToast();
@@ -108,9 +112,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     staleTime: 30000
   });
 
+  // Запускаем открытие кейса только один раз при инициализации
   useEffect(() => {
-    if (caseItem && currentUser && caseSkins.length > 0 && !error) {
-      console.log('🚀 [CASE_OPENING] Starting case opening process');
+    if (caseItem && currentUser && caseSkins.length > 0 && !error && !hasStarted && !isProcessingRef.current) {
+      console.log('🚀 [CASE_OPENING] Starting case opening process (ONCE)');
       console.log('📊 [CASE_OPENING] Case details:', {
         caseId: caseItem.id,
         caseName: caseItem.name,
@@ -123,9 +128,27 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         username: currentUser.username,
         coins: currentUser.coins
       });
+      
+      setHasStarted(true);
+      isProcessingRef.current = true;
       startCaseOpening();
     }
-  }, [caseItem, currentUser, caseSkins, error]);
+  }, [caseItem, currentUser, caseSkins, error, hasStarted]);
+
+  // Сброс состояния при смене кейса
+  useEffect(() => {
+    if (caseItem?.id) {
+      console.log('🔄 [CASE_OPENING] Resetting state for new case');
+      setWonSkin(null);
+      setWonCoins(0);
+      setIsComplete(false);
+      setAnimationPhase(null);
+      setError(null);
+      setRouletteData(null);
+      setHasStarted(false);
+      isProcessingRef.current = false;
+    }
+  }, [caseItem?.id]);
 
   const startCaseOpening = async () => {
     try {
@@ -143,6 +166,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.error('❌ [CASE_OPENING] Insufficient funds:', errorMsg);
         setError(errorMsg);
         setAnimationPhase(null);
+        isProcessingRef.current = false;
         toast({
           title: "Недостаточно монет",
           description: errorMsg,
@@ -157,6 +181,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.error('❌ [CASE_OPENING] No items in case');
         setError(errorMsg);
         setAnimationPhase(null);
+        isProcessingRef.current = false;
         return;
       }
 
@@ -171,6 +196,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при запуске открытия кейса';
       setError(errorMessage);
       setAnimationPhase(null);
+      isProcessingRef.current = false;
     }
   };
 
@@ -239,7 +265,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       
       // Устанавливаем данные рулетки и запускаем анимацию
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [CASE_OPENING] Setting roulette data');
+        console.log('🎰 [CASE_OPENING] Setting roulette data and starting roulette phase');
         setRouletteData({
           items: response.roulette_items,
           winnerPosition: response.winner_position
@@ -268,6 +294,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       console.error('💥 [CASE_OPENING] Error message for user:', errorMessage);
       setError(errorMessage);
       setAnimationPhase(null);
+      isProcessingRef.current = false;
       
       toast({
         title: "Ошибка открытия кейса",
@@ -293,6 +320,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
+      isProcessingRef.current = false;
     }, 1000);
   };
 
@@ -310,6 +338,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
+      isProcessingRef.current = false;
     }, 1000);
   };
 
