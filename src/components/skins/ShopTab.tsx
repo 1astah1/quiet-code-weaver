@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSecureShop } from "@/hooks/useSecureShop";
@@ -46,8 +46,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   
   const { purchaseMutation, isPurchasing, isAdmin } = useSecureShop(currentUser);
 
-  // ИСПРАВЛЕНО: Безопасная загрузка скинов с валидацией
-  const { data: skins, isLoading } = useQuery({
+  // ИСПРАВЛЕНО: Безопасная загрузка скинов с валидацией и принудительным обновлением
+  const { data: skins, isLoading, refetch } = useQuery({
     queryKey: ['shop-skins'],
     queryFn: async () => {
       console.log('🔄 [SHOP] Loading skins...');
@@ -55,7 +55,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       const { data, error } = await supabase
         .from('skins')
         .select('*')
-        .order('price', { ascending: true }); // ИСПРАВЛЕНО: Корректная сортировка
+        .order('price', { ascending: true });
       
       if (error) {
         console.error('❌ [SHOP] Error loading skins:', error);
@@ -83,11 +83,25 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       console.log('✅ [SHOP] Loaded and validated skins:', validatedSkins.length);
       return validatedSkins as Skin[];
     },
+    staleTime: 0, // Всегда считать данные устаревшими
+    gcTime: 0, // Не кэшировать данные
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     retry: (failureCount, error) => {
       console.log(`🔄 [SHOP] Retry attempt ${failureCount}:`, error);
       return failureCount < 2;
     }
   });
+
+  // Автоматически обновлять данные при изменении
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 [SHOP] Auto-refetching skins...');
+      refetch();
+    }, 30000); // Обновление каждые 30 секунд
+
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   // ИСПРАВЛЕНО: Безопасная фильтрация и сортировка
   const filteredAndSortedSkins = skins?.filter(skin => {

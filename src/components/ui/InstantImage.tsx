@@ -18,6 +18,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageKey, setImageKey] = useState(0); // Force refresh key
 
   // Reset states when src changes
   useEffect(() => {
@@ -25,20 +26,23 @@ const InstantImage: React.FC<InstantImageProps> = ({
       console.log('🖼️ [INSTANT_IMAGE] Source changed:', src);
       setHasError(false);
       setIsLoading(true);
+      setImageKey(prev => prev + 1); // Force refresh
     } else {
       setIsLoading(false);
     }
   }, [src]);
 
-  const handleError = () => {
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.log('❌ [INSTANT_IMAGE] Image failed to load:', src);
+    console.log('❌ [INSTANT_IMAGE] Error details:', e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
     setHasError(true);
     setIsLoading(false);
     onError?.();
   };
 
-  const handleLoad = () => {
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', src);
+    console.log('✅ [INSTANT_IMAGE] Image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
     setIsLoading(false);
     setHasError(false);
   };
@@ -47,12 +51,18 @@ const InstantImage: React.FC<InstantImageProps> = ({
   const isInvalidStaticPath = src && (
     src.startsWith('/lovable-uploads/') || 
     src.startsWith('./lovable-uploads/') ||
-    src.includes('lovable-uploads/')
+    (src.includes('lovable-uploads/') && !src.includes('supabase'))
   );
 
-  // Show fallback if no src, error occurred, or for invalid static paths
-  if (!src || hasError || isInvalidStaticPath) {
-    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError, 'isInvalidStaticPath:', isInvalidStaticPath);
+  // Check if it's a valid Supabase URL
+  const isSupabaseUrl = src && (
+    src.includes('supabase') ||
+    src.includes('storage/v1/object/public/')
+  );
+
+  // Show fallback if no src, error occurred, or for invalid static paths (but not Supabase URLs)
+  if (!src || hasError || (isInvalidStaticPath && !isSupabaseUrl)) {
+    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError, 'isInvalidStaticPath:', isInvalidStaticPath, 'isSupabaseUrl:', isSupabaseUrl);
     return (
       <div className={`flex items-center justify-center ${className}`}>
         {fallback || (
@@ -65,22 +75,27 @@ const InstantImage: React.FC<InstantImageProps> = ({
     );
   }
 
+  // Add cache busting parameter for fresh images
+  const imageUrl = src.includes('?') ? `${src}&t=${Date.now()}` : `${src}?t=${Date.now()}`;
+
   // Show image with loading state
   return (
     <div className={`relative ${className}`}>
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 rounded">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 rounded z-10">
           <div className="text-sm">Загрузка...</div>
         </div>
       )}
       <img
-        src={src}
+        key={imageKey} // Force re-render when key changes
+        src={imageUrl}
         alt={alt}
         className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
         onError={handleError}
         onLoad={handleLoad}
         loading="eager"
         decoding="sync"
+        crossOrigin="anonymous" // Help with CORS issues
       />
     </div>
   );

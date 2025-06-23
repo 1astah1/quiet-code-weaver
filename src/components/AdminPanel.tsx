@@ -152,6 +152,8 @@ const AdminPanel = () => {
 
       // Обновляем данные
       if (isEdit && itemId) {
+        console.log('💾 [IMAGE_UPLOAD] Updating database record:', { itemId, fieldName, publicUrl });
+        
         const { error: updateError } = await supabase
           .from(activeTable as any)
           .update({ [fieldName]: publicUrl })
@@ -162,28 +164,56 @@ const AdminPanel = () => {
           throw new Error(`Ошибка обновления БД: ${updateError.message}`);
         }
         
-        // Агрессивная инвалидация кэша
-        await queryClient.invalidateQueries({ queryKey: [activeTable] });
-        if (activeTable === 'skins') {
-          await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
-          await queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-          // Принудительный рефетч
-          setTimeout(() => {
-            queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] });
-            queryClient.refetchQueries({ queryKey: ['all_skins'] });
-          }, 100);
-        }
-        if (activeTable === 'banners') {
-          await queryClient.invalidateQueries({ queryKey: ['banners'] });
-          await queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-        }
+        // МАКСИМАЛЬНО АГРЕССИВНАЯ инвалидация кэша
+        console.log('🔄 [IMAGE_UPLOAD] Invalidating all caches...');
+        await Promise.all([
+          // Основные кэши
+          queryClient.invalidateQueries({ queryKey: [activeTable] }),
+          queryClient.invalidateQueries({ queryKey: ['shop-skins'] }),
+          queryClient.invalidateQueries({ queryKey: ['all_skins'] }),
+          queryClient.invalidateQueries({ queryKey: ['case_skins'] }),
+          queryClient.invalidateQueries({ queryKey: ['skins'] }),
+          
+          // Специфичные кэши для скинов
+          queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] }),
+          queryClient.invalidateQueries({ queryKey: ['skins_cleanup_check'] }),
+          
+          // Кэши для баннеров
+          queryClient.invalidateQueries({ queryKey: ['banners'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin-banners'] }),
+          
+          // Удаляем все кэши связанные с скинами
+          queryClient.removeQueries({ queryKey: [activeTable] }),
+          queryClient.removeQueries({ queryKey: ['shop-skins'] }),
+          queryClient.removeQueries({ queryKey: ['all_skins'] })
+        ]);
+        
+        // Принудительный рефетч через короткий таймаут
+        setTimeout(async () => {
+          console.log('🔄 [IMAGE_UPLOAD] Force refetching queries...');
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: [activeTable] }),
+            queryClient.refetchQueries({ queryKey: ['shop-skins'] }),
+            queryClient.refetchQueries({ queryKey: ['all_skins'] }),
+            queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] }),
+            queryClient.refetchQueries({ queryKey: ['skins'] })
+          ]);
+        }, 100);
+        
+        // Дополнительный рефетч через более длительный таймаут
+        setTimeout(async () => {
+          console.log('🔄 [IMAGE_UPLOAD] Additional refetch...');
+          await queryClient.refetchQueries({ queryKey: [activeTable] });
+        }, 500);
+        
       } else {
+        console.log('📝 [IMAGE_UPLOAD] Setting new item field:', { fieldName, publicUrl });
         setNewItem({ ...newItem, [fieldName]: publicUrl });
       }
 
       toast({ 
         title: "Изображение загружено успешно",
-        description: `Файл загружен в ${bucketName}/${folder}`
+        description: `Файл загружен в ${bucketName}/${folder}. URL: ${publicUrl}`
       });
       
       return publicUrl;
@@ -211,7 +241,9 @@ const AdminPanel = () => {
       await ensureBucketExists('case-images');
       
       const fileExt = file.name.split('.').pop();
-      const fileName = `skin_${skinId}_${Date.now()}.${fileExt}`;
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const fileName = `skin_${skinId}_${timestamp}_${randomId}.${fileExt}`;
       const filePath = `skin-images/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -230,6 +262,8 @@ const AdminPanel = () => {
         .from('case-images')
         .getPublicUrl(filePath);
 
+      console.log('✅ [SKIN_UPLOAD] File uploaded, updating database:', publicUrl);
+
       const { error: updateError } = await supabase
         .from('skins')
         .update({ image_url: publicUrl })
@@ -240,26 +274,44 @@ const AdminPanel = () => {
         throw updateError;
       }
 
-      // Максимально агрессивная инвалидация и обновление кэша
+      // МАКСИМАЛЬНО агрессивная инвалидация и обновление кэша
+      console.log('🔄 [SKIN_UPLOAD] Aggressive cache invalidation...');
       await Promise.all([
+        queryClient.removeQueries({ queryKey: ['case_skins', selectedCase] }),
+        queryClient.removeQueries({ queryKey: ['all_skins'] }),
+        queryClient.removeQueries({ queryKey: ['skins'] }),
+        queryClient.removeQueries({ queryKey: ['shop-skins'] }),
         queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] }),
         queryClient.invalidateQueries({ queryKey: ['all_skins'] }),
-        queryClient.invalidateQueries({ queryKey: ['skins'] })
+        queryClient.invalidateQueries({ queryKey: ['skins'] }),
+        queryClient.invalidateQueries({ queryKey: ['shop-skins'] })
       ]);
       
-      // Принудительный рефетч через небольшой таймаут
+      // Принудительный рефетч с несколькими попытками
       setTimeout(async () => {
+        console.log('🔄 [SKIN_UPLOAD] Force refetch attempt 1...');
         await Promise.all([
           queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] }),
           queryClient.refetchQueries({ queryKey: ['all_skins'] }),
-          queryClient.refetchQueries({ queryKey: ['skins'] })
+          queryClient.refetchQueries({ queryKey: ['skins'] }),
+          queryClient.refetchQueries({ queryKey: ['shop-skins'] })
         ]);
-      }, 200);
+      }, 100);
+      
+      setTimeout(async () => {
+        console.log('🔄 [SKIN_UPLOAD] Force refetch attempt 2...');
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] }),
+          queryClient.refetchQueries({ queryKey: ['all_skins'] }),
+          queryClient.refetchQueries({ queryKey: ['skins'] }),
+          queryClient.refetchQueries({ queryKey: ['shop-skins'] })
+        ]);
+      }, 500);
       
       console.log('✅ [SKIN_UPLOAD] Skin image updated successfully');
       toast({ 
         title: "Изображение скина обновлено",
-        description: "Изображение успешно загружено и обновлено"
+        description: `Изображение успешно загружено и обновлено. URL: ${publicUrl}`
       });
     } catch (error: any) {
       console.error('❌ [SKIN_UPLOAD] Failed:', error);
