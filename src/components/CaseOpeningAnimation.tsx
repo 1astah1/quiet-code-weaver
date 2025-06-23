@@ -1,146 +1,158 @@
 
-import { X } from "lucide-react";
-import { useCaseOpening } from "@/hooks/useCaseOpening";
-import { useVibration } from "@/hooks/useVibration";
-import { useEffect } from "react";
-import CaseOpeningPhase from "@/components/animations/CaseOpeningPhase";
-import CaseCompletePhase from "@/components/animations/CaseCompletePhase";
-import CaseRoulette from "@/components/animations/CaseRoulette";
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 
-interface CaseOpeningAnimationProps {
-  caseItem: any;
-  onClose: () => void;
-  currentUser: {
-    id: string;
-    username: string;
-    coins: number;
-  };
-  onCoinsUpdate: (newCoins: number) => void;
+interface CaseItem {
+  id: string;
+  name: string;
+  rarity: string;
+  image_url?: string;
+  price?: number;
+  amount?: number;
+  type: 'skin' | 'coin_reward';
 }
 
-const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
-  console.log('CaseOpeningAnimation: Rendering for case:', caseItem?.name);
+interface CaseOpeningAnimationProps {
+  isOpen: boolean;
+  onClose: () => void;
+  caseData: any;
+  wonItem: CaseItem | null;
+  onOpenComplete: () => void;
+}
 
-  const {
-    wonSkin,
-    wonCoins,
-    isComplete,
-    animationPhase,
-    isProcessing,
-    caseSkins,
-    selectRandomReward,
-    handleRouletteComplete,
-    addToInventory,
-    sellDirectly
-  } = useCaseOpening({ caseItem, currentUser, onCoinsUpdate });
+const CaseOpeningAnimation = ({ 
+  isOpen, 
+  onClose, 
+  caseData, 
+  wonItem, 
+  onOpenComplete 
+}: CaseOpeningAnimationProps) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showResult, setShowResult] = useState(false);
 
-  const { vibrateLight, vibrateSuccess, vibrateRare } = useVibration();
-
-  console.log('CaseOpeningAnimation: State', { 
-    animationPhase, 
-    isComplete, 
-    hasWonSkin: !!wonSkin,
-    hasWonCoins: wonCoins > 0,
-    hasCaseSkins: !!caseSkins?.length
-  });
-
-  // Вибрация при завершении
   useEffect(() => {
-    if (isComplete && (wonSkin || wonCoins > 0)) {
-      if (wonSkin) {
-        const rarity = wonSkin.rarity?.toLowerCase();
-        if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal') {
-          vibrateRare();
-        } else {
-          vibrateSuccess();
-        }
-      } else if (wonCoins > 0) {
-        vibrateSuccess();
-      }
+    if (isOpen && wonItem) {
+      setIsAnimating(true);
+      
+      // Имитируем анимацию открытия кейса
+      const timer1 = setTimeout(() => {
+        setIsAnimating(false);
+        setShowResult(true);
+      }, 3000);
+
+      // Автоматически закрываем через 5 секунд после показа результата
+      const timer2 = setTimeout(() => {
+        handleClose();
+      }, 8000);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
-  }, [isComplete, wonSkin, wonCoins, vibrateSuccess, vibrateRare]);
+  }, [isOpen, wonItem]);
 
-  const handleAddToInventory = async () => {
-    console.log('Adding to inventory');
-    vibrateLight();
-    await addToInventory();
+  const handleClose = () => {
+    setShowResult(false);
+    setIsAnimating(false);
+    onOpenComplete();
     onClose();
   };
 
-  const handleSellDirectly = async () => {
-    console.log('Selling directly');
-    vibrateLight();
-    await sellDirectly();
-    onClose();
-  };
+  if (!isOpen) return null;
 
-  const handleCloseComplete = () => {
-    if (wonCoins > 0 && !wonSkin) {
-      onClose();
+  const getRarityColor = (rarity: string) => {
+    switch (rarity?.toLowerCase()) {
+      case 'consumer': return '#b0c3d9';
+      case 'industrial': return '#5e98d9';
+      case 'mil-spec': return '#4b69ff';
+      case 'restricted': return '#8847ff';
+      case 'classified': return '#d32ce6';
+      case 'covert': return '#eb4b4b';
+      case 'contraband': return '#e4ae39';
+      default: return '#666666';
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-slate-900 rounded-xl sm:rounded-2xl w-full max-w-6xl mx-auto relative border border-orange-500/30 max-h-[95vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 sm:top-4 sm:right-4 text-gray-400 hover:text-white transition-colors z-10 bg-black/50 rounded-full p-1.5 sm:p-2"
-        >
-          <X className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        <div className="p-3 sm:p-6">
-          {/* Фаза загрузки */}
-          {animationPhase === 'loading' && <CaseOpeningPhase />}
-          
-          {/* Фаза рулетки */}
-          {animationPhase === 'roulette' && caseSkins.length > 0 && (
-            <CaseRoulette 
-              caseSkins={caseSkins} 
-              onComplete={handleRouletteComplete}
-              selectRandomReward={selectRandomReward}
-            />
-          )}
-
-          {/* Фаза завершения для скинов */}
-          {isComplete && wonSkin && (
-            <CaseCompletePhase
-              wonSkin={wonSkin}
-              isProcessing={isProcessing}
-              onAddToInventory={handleAddToInventory}
-              onSellDirectly={handleSellDirectly}
-            />
-          )}
-
-          {/* Фаза завершения для монет */}
-          {isComplete && wonCoins > 0 && !wonSkin && (
-            <div className="min-h-[500px] flex items-center justify-center bg-slate-900">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🎉</div>
-                <div className="text-white text-3xl font-bold mb-4">Поздравляем!</div>
-                <div className="text-yellow-400 text-5xl font-bold mb-4">{wonCoins}</div>
-                <div className="text-gray-400 text-lg mb-6">монет добавлено на ваш баланс</div>
-                <button
-                  onClick={handleCloseComplete}
-                  className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-8 py-4 rounded-lg font-bold text-lg"
-                >
-                  Отлично!
-                </button>
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        {isAnimating && (
+          <div className="text-center">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-white mb-4">
+                Открываем {caseData?.name}...
+              </h2>
+              <div className="w-32 h-32 mx-auto mb-4 relative">
+                {caseData?.image_url && (
+                  <OptimizedImage
+                    src={caseData.image_url}
+                    alt={caseData.name}
+                    className="w-full h-full object-contain animate-pulse"
+                  />
+                )}
+              </div>
+              <div className="flex justify-center space-x-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Резервный контент если что-то пошло не так */}
-          {!animationPhase && !isComplete && (
-            <div className="min-h-[400px] flex items-center justify-center bg-slate-900">
-              <div className="text-center">
-                <div className="text-white text-xl mb-4">Загрузка...</div>
-                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        {showResult && wonItem && (
+          <Card className="p-6 bg-gray-900 border-2 animate-in zoom-in-95 duration-500" 
+                style={{ borderColor: wonItem.type === 'skin' ? getRarityColor(wonItem.rarity) : '#fbbf24' }}>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white mb-4">
+                🎉 Поздравляем!
+              </h2>
+              
+              <div className="w-32 h-32 mx-auto mb-4 relative">
+                {wonItem.image_url && (
+                  <OptimizedImage
+                    src={wonItem.image_url}
+                    alt={wonItem.name}
+                    className="w-full h-full object-contain"
+                    fallback={
+                      <div className="w-full h-full bg-gray-700 rounded-lg flex items-center justify-center">
+                        <span className="text-gray-400">
+                          {wonItem.type === 'coin_reward' ? '🪙' : '🔫'}
+                        </span>
+                      </div>
+                    }
+                  />
+                )}
               </div>
+
+              <h3 className="text-xl font-bold text-white mb-2">
+                {wonItem.name}
+              </h3>
+
+              {wonItem.type === 'skin' ? (
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">{wonItem.rarity}</p>
+                  <p className="text-lg font-bold text-yellow-400">
+                    {wonItem.price?.toLocaleString()} монет
+                  </p>
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-yellow-400">
+                  +{wonItem.amount} монет
+                </p>
+              )}
+
+              <button
+                onClick={handleClose}
+                className="mt-6 w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+              >
+                Отлично!
+              </button>
             </div>
-          )}
-        </div>
+          </Card>
+        )}
       </div>
     </div>
   );
