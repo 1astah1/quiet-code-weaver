@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,16 +24,18 @@ const AdminPanel = () => {
   const { data: tableData, isLoading } = useQuery({
     queryKey: [activeTable],
     queryFn: async () => {
-      if (activeTable === 'users') {
+      // Skip fetching for special tables that don't exist in the database yet
+      if (activeTable === 'users' || activeTable === 'suspicious_activities') {
         return [];
       }
       
       const { data, error } = await supabase
-        .from(activeTable)
+        .from(activeTable as any)
         .select('*');
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: activeTable !== 'users' && activeTable !== 'suspicious_activities'
   });
 
   // Универсальная функция для определения bucket и папки
@@ -167,7 +168,7 @@ const AdminPanel = () => {
       // Обновляем данные
       if (isEdit && itemId) {
         const { error: updateError } = await supabase
-          .from(activeTable)
+          .from(activeTable as any)
           .update({ [fieldName]: publicUrl })
           .eq('id', itemId);
           
@@ -272,7 +273,7 @@ const AdminPanel = () => {
     try {
       console.log('➕ [ADD_ITEM] Adding new item:', newItem);
       const { error } = await supabase
-        .from(activeTable)
+        .from(activeTable as any)
         .insert([newItem]);
       
       if (error) {
@@ -304,7 +305,7 @@ const AdminPanel = () => {
     try {
       console.log('✏️ [UPDATE_ITEM] Updating item:', { id, updatedData });
       const { error } = await supabase
-        .from(activeTable)
+        .from(activeTable as any)
         .update(updatedData)
         .eq('id', id);
       
@@ -336,7 +337,7 @@ const AdminPanel = () => {
     try {
       console.log('🗑️ [DELETE_ITEM] Deleting item:', { id, table: activeTable });
       const { error } = await supabase
-        .from(activeTable)
+        .from(activeTable as any)
         .delete()
         .eq('id', id);
       
@@ -422,7 +423,6 @@ const AdminPanel = () => {
           <PromoCodeManagement />
         )}
 
-        {/* ДОБАВЛЕНО: Новый раздел для управления подозрительной активностью */}
         {activeTable === 'suspicious_activities' && (
           <SuspiciousActivityManagement />
         )}

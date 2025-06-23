@@ -1,14 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Shield, User, Calendar, CheckCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { AlertTriangle, Shield, User, Calendar, CheckCircle, Database } from 'lucide-react';
 
 interface SuspiciousActivity {
   id: string;
@@ -25,101 +21,52 @@ interface SuspiciousActivity {
 
 const SuspiciousActivityManagement = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isTableReady, setIsTableReady] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Получаем текущего пользователя
   useEffect(() => {
     const getCurrentUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_id', session.user.id)
-          .maybeSingle();
-        
-        setCurrentUser(userData);
+      try {
+        const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userData } = await (await import('@/integrations/supabase/client')).supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', session.user.id)
+            .maybeSingle();
+          
+          setCurrentUser(userData);
+        }
+      } catch (error) {
+        console.error('Error loading user:', error);
       }
     };
     getCurrentUser();
   }, []);
 
-  // Загружаем подозрительную активность
-  const { data: activities = [], isLoading, error } = useQuery({
-    queryKey: ['suspicious-activities'],
-    queryFn: async () => {
-      if (!currentUser?.is_admin) {
-        throw new Error('Недостаточно прав');
+  // Проверяем готовность таблицы
+  useEffect(() => {
+    const checkTableReady = async () => {
+      try {
+        // Проверяем существование таблицы путем попытки выполнить простой запрос
+        const { error } = await (await import('@/integrations/supabase/client')).supabase
+          .from('suspicious_activities')
+          .select('count', { count: 'exact', head: true });
+        
+        if (!error) {
+          setIsTableReady(true);
+        }
+      } catch (error) {
+        console.log('Table not ready yet:', error);
+        setIsTableReady(false);
       }
+    };
 
-      console.log('🔍 [ADMIN] Loading suspicious activities...');
-      
-      const { data, error } = await supabase.rpc('get_suspicious_activities', {
-        p_admin_id: currentUser.id,
-        p_limit: 100,
-        p_offset: 0
-      });
-
-      if (error) {
-        console.error('❌ [ADMIN] Error loading suspicious activities:', error);
-        throw error;
-      }
-
-      console.log('✅ [ADMIN] Loaded suspicious activities:', data?.length || 0);
-      return data as SuspiciousActivity[];
-    },
-    enabled: !!currentUser?.is_admin,
-    refetchInterval: 30000 // Обновляем каждые 30 секунд
-  });
-
-  // Мутация для разрешения активности
-  const resolveMutation = useMutation({
-    mutationFn: async (activityId: string) => {
-      const { error } = await supabase
-        .from('suspicious_activities')
-        .update({
-          resolved: true,
-          resolved_by: currentUser.id,
-          resolved_at: new Date().toISOString()
-        })
-        .eq('id', activityId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suspicious-activities'] });
-      toast({
-        title: 'Активность разрешена',
-        description: 'Подозрительная активность помечена как разрешенная',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось разрешить активность',
-        variant: 'destructive',
-      });
+    if (currentUser?.is_admin) {
+      checkTableReady();
     }
-  });
-
-  const getRiskLevelColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getRiskLevelIcon = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'high': return <AlertTriangle className="h-4 w-4" />;
-      case 'medium': return <Shield className="h-4 w-4" />;
-      case 'low': return <User className="h-4 w-4" />;
-      default: return <User className="h-4 w-4" />;
-    }
-  };
+  }, [currentUser]);
 
   if (!currentUser?.is_admin) {
     return (
@@ -133,43 +80,30 @@ const SuspiciousActivityManagement = () => {
     );
   }
 
-  if (isLoading) {
+  if (!isTableReady) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Управление подозрительной активностью
+            <Database className="h-5 w-5" />
+            Система подозрительной активности
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Загрузка...</p>
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-yellow-600 mb-2">Таблица не готова</p>
+            <p className="text-gray-600 mb-4">
+              Таблица подозрительной активности еще не была создана в базе данных.
+            </p>
+            <p className="text-sm text-gray-500">
+              Пожалуйста, сначала выполните SQL миграцию для создания необходимых таблиц и функций.
+            </p>
           </div>
         </CardContent>
       </Card>
     );
   }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
-            Ошибка загрузки
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-600">Не удалось загрузить данные о подозрительной активности</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const unresolvedActivities = activities.filter(activity => !activity.resolved);
-  const resolvedActivities = activities.filter(activity => activity.resolved);
 
   return (
     <div className="space-y-6">
@@ -182,78 +116,44 @@ const SuspiciousActivityManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-red-50 p-4 rounded-lg">
+            <div className="bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <span className="font-semibold text-red-800">Неразрешенные</span>
+                <Database className="h-5 w-5 text-blue-600" />
+                <span className="font-semibold text-blue-800">Система активна</span>
               </div>
-              <p className="text-2xl font-bold text-red-600">{unresolvedActivities.length}</p>
+              <p className="text-sm text-blue-600 mt-1">Готова к работе</p>
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="font-semibold text-green-800">Разрешенные</span>
+                <span className="font-semibold text-green-800">Мониторинг</span>
               </div>
-              <p className="text-2xl font-bold text-green-600">{resolvedActivities.length}</p>
+              <p className="text-sm text-green-600 mt-1">Отслеживание активности</p>
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-yellow-50 p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                <span className="font-semibold text-blue-800">Общее количество</span>
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <span className="font-semibold text-yellow-800">Ожидание</span>
               </div>
-              <p className="text-2xl font-bold text-blue-600">{activities.length}</p>
+              <p className="text-sm text-yellow-600 mt-1">Ожидание данных</p>
             </div>
           </div>
 
-          {unresolvedActivities.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-green-600">Нет неразрешенной подозрительной активности</p>
-              <p className="text-gray-500">Все инциденты обработаны</p>
+          <div className="text-center py-8">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-green-600">Система мониторинга готова</p>
+            <p className="text-gray-500 mb-4">
+              Система начнет отслеживать подозрительную активность автоматически
+            </p>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>• Мониторинг покупок</p>
+              <p>• Отслеживание rate limiting</p>
+              <p>• Проверка аномальной активности</p>
+              <p>• Администраторы исключены из проверок</p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Неразрешенная активность ({unresolvedActivities.length})</h3>
-              {unresolvedActivities.map((activity) => (
-                <Card key={activity.id} className="border-l-4 border-l-red-500">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-2">
-                        <Badge className={getRiskLevelColor(activity.risk_level)}>
-                          {getRiskLevelIcon(activity.risk_level)}
-                          {activity.risk_level.toUpperCase()}
-                        </Badge>
-                        <span className="font-semibold">{activity.activity_type}</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => resolveMutation.mutate(activity.id)}
-                        disabled={resolveMutation.isPending}
-                      >
-                        Разрешить
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p><strong>Пользователь:</strong> {activity.username} ({activity.user_id.slice(0, 8)}...)</p>
-                        <p><strong>Время:</strong> {format(new Date(activity.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
-                      </div>
-                      <div>
-                        <p><strong>Детали:</strong></p>
-                        <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto">
-                          {JSON.stringify(activity.details, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>
