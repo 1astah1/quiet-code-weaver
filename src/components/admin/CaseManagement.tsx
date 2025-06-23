@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Plus, Upload, X, Shuffle } from "lucide-react";
+import { Edit, Trash2, Plus, Upload, X, Shuffle, Image } from "lucide-react";
 import CaseSkinManagement from "./CaseSkinManagement";
 
 interface CaseManagementProps {
@@ -30,7 +30,8 @@ const CaseManagement = ({
     description: '',
     price: 0,
     is_free: false,
-    cover_image_url: ''
+    cover_image_url: '',
+    image_url: ''
   });
   const [newSkinData, setNewSkinData] = useState({
     reward_type: 'skin',
@@ -41,6 +42,8 @@ const CaseManagement = ({
     custom_probability: null as number | null
   });
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
+  const [uploadingMainImage, setUploadingMainImage] = useState(false);
+  const [uploadingEditImage, setUploadingEditImage] = useState<{ [key: string]: boolean }>({});
   const [isAutoSelectingSkns, setIsAutoSelectingSkins] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -112,7 +115,7 @@ const CaseManagement = ({
     enabled: !!selectedCase
   });
 
-  // Функция автоподбора скинов
+  // ИСПРАВЛЕНО: Функция автоподбора скинов с правильным синтаксисом Supabase
   const handleAutoSelectSkins = async () => {
     if (!selectedCase) {
       toast({ 
@@ -125,13 +128,27 @@ const CaseManagement = ({
 
     setIsAutoSelectingSkins(true);
     try {
-      // Получаем случайные скины, которые еще не добавлены в кейс
-      const { data: availableSkins, error: skinsError } = await supabase
+      // Получаем уже добавленные скины
+      const { data: existingSkins } = await supabase
+        .from('case_skins')
+        .select('skin_id')
+        .eq('case_id', selectedCase)
+        .not('skin_id', 'is', null);
+
+      const existingSkinIds = existingSkins?.map(item => item.skin_id) || [];
+
+      // ИСПРАВЛЕНО: Получаем случайные скины с правильным синтаксисом
+      let availableSkinsQuery = supabase
         .from('skins')
         .select('id, name, rarity, price')
-        .not('id', 'in', `(SELECT skin_id FROM case_skins WHERE case_id = '${selectedCase}' AND skin_id IS NOT NULL)`)
-        .order('random()')
-        .limit(10);
+        .limit(50); // Получаем больше для лучшего выбора
+
+      // Исключаем уже добавленные скины
+      if (existingSkinIds.length > 0) {
+        availableSkinsQuery = availableSkinsQuery.not('id', 'in', `(${existingSkinIds.map(id => `'${id}'`).join(',')})`);
+      }
+
+      const { data: availableSkins, error: skinsError } = await availableSkinsQuery;
 
       if (skinsError) {
         throw skinsError;
@@ -146,7 +163,10 @@ const CaseManagement = ({
         return;
       }
 
-      // Добавляем каждый скин в кейс с случайной вероятностью
+      // Перемешиваем и берем первые 10
+      const shuffledSkins = availableSkins.sort(() => Math.random() - 0.5).slice(0, 10);
+
+      // Добавляем каждый скин в кейс с вероятностью по редкости
       const rarityProbabilities: { [key: string]: number } = {
         'Consumer Grade': 8.5,
         'Industrial Grade': 6.0,
@@ -157,7 +177,7 @@ const CaseManagement = ({
         'Contraband': 0.3
       };
 
-      const insertPromises = availableSkins.map(async (skin) => {
+      const insertPromises = shuffledSkins.map(async (skin) => {
         const probability = rarityProbabilities[skin.rarity] || 5.0;
         
         return supabase
@@ -185,7 +205,7 @@ const CaseManagement = ({
       
       toast({ 
         title: "Автоподбор завершен!", 
-        description: `Добавлено ${availableSkins.length} скинов в кейс` 
+        description: `Добавлено ${shuffledSkins.length} скинов в кейс` 
       });
 
     } catch (error: any) {
@@ -200,11 +220,13 @@ const CaseManagement = ({
     }
   };
 
-  // handleImageUpload function
+  // НОВОЕ: Функция загрузки изображений для новых кейсов
   const handleImageUpload = async (file: File, fieldName: string) => {
     if (!file) return;
     
-    setUploadingCoverImage(true);
+    const setLoading = fieldName === 'cover_image_url' ? setUploadingCoverImage : setUploadingMainImage;
+    setLoading(true);
+    
     try {
       if (file.size > 5 * 1024 * 1024) {
         throw new Error('Файл слишком большой. Максимальный размер: 5MB');
@@ -216,9 +238,10 @@ const CaseManagement = ({
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `case-covers/${fileName}`;
+      const folder = fieldName === 'cover_image_url' ? 'case-covers' : 'case-images';
+      const filePath = `${folder}/${fileName}`;
 
-      console.log('Uploading case cover to:', filePath);
+      console.log('Uploading case image to:', filePath);
 
       const { error: uploadError } = await supabase.storage
         .from('case-images')
@@ -248,7 +271,74 @@ const CaseManagement = ({
         variant: "destructive" 
       });
     } finally {
-      setUploadingCoverImage(false);
+      setLoading(false);
+    }
+  };
+
+  // НОВОЕ: Функция загрузки изображений для редактирования кейсов
+  const handleEditImageUpload = async (file: File, caseId: string, fieldName: string) => {
+    if (!file) return;
+    
+    setUploadingEditImage({ ...uploadingEditImage, [`${caseId}_${fieldName}`]: true });
+    
+    try {
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Файл слишком большой. Максимальный размер: 5MB');
+      }
+
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Файл должен быть изображением');
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const folder = fieldName === 'cover_image_url' ? 'case-covers' : 'case-images';
+      const filePath = `${folder}/${fileName}`;
+
+      console.log('Uploading case image to:', filePath);
+
+      const { error: uploadError } = await supabase.storage
+        .from('case-images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('case-images')
+        .getPublicUrl(filePath);
+
+      // Обновляем данные в режиме редактирования
+      if (editingCase === caseId) {
+        setEditData({ ...editData, [fieldName]: publicUrl });
+      }
+
+      // Также обновляем в базе данных
+      const { error: updateError } = await supabase
+        .from('cases')
+        .update({ [fieldName]: publicUrl })
+        .eq('id', caseId);
+
+      if (updateError) {
+        throw new Error(`Ошибка обновления: ${updateError.message}`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      toast({ title: "Изображение обновлено успешно" });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ 
+        title: "Ошибка загрузки", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      setUploadingEditImage({ ...uploadingEditImage, [`${caseId}_${fieldName}`]: false });
     }
   };
 
@@ -265,7 +355,8 @@ const CaseManagement = ({
         description: '',
         price: 0,
         is_free: false,
-        cover_image_url: ''
+        cover_image_url: '',
+        image_url: ''
       });
       setShowAddForm(false);
       queryClient.invalidateQueries({ queryKey: ['cases'] });
@@ -521,6 +612,8 @@ const CaseManagement = ({
                 rows={3}
               />
             </div>
+            
+            {/* НОВОЕ: Загрузка обложки кейса */}
             <div className="col-span-1 md:col-span-2">
               <label className="block text-gray-300 text-sm mb-2">Обложка кейса:</label>
               <input
@@ -535,13 +628,53 @@ const CaseManagement = ({
               />
               <p className="text-gray-400 text-xs mt-1">Рекомендуемый размер: 800x600px, форматы: JPG, PNG, WebP, максимум 5MB</p>
               {newCaseData.cover_image_url && (
-                <img 
-                  src={newCaseData.cover_image_url} 
-                  alt="Preview" 
-                  className="w-20 h-15 object-cover rounded mt-2"
-                />
+                <div className="mt-2 relative">
+                  <img 
+                    src={newCaseData.cover_image_url} 
+                    alt="Cover Preview" 
+                    className="w-20 h-15 object-cover rounded"
+                  />
+                  <button
+                    onClick={() => setNewCaseData({ ...newCaseData, cover_image_url: '' })}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               )}
             </div>
+
+            {/* НОВОЕ: Загрузка основного изображения кейса */}
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-gray-300 text-sm mb-2">Основное изображение кейса:</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file, 'image_url');
+                }}
+                className="bg-gray-700 text-white px-3 py-2 rounded w-full"
+                disabled={uploadingMainImage}
+              />
+              <p className="text-gray-400 text-xs mt-1">Рекомендуемый размер: 512x512px, форматы: JPG, PNG, WebP, максимум 5MB</p>
+              {newCaseData.image_url && (
+                <div className="mt-2 relative">
+                  <img 
+                    src={newCaseData.image_url} 
+                    alt="Main Preview" 
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                  <button
+                    onClick={() => setNewCaseData({ ...newCaseData, image_url: '' })}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <label className="flex items-center space-x-2 col-span-1 md:col-span-2">
               <input
                 type="checkbox"
@@ -555,10 +688,10 @@ const CaseManagement = ({
           <div className="flex space-x-2 mt-4">
             <Button
               onClick={handleAddCase}
-              disabled={uploadingCoverImage || !newCaseData.name}
+              disabled={uploadingCoverImage || uploadingMainImage || !newCaseData.name}
               className="bg-green-600 hover:bg-green-700"
             >
-              {uploadingCoverImage ? (
+              {(uploadingCoverImage || uploadingMainImage) ? (
                 <>
                   <Upload className="w-4 h-4 mr-2 animate-spin" />
                   Загружаем...
@@ -582,6 +715,7 @@ const CaseManagement = ({
           <div key={caseItem.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             {editingCase === caseItem.id ? (
               <div className="space-y-3">
+                {/* НОВОЕ: Редактирование с возможностью загрузки изображений */}
                 <input
                   type="text"
                   value={editData.name || ''}
@@ -603,6 +737,61 @@ const CaseManagement = ({
                   className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                   placeholder="Цена"
                 />
+
+                {/* НОВОЕ: Загрузка обложки в режиме редактирования */}
+                <div className="space-y-2">
+                  <label className="block text-gray-300 text-sm">Обложка кейса:</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleEditImageUpload(file, caseItem.id, 'cover_image_url');
+                      }}
+                      className="bg-gray-700 text-white px-2 py-1 rounded text-sm flex-1"
+                      disabled={uploadingEditImage[`${caseItem.id}_cover_image_url`]}
+                    />
+                    {uploadingEditImage[`${caseItem.id}_cover_image_url`] && (
+                      <Upload className="w-4 h-4 animate-spin text-orange-500" />
+                    )}
+                  </div>
+                  {(editData.cover_image_url || caseItem.cover_image_url) && (
+                    <img 
+                      src={editData.cover_image_url || caseItem.cover_image_url} 
+                      alt="Cover" 
+                      className="w-16 h-12 object-cover rounded"
+                    />
+                  )}
+                </div>
+
+                {/* НОВОЕ: Загрузка основного изображения в режиме редактирования */}
+                <div className="space-y-2">
+                  <label className="block text-gray-300 text-sm">Основное изображение:</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleEditImageUpload(file, caseItem.id, 'image_url');
+                      }}
+                      className="bg-gray-700 text-white px-2 py-1 rounded text-sm flex-1"
+                      disabled={uploadingEditImage[`${caseItem.id}_image_url`]}
+                    />
+                    {uploadingEditImage[`${caseItem.id}_image_url`] && (
+                      <Upload className="w-4 h-4 animate-spin text-orange-500" />
+                    )}
+                  </div>
+                  {(editData.image_url || caseItem.image_url) && (
+                    <img 
+                      src={editData.image_url || caseItem.image_url} 
+                      alt="Main" 
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  )}
+                </div>
+
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -628,9 +817,9 @@ const CaseManagement = ({
             ) : (
               <>
                 <div className="flex items-center space-x-3 mb-3">
-                  {caseItem.cover_image_url && (
+                  {(caseItem.cover_image_url || caseItem.image_url) && (
                     <img 
-                      src={caseItem.cover_image_url} 
+                      src={caseItem.cover_image_url || caseItem.image_url} 
                       alt={caseItem.name}
                       className="w-12 h-12 object-cover rounded"
                     />
