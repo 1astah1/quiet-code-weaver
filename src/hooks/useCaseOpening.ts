@@ -61,7 +61,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           throw error;
         }
         
-        // Transform the data to match our CaseSkin interface
+        // Transform the data to match our CaseSkin interface, handling potential errors
         const transformedData: CaseSkin[] = (data || []).map(item => ({
           id: item.id,
           probability: item.probability,
@@ -69,7 +69,9 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           never_drop: item.never_drop,
           reward_type: item.reward_type,
           skins: item.skins || undefined,
-          coin_rewards: item.coin_rewards || undefined
+          coin_rewards: (item.coin_rewards && typeof item.coin_rewards === 'object' && !('error' in item.coin_rewards)) 
+            ? item.coin_rewards 
+            : undefined
         })).filter(item => item.skins || item.coin_rewards);
         
         return transformedData;

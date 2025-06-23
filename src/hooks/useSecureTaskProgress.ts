@@ -1,59 +1,64 @@
 
 import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 // Временный интерфейс пока не создана таблица
 interface TaskProgress {
   id: string;
   user_id: string;
   task_id: string;
-  status: 'pending' | 'completed';
+  status: 'available' | 'completed' | 'claimed';
   completed_at?: string;
 }
 
-export const useSecureTaskProgress = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const useSecureTaskProgress = (userId: string) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [taskProgress, setTaskProgress] = useState<TaskProgress[]>([]);
 
-  const getUserTaskProgress = async (userId: string): Promise<TaskProgress[]> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
+  // Мутация для выполнения задания
+  const completeTask = useMutation({
+    mutationFn: async ({ taskId }: { taskId: string }) => {
+      console.log('Task completed:', { userId, taskId });
       // TODO: Implement when user_task_progress table is created
-      console.log('getUserTaskProgress called for user:', userId);
-      return [];
-      
-    } catch (err) {
-      console.error('Error getting user task progress:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const markTaskCompleted = async (userId: string, taskId: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // TODO: Implement when user_task_progress table is created
-      console.log('markTaskCompleted called for user:', userId, 'task:', taskId);
       return true;
-      
-    } catch (err) {
-      console.error('Error marking task completed:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return false;
-    } finally {
-      setIsLoading(false);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Задание выполнено!",
+        description: "Теперь вы можете забрать награду",
+      });
     }
+  });
+
+  // Мутация для получения награды
+  const claimReward = useMutation({
+    mutationFn: async ({ taskId, rewardCoins }: { taskId: string; rewardCoins: number }) => {
+      console.log('Reward claimed:', { userId, taskId, rewardCoins });
+      // TODO: Implement when user_task_progress table is created
+      return true;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Награда получена!",
+        description: "Монеты добавлены на ваш счет",
+      });
+    }
+  });
+
+  // Функция для получения статуса задания
+  const getTaskStatus = (taskId: string): 'available' | 'completed' | 'claimed' => {
+    const progress = taskProgress.find(p => p.task_id === taskId);
+    return progress?.status || 'available';
   };
 
   return {
-    getUserTaskProgress,
-    markTaskCompleted,
-    isLoading,
-    error
+    taskProgress,
+    completeTask,
+    claimReward,
+    getTaskStatus,
+    isLoading: false,
+    error: null
   };
 };

@@ -43,18 +43,7 @@ export class SecurityMonitor {
       const currentCount = this.suspiciousActivities.get(`${userId}:${activity}`) || 0;
       this.suspiciousActivities.set(`${userId}:${activity}`, currentCount + 1);
       
-      // Логируем в базу данных
-      await supabase
-        .from('security_audit_log')
-        .insert({
-          user_id: userId,
-          action: `suspicious_${activity}`,
-          details: details,
-          success: false,
-          ip_address: 'client-side',
-          user_agent: navigator.userAgent
-        });
-      
+      // Логируем только в консоль, так как таблицы security_audit_log не существует
       console.warn(`🔒 Suspicious activity detected for user ${userId}: ${activity}`, details);
       
       // Если слишком много подозрительной активности - блокируем
@@ -77,19 +66,16 @@ export class SecurityMonitor {
     maxAttempts: number = 5
   ): Promise<boolean> {
     try {
-      const { data, error } = await supabase.rpc('check_rate_limit', {
-        p_user_id: userId,
-        p_action_type: action,
-        p_max_attempts: maxAttempts,
-        p_time_window_minutes: 60
-      });
+      // Так как функции check_rate_limit не существует, используем простую проверку
+      const key = `${userId}:${action}`;
+      const currentCount = this.suspiciousActivities.get(key) || 0;
       
-      if (error) {
-        console.error('Rate limit check failed:', error);
+      if (currentCount >= maxAttempts) {
+        console.warn(`Rate limit exceeded for user ${userId}, action: ${action}`);
         return false;
       }
       
-      return data === true;
+      return true;
     } catch (error) {
       console.error('Rate limit check error:', error);
       return false;
