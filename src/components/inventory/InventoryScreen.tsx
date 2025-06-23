@@ -52,9 +52,9 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     sellAllMutation.mutate(
       { userId: currentUser.id },
       {
-        onSuccess: (result) => {
-          // result is the total value earned from selling all skins
-          onCoinsUpdate(currentUser.coins + result);
+        onSuccess: (totalEarned) => {
+          // totalEarned is now the number returned from the mutation's onSuccess
+          onCoinsUpdate(currentUser.coins + totalEarned);
         }
       }
     );
