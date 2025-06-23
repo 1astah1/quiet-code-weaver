@@ -1083,6 +1083,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_rate_limit_enhanced: {
+        Args: {
+          p_user_id?: string
+          p_ip_address?: string
+          p_action_type?: string
+          p_max_attempts?: number
+          p_time_window_minutes?: number
+        }
+        Returns: boolean
+      }
       check_time_limit: {
         Args: {
           p_user_id: string
@@ -1098,6 +1108,17 @@ export type Database = {
       is_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      log_security_event: {
+        Args: {
+          p_user_id: string
+          p_action: string
+          p_details?: Json
+          p_success?: boolean
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: string
       }
       safe_open_case: {
         Args:
@@ -1135,6 +1156,10 @@ export type Database = {
       sell_all_user_skins: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      verify_admin_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
     }
     Enums: {

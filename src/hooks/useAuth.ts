@@ -1,258 +1,290 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import type { User } from "@supabase/supabase-js";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-interface AuthUser {
+interface User {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   coins: number;
-  isPremium: boolean;
   isAdmin: boolean;
-  referralCode: string | null;
-  avatar_url?: string;
   quiz_lives: number;
   quiz_streak: number;
-  language_code?: string;
-  steam_trade_url?: string;
+  referralCode: string | null;
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    let mounted = true;
-    let initTimeout: NodeJS.Timeout;
-
-    const initializeAuth = async () => {
-      try {
-        console.log('🔄 Initializing auth...');
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ Session error:', error);
-          if (mounted) {
-            setIsLoading(false);
-            setIsAuthenticated(false);
-          }
-          return;
-        }
-
-        if (session?.user && mounted) {
-          console.log('✅ Found existing session for user:', session.user.id);
-          await handleUserSignIn(session.user);
-        } else if (mounted) {
-          console.log('ℹ️ No existing session found');
-          setIsLoading(false);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        if (mounted) {
-          setIsLoading(false);
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
-        
-        if (!mounted) return;
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ User signed in event');
-          setTimeout(() => {
-            if (mounted) {
-              handleUserSignIn(session.user);
-            }
-          }, 200);
-        } else if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out event');
-          handleUserSignOut();
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('🔄 Token refreshed event');
-          setTimeout(() => {
-            if (mounted) {
-              handleUserSignIn(session.user);
-            }
-          }, 100);
-        }
-      }
-    );
-
-    initTimeout = setTimeout(() => {
-      if (mounted) {
-        initializeAuth();
-      }
-    }, 100);
-
-    return () => {
-      mounted = false;
-      if (initTimeout) clearTimeout(initTimeout);
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const handleUserSignIn = async (authUser: User) => {
+  const fetchUserData = async (authUser: any) => {
     try {
-      console.log('🔄 Processing user sign in for:', authUser.id);
-      setIsLoading(true);
+      console.log('👤 Fetching user data for:', authUser.id);
       
-      // Благодаря новым уникальным ограничениям и триггерам, 
-      // можем безопасно создавать или обновлять пользователя
-      const displayName = authUser.user_metadata?.full_name || 
-                         authUser.user_metadata?.name || 
-                         authUser.user_metadata?.display_name ||
-                         authUser.email?.split('@')[0] || 
-                         'User';
-
-      // Пытаемся найти существующего пользователя
-      let { data: existingUser, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
-        .maybeSingle();
+        .single();
 
-      if (fetchError) {
-        console.error('❌ Error fetching user:', fetchError);
-      }
-
-      let userData: AuthUser;
-
-      if (!existingUser) {
-        console.log('👤 Creating new user profile in database');
+      if (error) {
+        console.error('❌ Error fetching user data:', error);
         
-        const newUserData = {
-          auth_id: authUser.id,
-          username: displayName,
-          email: authUser.email || '',
-          coins: 1000,
-          is_admin: false,
-          referral_code: null,
-          quiz_lives: 3,
-          quiz_streak: 0,
-          created_at: new Date().toISOString()
-        };
-
-        // Благодаря триггеру prevent_user_duplicates, дубликаты будут автоматически предотвращены
-        const { data: createdUser, error: createError } = await supabase
-          .from('users')
-          .insert(newUserData)
-          .select()
-          .maybeSingle();
-
-        if (createError) {
-          console.error('❌ Error creating user:', createError);
-          
-          // Если произошла ошибка, попробуем найти пользователя снова
-          // (возможно, триггер уже обновил существующую запись)
-          const { data: retriedUser, error: retryError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', authUser.id)
-            .maybeSingle();
-
-          if (retryError || !retriedUser) {
-            throw new Error('Не удалось найти или создать профиль пользователя');
-          }
-          
-          existingUser = retriedUser;
-        } else if (createdUser) {
-          existingUser = createdUser;
-          toast({
-            title: "Добро пожаловать!",
-            description: "Вы получили 1000 стартовых монет!",
-          });
+        // If user not found, create a new profile
+        if (error.code === 'PGRST116') {
+          console.log('📝 Creating new user profile...');
+          await createUserProfile(authUser);
+          return;
         }
-
-        if (!existingUser) {
-          throw new Error('Не удалось создать профиль пользователя');
-        }
-      } else {
-        console.log('👤 Using existing user profile');
+        
+        throw error;
       }
 
-      userData = {
-        id: existingUser.id,
-        username: existingUser.username,
-        email: existingUser.email || '',
-        coins: existingUser.coins || 0,
-        isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
-        isAdmin: existingUser.is_admin || false,
-        referralCode: existingUser.referral_code,
-        avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
-        quiz_lives: existingUser.quiz_lives || 3,
-        quiz_streak: existingUser.quiz_streak || 0
-      };
-
-      console.log('✅ Setting user data:', userData.username);
-      setUser(userData);
-      setIsAuthenticated(true);
-      setIsLoading(false);
-
+      if (data) {
+        console.log('✅ User data loaded:', data.username);
+        const userData: User = {
+          id: data.id,
+          username: data.username,
+          email: data.email,
+          coins: data.coins,
+          isAdmin: data.is_admin || false,
+          quiz_lives: data.quiz_lives || 3,
+          quiz_streak: data.quiz_streak || 0,
+          referralCode: data.referral_code
+        };
+        setUser(userData);
+        
+        // Log successful authentication
+        await supabase.rpc('log_security_event', {
+          p_user_id: data.id,
+          p_action: 'auth_success',
+          p_details: {
+            username: data.username,
+            timestamp: new Date().toISOString()
+          },
+          p_success: true
+        });
+      }
     } catch (error) {
-      console.error('❌ Error in handleUserSignIn:', error);
-      setIsLoading(false);
-      setIsAuthenticated(false);
+      console.error('🚨 Error in fetchUserData:', error);
+      
+      // Log authentication failure
+      await supabase.rpc('log_security_event', {
+        p_user_id: null,
+        p_action: 'auth_failure',
+        p_details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          auth_user_id: authUser.id,
+          timestamp: new Date().toISOString()
+        },
+        p_success: false
+      });
+      
       toast({
-        title: "Ошибка авторизации",
-        description: "Не удалось войти в систему. Попробуйте еще раз.",
+        title: "Ошибка загрузки профиля",
+        description: "Не удалось загрузить данные пользователя",
         variant: "destructive",
       });
     }
   };
 
-  const handleUserSignOut = () => {
-    console.log('👋 Handling user sign out');
-    setUser(null);
-    setIsAuthenticated(false);
-    setIsLoading(false);
+  const createUserProfile = async (authUser: any) => {
+    try {
+      console.log('🆕 Creating user profile for:', authUser.id);
+      
+      const username = authUser.user_metadata?.full_name || 
+                      authUser.user_metadata?.name || 
+                      authUser.email?.split('@')[0] || 
+                      'User';
+
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          auth_id: authUser.id,
+          username: username,
+          email: authUser.email,
+          coins: 1000, // Starting coins
+          referral_code: generateReferralCode()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creating user profile:', error);
+        throw error;
+      }
+
+      console.log('✅ User profile created:', data.username);
+      
+      const userData: User = {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        coins: data.coins,
+        isAdmin: data.is_admin || false,
+        quiz_lives: data.quiz_lives || 3,
+        quiz_streak: data.quiz_streak || 0,
+        referralCode: data.referral_code
+      };
+      setUser(userData);
+
+      // Log new user creation
+      await supabase.rpc('log_security_event', {
+        p_user_id: data.id,
+        p_action: 'user_created',
+        p_details: {
+          username: data.username,
+          email: data.email,
+          timestamp: new Date().toISOString()
+        },
+        p_success: true
+      });
+
+      toast({
+        title: "Добро пожаловать!",
+        description: `Ваш профиль создан. Начальный баланс: ${data.coins} монет`,
+      });
+    } catch (error) {
+      console.error('🚨 Error creating user profile:', error);
+      toast({
+        title: "Ошибка создания профиля",
+        description: "Не удалось создать профиль пользователя",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateReferralCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const updateUserCoins = async (newCoins: number) => {
+    if (!user) return;
+
+    try {
+      console.log('💰 Updating user coins:', user.coins, '->', newCoins);
+      
+      setUser(prev => prev ? { ...prev, coins: newCoins } : null);
+      
+      // Log coin update
+      await supabase.rpc('log_security_event', {
+        p_user_id: user.id,
+        p_action: 'coins_updated',
+        p_details: {
+          old_balance: user.coins,
+          new_balance: newCoins,
+          change: newCoins - user.coins,
+          timestamp: new Date().toISOString()
+        },
+        p_success: true
+      });
+    } catch (error) {
+      console.error('❌ Error updating coin display:', error);
+    }
   };
 
   const signOut = async () => {
     try {
-      console.log('👋 Signing out user...');
-      setIsLoading(true);
-      
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('❌ Sign out error:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось выйти из системы",
-          variant: "destructive",
+      if (user) {
+        // Log sign out
+        await supabase.rpc('log_security_event', {
+          p_user_id: user.id,
+          p_action: 'sign_out',
+          p_details: {
+            timestamp: new Date().toISOString()
+          },
+          p_success: true
         });
-      } else {
-        console.log('✅ Successfully signed out');
       }
+
+      console.log('👋 Signing out user');
+      await supabase.auth.signOut();
+      setUser(null);
+      
+      toast({
+        title: "Выход выполнен",
+        description: "Вы успешно вышли из системы",
+      });
     } catch (error) {
-      console.error('❌ Sign out error:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('❌ Error signing out:', error);
+      toast({
+        title: "Ошибка выхода",
+        description: "Произошла ошибка при выходе из системы",
+        variant: "destructive",
+      });
     }
   };
 
-  const updateUserCoins = (newCoins: number) => {
-    if (user) {
-      setUser({ ...user, coins: newCoins });
-    }
-  };
+  useEffect(() => {
+    console.log('🔄 Auth hook initialized');
+    
+    // Get current session
+    const getSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ Error getting session:', error);
+          throw error;
+        }
+
+        if (session?.user) {
+          console.log('🔑 Existing session found for:', session.user.id);
+          await fetchUserData(session.user);
+        } else {
+          console.log('🚫 No existing session found');
+        }
+      } catch (error) {
+        console.error('🚨 Error getting session:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 Auth state changed:', event);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in:', session.user.id);
+          await fetchUserData(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out');
+          setUser(null);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('🔄 Token refreshed for:', session.user.id);
+          // Optionally refresh user data
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    return () => {
+      console.log('🧹 Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return {
     user,
     isLoading,
-    isAuthenticated,
+    updateUserCoins,
     signOut,
-    updateUserCoins
+    refetchUser: () => {
+      if (user) {
+        console.log('🔄 Refetching user data');
+        supabase.auth.getUser().then(({ data }) => {
+          if (data.user) {
+            fetchUserData(data.user);
+          }
+        });
+      }
+    }
   };
 };

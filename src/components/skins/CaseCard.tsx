@@ -33,14 +33,73 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const [showPreview, setShowPreview] = useState(false);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [rateLimitCheck, setRateLimitCheck] = useState<boolean | null>(null);
   const { toast } = useToast();
+
+  // Enhanced security check for case opening
+  const performSecurityCheck = async (): Promise<boolean> => {
+    try {
+      console.log('🔐 Performing security check for case opening...');
+
+      // Check rate limiting
+      const { data: rateLimitOk, error: rateLimitError } = await supabase.rpc('check_rate_limit_enhanced', {
+        p_user_id: currentUser.id,
+        p_action_type: 'case_open',
+        p_max_attempts: caseItem.is_free ? 3 : 10, // Lower limit for free cases
+        p_time_window_minutes: 60
+      });
+
+      if (rateLimitError) {
+        console.error('❌ Rate limit check failed:', rateLimitError);
+        throw new Error('Ошибка проверки безопасности');
+      }
+
+      if (!rateLimitOk) {
+        throw new Error('Слишком много попыток. Попробуйте позже.');
+      }
+
+      // Additional checks for free cases
+      if (caseItem.is_free) {
+        const { data: timeCheck, error: timeError } = await supabase.rpc('check_time_limit', {
+          p_user_id: currentUser.id,
+          p_action_type: 'free_case',
+          p_interval_minutes: 120 // 2 hours
+        });
+
+        if (timeError) {
+          console.error('❌ Time limit check failed:', timeError);
+          throw new Error('Ошибка проверки времени');
+        }
+
+        if (!timeCheck) {
+          throw new Error('Бесплатный кейс можно открыть только раз в 2 часа');
+        }
+      }
+
+      setRateLimitCheck(true);
+      return true;
+    } catch (error) {
+      console.error('🚨 Security check failed:', error);
+      setRateLimitCheck(false);
+      toast({
+        title: "Проверка безопасности",
+        description: error instanceof Error ? error.message : "Ошибка проверки безопасности",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   const handleOpen = async () => {
     if (isOpening) return;
 
     console.log('🎯 Opening case:', caseItem.name, 'Free:', caseItem.is_free);
 
-    // Для бесплатных кейсов проверяем индивидуальный таймер
+    // Perform security checks
+    const securityPassed = await performSecurityCheck();
+    if (!securityPassed) return;
+
+    // For free cases, check individual timer
     if (caseItem.is_free) {
       if (!canOpenFreeCase) {
         toast({
@@ -51,7 +110,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
         return;
       }
     } else {
-      // Для платных кейсов проверяем монеты
+      // For paid cases, check coins
       if (currentUser.coins < caseItem.price) {
         toast({
           title: "Недостаточно монет",
@@ -65,9 +124,22 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setIsOpening(true);
     
     try {
+      // Update free case opening record if it's a free case
+      if (caseItem.is_free) {
+        await supabase
+          .from('user_free_case_openings')
+          .upsert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            opened_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,case_id'
+          });
+      }
+
       onOpen(caseItem);
     } catch (error) {
-      console.error('Error opening case:', error);
+      console.error('Error tracking case opening:', error);
       setIsOpening(false);
     }
   };
@@ -80,17 +152,19 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setCanOpenFreeCase(true);
   };
 
-  // Сброс состояния открытия когда кейс меняется
+  // Reset opening state when case changes
   React.useEffect(() => {
     setIsOpening(false);
+    setRateLimitCheck(null);
   }, [caseItem.id]);
 
-  // Используем cover_image_url если есть, иначе image_url
+  // Use cover_image_url if available, otherwise image_url
   const imageUrl = caseItem.cover_image_url || caseItem.image_url;
 
   const isDisabled = (!caseItem.is_free && currentUser.coins < caseItem.price) || 
                      (caseItem.is_free && !canOpenFreeCase) || 
-                     isOpening;
+                     isOpening ||
+                     rateLimitCheck === false;
 
   return (
     <>
@@ -123,6 +197,21 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
               БЕСПЛАТНО
             </div>
           )}
+
+          {/* Security status indicator */}
+          {rateLimitCheck !== null && (
+            <div className="absolute top-2 left-2">
+              {rateLimitCheck ? (
+                <div className="bg-green-500 text-white px-2 py-1 rounded text-xs">
+                  ✓ Проверен
+                </div>
+              ) : (
+                <div className="bg-red-500 text-white px-2 py-1 rounded text-xs">
+                  ⚠ Ограничен
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Case Info */}
@@ -146,7 +235,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             </div>
           </div>
 
-          {/* Индивидуальный таймер для каждого бесплатного кейса */}
+          {/* Individual timer for each free case */}
           {caseItem.is_free && (
             <FreeCaseTimer
               lastOpenTime={null}
@@ -166,7 +255,8 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             >
               <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               {isOpening ? 'Открываем...' : 
-               caseItem.is_free && !canOpenFreeCase ? 'Ожидание' : 'Открыть'}
+               caseItem.is_free && !canOpenFreeCase ? 'Ожидание' : 
+               rateLimitCheck === false ? 'Ограничено' : 'Открыть'}
             </Button>
             
             <Button
