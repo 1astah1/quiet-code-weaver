@@ -6,20 +6,20 @@ interface LoadingScreenProps {
   onTimeout?: () => void;
 }
 
-const LoadingScreen = ({ timeout = 5000, onTimeout }: LoadingScreenProps) => {
+const LoadingScreen = ({ timeout = 8000, onTimeout }: LoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
   const [showTimeout, setShowTimeout] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
+        if (prev >= 95) {
           clearInterval(interval);
-          return 100;
+          return 95; // Останавливаемся на 95%, чтобы не создавать впечатление зависания
         }
-        return prev + 5;
+        return prev + 3;
       });
-    }, 100);
+    }, 150);
 
     // Показываем кнопку обновления после таймаута
     const timeoutTimer = setTimeout(() => {
@@ -70,19 +70,19 @@ const LoadingScreen = ({ timeout = 5000, onTimeout }: LoadingScreenProps) => {
         </div>
 
         <div className="text-gray-300 text-lg animate-pulse mb-6">
-          Загружаем приложение...
+          {progress < 95 ? 'Загружаем приложение...' : 'Завершаем загрузку...'}
         </div>
 
-        {showTimeout && (
+        {(showTimeout || progress >= 95) && (
           <div className="mb-6">
             <button
               onClick={handleReload}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
             >
-              Обновить страницу
+              Продолжить
             </button>
             <p className="text-gray-400 text-sm mt-2">
-              Загрузка занимает слишком много времени
+              Нажмите для продолжения
             </p>
           </div>
         )}

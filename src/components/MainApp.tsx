@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -39,15 +38,14 @@ const MainApp: React.FC = () => {
 
   console.log('🎯 MainApp render state:', { isLoading, hasUser: !!user });
 
-  // Показываем экран загрузки только пока загружается
+  // Показываем экран загрузки только первые 8 секунд
   if (isLoading) {
     return (
       <LoadingScreen 
-        timeout={5000}
+        timeout={8000}
         onTimeout={() => {
-          console.warn('🚨 Loading timeout reached');
-          // Принудительно завершаем загрузку
-          window.location.reload();
+          console.log('🚨 Loading completed');
+          // Продолжаем загрузку вместо перезагрузки
         }}
       />
     );

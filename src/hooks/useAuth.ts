@@ -37,10 +37,35 @@ export const useAuth = () => {
         console.error('❌ Error fetching user data:', error);
         
         if (error.code === 'PGRST116') {
-          console.log('📝 User not found, will be created by trigger');
-          // Ждем создания пользователя триггером
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchUserData(authUser);
+          console.log('📝 User not found, creating...');
+          // Даем время триггеру создать пользователя
+          setTimeout(async () => {
+            const { data: retryData, error: retryError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('auth_id', authUser.id)
+              .single();
+            
+            if (!retryError && retryData) {
+              const userData: User = {
+                id: retryData.id,
+                username: retryData.username || 'User',
+                email: retryData.email,
+                coins: retryData.coins || 0,
+                isAdmin: retryData.is_admin || false,
+                quiz_lives: retryData.quiz_lives || 3,
+                quiz_streak: retryData.quiz_streak || 0,
+                referralCode: retryData.referral_code,
+                language_code: retryData.language_code || 'ru',
+                avatar_url: null,
+                isPremium: retryData.premium_until ? new Date(retryData.premium_until) > new Date() : false,
+                steam_trade_url: retryData.steam_trade_url
+              };
+              setUser(userData);
+            }
+            setIsLoading(false);
+          }, 2000);
+          return;
         }
         
         setIsLoading(false);
@@ -103,6 +128,12 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
     
+    // Принудительный таймаут для завершения загрузки
+    const forceFinishLoading = setTimeout(() => {
+      console.log('⏰ Force finishing loading');
+      setIsLoading(false);
+    }, 8000);
+    
     const initAuth = async () => {
       try {
         // Проверяем существующую сессию
@@ -125,6 +156,7 @@ export const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event);
+        clearTimeout(forceFinishLoading);
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
@@ -141,6 +173,7 @@ export const useAuth = () => {
 
     return () => {
       subscription.unsubscribe();
+      clearTimeout(forceFinishLoading);
     };
   }, []);
 
