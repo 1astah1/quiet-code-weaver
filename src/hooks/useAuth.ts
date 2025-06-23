@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, cleanupAuthState } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -36,7 +36,7 @@ export const useAuth = () => {
       if (error) {
         console.error('❌ Error fetching user data:', error);
         
-        // If user not found, create a new profile
+        // Если пользователь не найден, создаем новый профиль
         if (error.code === 'PGRST116') {
           console.log('📝 Creating new user profile...');
           await createUserProfile(authUser);
@@ -64,7 +64,7 @@ export const useAuth = () => {
         };
         setUser(userData);
         
-        // Log successful authentication
+        // Логируем успешную аутентификацию
         await supabase.rpc('log_security_event', {
           p_user_id: data.id,
           p_action: 'auth_success',
@@ -78,7 +78,7 @@ export const useAuth = () => {
     } catch (error) {
       console.error('🚨 Error in fetchUserData:', error);
       
-      // Log authentication failure
+      // Логируем ошибку аутентификации
       await supabase.rpc('log_security_event', {
         p_user_id: null,
         p_action: 'auth_failure',
@@ -92,7 +92,7 @@ export const useAuth = () => {
       
       toast({
         title: "Ошибка загрузки профиля",
-        description: "Не удалось загрузить данные пользователя",
+        description: "Не удалось загрузить данные пользователя. Попробуйте обновить страницу.",
         variant: "destructive",
       });
     } finally {
@@ -105,10 +105,17 @@ export const useAuth = () => {
     try {
       console.log('🆕 Creating user profile for:', authUser.id);
       
-      const username = authUser.user_metadata?.full_name || 
+      // Извлекаем имя пользователя из мета-данных
+      const fullName = authUser.user_metadata?.full_name || 
                       authUser.user_metadata?.name || 
+                      authUser.user_metadata?.preferred_username;
+      
+      const username = fullName || 
                       authUser.email?.split('@')[0] || 
-                      'User';
+                      'User' + Math.random().toString(36).substring(2, 8);
+
+      // Генерируем уникальный реферальный код
+      const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
       const { data, error } = await supabase
         .from('users')
@@ -116,15 +123,48 @@ export const useAuth = () => {
           auth_id: authUser.id,
           username: username,
           email: authUser.email,
-          coins: 1000,
-          referral_code: generateReferralCode(),
-          language_code: 'ru'
+          coins: 1000, // Стартовый баланс
+          referral_code: referralCode,
+          language_code: 'ru',
+          quiz_lives: 3,
+          quiz_streak: 0,
+          is_admin: false
         })
         .select()
         .single();
 
       if (error) {
         console.error('❌ Error creating user profile:', error);
+        
+        // Если пользователь уже существует, пытаемся получить его данные
+        if (error.code === '23505') { // unique_violation
+          console.log('🔄 User already exists, fetching existing data...');
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .single();
+          
+          if (existingUser) {
+            const userData: User = {
+              id: existingUser.id,
+              username: existingUser.username,
+              email: existingUser.email,
+              coins: existingUser.coins,
+              isAdmin: existingUser.is_admin || false,
+              quiz_lives: existingUser.quiz_lives || 3,
+              quiz_streak: existingUser.quiz_streak || 0,
+              referralCode: existingUser.referral_code,
+              language_code: existingUser.language_code || 'ru',
+              avatar_url: null,
+              isPremium: existingUser.premium_until ? new Date(existingUser.premium_until) > new Date() : false,
+              steam_trade_url: existingUser.steam_trade_url
+            };
+            setUser(userData);
+            return;
+          }
+        }
+        
         throw error;
       }
 
@@ -146,7 +186,7 @@ export const useAuth = () => {
       };
       setUser(userData);
 
-      // Log new user creation
+      // Логируем создание нового пользователя
       await supabase.rpc('log_security_event', {
         p_user_id: data.id,
         p_action: 'user_created',
@@ -166,17 +206,13 @@ export const useAuth = () => {
       console.error('🚨 Error creating user profile:', error);
       toast({
         title: "Ошибка создания профиля",
-        description: "Не удалось создать профиль пользователя",
+        description: "Не удалось создать профиль пользователя. Попробуйте войти еще раз.",
         variant: "destructive",
       });
     } finally {
       // КРИТИЧЕСКИ ВАЖНО: всегда завершаем загрузку
       setIsLoading(false);
     }
-  };
-
-  const generateReferralCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   const updateUserCoins = async (newCoins: number) => {
@@ -187,7 +223,7 @@ export const useAuth = () => {
       
       setUser(prev => prev ? { ...prev, coins: newCoins } : null);
       
-      // Log coin update
+      // Логируем изменение монет
       await supabase.rpc('log_security_event', {
         p_user_id: user.id,
         p_action: 'coins_updated',
@@ -207,7 +243,7 @@ export const useAuth = () => {
   const signOut = async () => {
     try {
       if (user) {
-        // Log sign out
+        // Логируем выход
         await supabase.rpc('log_security_event', {
           p_user_id: user.id,
           p_action: 'sign_out',
@@ -219,13 +255,25 @@ export const useAuth = () => {
       }
 
       console.log('👋 Signing out user');
-      await supabase.auth.signOut();
+      
+      // Очищаем состояние аутентификации
+      cleanupAuthState();
+      
+      // Выходим глобально
+      await supabase.auth.signOut({ scope: 'global' });
+      
       setUser(null);
       
       toast({
         title: "Выход выполнен",
         description: "Вы успешно вышли из системы",
       });
+      
+      // Принудительно обновляем страницу для полной очистки состояния
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
     } catch (error) {
       console.error('❌ Error signing out:', error);
       toast({
@@ -240,7 +288,33 @@ export const useAuth = () => {
     console.log('🔄 Auth hook initialized');
     let mounted = true;
     
-    // Get current session
+    // Устанавливаем слушатель изменений состояния аутентификации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        console.log('🔄 Auth state changed:', event, session?.user?.id);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in:', session.user.id);
+          setIsLoading(true);
+          // Небольшая задержка для предотвращения deadlock'ов
+          setTimeout(() => {
+            if (mounted) {
+              fetchUserData(session.user);
+            }
+          }, 100);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out');
+          setUser(null);
+          setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('🔄 Token refreshed for:', session.user.id);
+        }
+      }
+    );
+
+    // Проверяем существующую сессию
     const getSession = async () => {
       try {
         console.log('🔍 Checking for existing session...');
@@ -248,6 +322,7 @@ export const useAuth = () => {
         
         if (error) {
           console.error('❌ Error getting session:', error);
+          setIsLoading(false);
           return;
         }
 
@@ -269,27 +344,6 @@ export const useAuth = () => {
     };
 
     getSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('🔄 Auth state changed:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ User signed in:', session.user.id);
-          setIsLoading(true);
-          await fetchUserData(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out');
-          setUser(null);
-          setIsLoading(false);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('🔄 Token refreshed for:', session.user.id);
-        }
-      }
-    );
 
     return () => {
       console.log('🧹 Cleaning up auth subscription');

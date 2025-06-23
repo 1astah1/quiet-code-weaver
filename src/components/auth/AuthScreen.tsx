@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
@@ -22,33 +22,75 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       setIsLoading(true);
       setLoadingProvider(provider);
 
+      console.log(`🚀 Starting ${provider} authentication...`);
+
+      // Очищаем предыдущее состояние аутентификации
+      cleanupAuthState();
+
+      // Пытаемся выйти из всех сессий перед новым входом
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.log('Previous signout attempt:', err);
+      }
+
+      // Небольшая задержка для очистки состояния
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const redirectUrl = `${window.location.origin}/`;
+      console.log(`🔗 Redirect URL: ${redirectUrl}`);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
+            prompt: 'select_account', // Позволяет выбрать аккаунт для Google
           }
         }
       });
 
       if (error) {
-        console.error(`${provider} auth error:`, error);
+        console.error(`❌ ${provider} auth error:`, error);
+        
+        // Более подробное описание ошибок
+        let errorMessage = `Не удалось войти через ${provider}.`;
+        
+        if (error.message.includes('popup')) {
+          errorMessage += ' Попробуйте разрешить всплывающие окна в браузере.';
+        } else if (error.message.includes('network')) {
+          errorMessage += ' Проверьте подключение к интернету.';
+        } else if (error.message.includes('unauthorized')) {
+          errorMessage += ' Проблема с настройками OAuth.';
+        }
+        
         toast({
           title: "Ошибка авторизации",
-          description: `Не удалось войти через ${provider}. Попробуйте еще раз.`,
+          description: errorMessage,
           variant: "destructive",
         });
         return;
       }
 
-      // Успешная авторизация будет обработана в useEffect MainApp
+      console.log(`✅ ${provider} auth initiated successfully`);
+      
+      // Успешная авторизация будет обработана в useAuth через onAuthStateChange
     } catch (error) {
-      console.error('Auth error:', error);
+      console.error('🚨 Auth error:', error);
+      
+      let errorMessage = "Произошла ошибка при авторизации";
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Проблема с подключением к серверу. Проверьте интернет-соединение.";
+        } else if (error.message.includes('popup')) {
+          errorMessage = "Не удалось открыть окно авторизации. Разрешите всплывающие окна.";
+        }
+      }
+      
       toast({
         title: "Ошибка",
-        description: "Произошла ошибка при авторизации",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -104,6 +146,14 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           </p>
         </div>
 
+        {/* Connection Status */}
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center space-x-2 text-sm text-gray-400">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>Подключение к серверу</span>
+          </div>
+        </div>
+
         {/* Auth Card */}
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/30 shadow-2xl">
           <h3 className="text-white text-xl font-semibold text-center mb-6">
@@ -153,6 +203,18 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
               <span>Войти через {getProviderName('facebook')}</span>
             </button>
           </div>
+
+          {/* Troubleshooting Info */}
+          {isLoading && (
+            <div className="mt-4 text-center text-sm text-gray-400">
+              <p>Если вход не работает:</p>
+              <ul className="text-xs mt-2 space-y-1">
+                <li>• Разрешите всплывающие окна</li>
+                <li>• Проверьте интернет-соединение</li>
+                <li>• Попробуйте обновить страницу</li>
+              </ul>
+            </div>
+          )}
 
           {/* Terms */}
           <div className="mt-6 text-center">
