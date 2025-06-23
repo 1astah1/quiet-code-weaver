@@ -41,6 +41,7 @@ interface UseCaseOpeningSafeProps {
 export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningSafeProps) => {
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [wonCoins, setWonCoins] = useState(0);
+  const [actualReward, setActualReward] = useState<any>(null); // Добавляем состояние для реальной награды
   const [isComplete, setIsComplete] = useState(false);
   const [animationPhase, setAnimationPhase] = useState<'opening' | 'roulette' | 'complete' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -145,6 +146,12 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         throw new Error(response.error || 'Не удалось открыть кейс');
       }
 
+      // КРИТИЧЕСКИ ВАЖНО: Сохраняем реальную награду от сервера
+      if (response.reward) {
+        console.log('🏆 [SAFE_CASE_OPENING] Storing ACTUAL reward from server:', response.reward);
+        setActualReward(response.reward);
+      }
+
       // Обновляем баланс
       if (response.new_balance !== undefined) {
         onCoinsUpdate(response.new_balance);
@@ -164,10 +171,11 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         // Verify consistency between winner item and actual reward
         const winnerFromRoulette = response.roulette_items[response.winner_position];
         if (winnerFromRoulette?.id !== response.reward?.id) {
-          console.error('⚠️ [SAFE_CASE_OPENING] MISMATCH DETECTED between roulette winner and actual reward:', {
+          console.warn('⚠️ [SAFE_CASE_OPENING] MISMATCH DETECTED between roulette winner and actual reward:', {
             winnerFromRoulette,
             actualReward: response.reward
           });
+          console.log('✅ [SAFE_CASE_OPENING] Will use ACTUAL reward from server, not roulette item');
         } else {
           console.log('✅ [SAFE_CASE_OPENING] Roulette winner matches actual reward perfectly');
         }
@@ -177,7 +185,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
           winnerPosition: response.winner_position
         });
         
-        // Анимация открytия (1 секунда), затем рулетка
+        // Анимация открытия (1 секунда), затем рулетка
         setTimeout(() => {
           setAnimationPhase('roulette');
         }, 1000);
@@ -223,55 +231,68 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   const handleDirectResult = useCallback((reward: any) => {
     console.log('🎯 [SAFE_CASE_OPENING] Handling direct result:', reward);
     
-    if (reward?.type === 'skin') {
-      setWonSkin(reward);
-    } else if (reward?.type === 'coin_reward') {
-      setWonCoins(reward.amount || 0);
+    // Используем actualReward если он есть, иначе переданную reward
+    const rewardToUse = actualReward || reward;
+    console.log('🏆 [SAFE_CASE_OPENING] Using reward for direct result:', rewardToUse);
+    
+    if (rewardToUse?.type === 'skin') {
+      setWonSkin(rewardToUse);
+    } else if (rewardToUse?.type === 'coin_reward') {
+      setWonCoins(rewardToUse.amount || 0);
     }
     
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
     }, 1000);
-  }, []);
+  }, [actualReward]);
 
   const handleRouletteComplete = useCallback((winnerItem: RouletteItem) => {
-    console.log('🏆 [SAFE_CASE_OPENING] Roulette complete, processing winner:', {
+    console.log('🏆 [SAFE_CASE_OPENING] Roulette animation complete, winner item from roulette:', {
       winnerItem,
       type: winnerItem.type,
       id: winnerItem.id,
       name: winnerItem.name
     });
     
-    // Enhanced validation
-    if (!winnerItem) {
-      console.error('❌ [SAFE_CASE_OPENING] No winner item provided');
+    console.log('🎯 [SAFE_CASE_OPENING] BUT using ACTUAL reward from server instead:', {
+      actualReward,
+      serverRewardId: actualReward?.id,
+      serverRewardName: actualReward?.name,
+      serverRewardType: actualReward?.type
+    });
+    
+    // КРИТИЧЕСКИ ВАЖНО: НЕ используем winnerItem из рулетки!
+    // Используем только actualReward от сервера
+    if (!actualReward) {
+      console.error('❌ [SAFE_CASE_OPENING] No actual reward found, this should not happen!');
       return;
     }
     
-    if (winnerItem.type === 'skin') {
-      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from roulette:', {
-        id: winnerItem.id,
-        name: winnerItem.name,
-        price: winnerItem.price
+    if (actualReward.type === 'skin') {
+      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from SERVER reward:', {
+        id: actualReward.id,
+        name: actualReward.name,
+        price: actualReward.price
       });
-      setWonSkin(winnerItem);
-    } else if (winnerItem.type === 'coin_reward') {
-      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from roulette:', {
-        id: winnerItem.id,
-        amount: winnerItem.amount
+      setWonSkin(actualReward);
+    } else if (actualReward.type === 'coin_reward') {
+      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from SERVER reward:', {
+        id: actualReward.id,
+        amount: actualReward.amount
       });
-      setWonCoins(winnerItem.amount || 0);
+      setWonCoins(actualReward.amount || 0);
     } else {
-      console.error('❌ [SAFE_CASE_OPENING] Unknown winner item type:', winnerItem);
+      console.error('❌ [SAFE_CASE_OPENING] Unknown actual reward type:', actualReward);
     }
     
+    // Переключаем только фазу анимации
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed successfully');
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with CORRECT server reward');
     }, 1000);
-  }, []);
+  }, [actualReward]);
 
   const addToInventory = useCallback(async () => {
     setIsProcessing(true);
@@ -290,16 +311,18 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [currentUser.id, queryClient]);
 
   const sellDirectly = useCallback(async () => {
-    if (!wonSkin) return;
+    // Используем actualReward вместо wonSkin для продажи
+    const rewardToSell = actualReward || wonSkin;
+    if (!rewardToSell) return;
     
     setIsProcessing(true);
     try {
-      console.log('💰 [SAFE_CASE_OPENING] Selling skin directly:', wonSkin.name);
+      console.log('💰 [SAFE_CASE_OPENING] Selling ACTUAL reward directly:', rewardToSell.name);
       
       const { data, error } = await supabase.rpc('safe_sell_case_reward', {
         p_user_id: currentUser.id,
-        p_skin_id: wonSkin.id,
-        p_sell_price: wonSkin.price
+        p_skin_id: rewardToSell.id,
+        p_sell_price: rewardToSell.price
       });
 
       if (error) throw new Error(error.message);
@@ -316,7 +339,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       
       toast({
         title: "Скин продан!",
-        description: `Получено ${wonSkin.price} монет`,
+        description: `Получено ${rewardToSell.price} монет`,
       });
       
       // Инвалидируем кэши
@@ -332,7 +355,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     } finally {
       setIsProcessing(false);
     }
-  }, [wonSkin, currentUser.id, onCoinsUpdate, toast, queryClient]);
+  }, [actualReward, wonSkin, currentUser.id, onCoinsUpdate, toast, queryClient]);
 
   // Сброс состояния при смене кейса
   useEffect(() => {
@@ -340,6 +363,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       console.log('🔄 [SAFE_CASE_OPENING] Resetting state for case:', caseItem.name);
       setWonSkin(null);
       setWonCoins(0);
+      setActualReward(null); // Сбрасываем actualReward
       setIsComplete(false);
       setAnimationPhase(null);
       setError(null);
@@ -350,8 +374,8 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [caseItem?.id]);
 
   return {
-    wonSkin,
-    wonCoins,
+    wonSkin: actualReward?.type === 'skin' ? actualReward : wonSkin, // Возвращаем actualReward если это скин
+    wonCoins: actualReward?.type === 'coin_reward' ? actualReward.amount : wonCoins, // Возвращаем actualReward если это монеты
     isComplete,
     animationPhase,
     isProcessing,
