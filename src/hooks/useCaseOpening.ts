@@ -176,7 +176,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
 
       // Type assertion with proper checking
-      const response = data as SafeOpenCaseResponse;
+      const response = data as unknown as SafeOpenCaseResponse;
       
       if (!response || !response.success) {
         throw new Error('Сервер не вернул успешный результат');
