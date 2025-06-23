@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Package, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,13 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     }
 
     setIsOpening(true);
-    onOpen(caseItem);
+    
+    try {
+      onOpen(caseItem);
+    } catch (error) {
+      console.error('Error opening case:', error);
+      setIsOpening(false);
+    }
   };
 
   const handlePreview = () => {
@@ -72,6 +79,11 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const handleTimerComplete = () => {
     setCanOpenFreeCase(true);
   };
+
+  // Сброс состояния открытия когда кейс меняется
+  React.useEffect(() => {
+    setIsOpening(false);
+  }, [caseItem.id]);
 
   // Используем cover_image_url если есть, иначе image_url
   const imageUrl = caseItem.cover_image_url || caseItem.image_url;
