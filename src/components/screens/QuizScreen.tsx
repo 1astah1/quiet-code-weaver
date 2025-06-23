@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Heart, Trophy, Target, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSecureQuiz } from "@/hooks/useSecureQuiz";
 
 interface QuizScreenProps {
   currentUser: {
@@ -41,8 +42,11 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
   const [livesLeft, setLivesLeft] = useState(currentUser.quiz_lives);
   const [canRestoreLife, setCanRestoreLife] = useState(false);
   const [nextLifeTime, setNextLifeTime] = useState<Date | null>(null);
+  const [quizBlocked, setQuizBlocked] = useState(false);
+  const [nextQuizTime, setNextQuizTime] = useState<Date | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { checkQuizAvailability, updateQuizProgress } = useSecureQuiz();
 
   const { data: questions, isLoading } = useQuery({
     queryKey: ['quiz-questions'],
@@ -58,7 +62,31 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     }
   });
 
-  // Проверяем время восстановления жизней
+  // Проверяем доступность викторины при загрузке
+  useEffect(() => {
+    const checkQuizAccess = async () => {
+      const result = await checkQuizAvailability(currentUser.id);
+      
+      if (!result.canTakeQuiz) {
+        setQuizBlocked(true);
+        if (result.nextAvailable) {
+          setNextQuizTime(result.nextAvailable);
+        }
+        
+        if (result.reason === '24h_cooldown') {
+          toast({
+            title: "Викторина недоступна",
+            description: "Вы уже проходили викторину сегодня. Приходите завтра!",
+            variant: "destructive",
+          });
+        }
+      }
+    };
+
+    checkQuizAccess();
+  }, [currentUser.id, checkQuizAvailability, toast]);
+
+  // Проверяем время восстановления жизней (изменено на 8 часов)
   useEffect(() => {
     const checkLifeRestoration = async () => {
       try {
@@ -74,11 +102,11 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
         const lastRestore = data.last_life_restore ? new Date(data.last_life_restore) : null;
         const lastAdRestore = data.last_ad_life_restore ? new Date(data.last_ad_life_restore) : null;
 
-        // Проверяем восстановление жизней (1 жизнь каждые 4 часа)
+        // Проверяем восстановление жизней (1 жизнь каждые 8 часов)
         if (data.quiz_lives < 3 && lastRestore) {
-          const fourHours = 4 * 60 * 60 * 1000;
+          const eightHours = 8 * 60 * 60 * 1000;
           const timeSinceRestore = now.getTime() - lastRestore.getTime();
-          const livesToRestore = Math.floor(timeSinceRestore / fourHours);
+          const livesToRestore = Math.floor(timeSinceRestore / eightHours);
 
           if (livesToRestore > 0) {
             const newLives = Math.min(3, data.quiz_lives + livesToRestore);
@@ -94,16 +122,16 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
             onLivesUpdate(newLives);
           } else {
             // Вычисляем время до следующего восстановления
-            const nextRestore = new Date(lastRestore.getTime() + fourHours);
+            const nextRestore = new Date(lastRestore.getTime() + eightHours);
             setNextLifeTime(nextRestore);
           }
         }
 
-        // Проверяем возможность восстановления за рекламу (раз в 2 часа)
+        // Проверяем возможность восстановления за рекламу (изменено на 8 часов)
         if (lastAdRestore) {
-          const twoHours = 2 * 60 * 60 * 1000;
+          const eightHours = 8 * 60 * 60 * 1000;
           const timeSinceAdRestore = now.getTime() - lastAdRestore.getTime();
-          setCanRestoreLife(timeSinceAdRestore >= twoHours && data.quiz_lives < 3);
+          setCanRestoreLife(timeSinceAdRestore >= eightHours && data.quiz_lives < 3);
         } else {
           setCanRestoreLife(data.quiz_lives < 3);
         }
@@ -127,8 +155,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
         .update({ 
           quiz_lives: lives, 
           quiz_streak: streak, 
-          coins: coins,
-          last_quiz_date: new Date().toISOString().split('T')[0]
+          coins: coins
         })
         .eq('id', currentUser.id);
 
@@ -248,6 +275,9 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
 
     const newCoins = currentUser.coins + coinsEarned;
 
+    // Обновляем прогресс викторины с новой системой
+    await updateQuizProgress(currentUser.id, correctCount, totalQuestions);
+
     await updateUserStatsMutation.mutateAsync({
       lives: livesLeft,
       streak: newStreak,
@@ -311,6 +341,43 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     );
   }
 
+  // Новый экран блокировки викторины на 24 часа
+  if (quizBlocked) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 max-w-md w-full text-center border border-gray-700">
+          <div className="mb-6">
+            <Clock className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Викторина недоступна</h2>
+            <p className="text-gray-400 mb-4">
+              Вы уже проходили викторину сегодня
+            </p>
+            
+            {nextQuizTime && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                <p className="text-blue-400 font-medium">
+                  Следующая попытка через:
+                </p>
+                <p className="text-white text-xl font-bold">
+                  {formatTimeLeft(nextQuizTime)}
+                </p>
+              </div>
+            )}
+            
+            <p className="text-sm text-gray-500">
+              Приходите завтра за новыми вопросами!
+            </p>
+          </div>
+          
+          <Button onClick={onBack} variant="outline" className="w-full">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Назад
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (livesLeft === 0) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
@@ -321,7 +388,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
             <p className="text-gray-400 mb-4">
               {nextLifeTime 
                 ? `Следующая жизнь через: ${formatTimeLeft(nextLifeTime)}`
-                : "Жизни восстанавливаются каждые 4 часа"
+                : "Жизни восстанавливаются каждые 8 часов"
               }
             </p>
             
@@ -358,6 +425,11 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
               </p>
               <p className="text-gray-300 text-sm mt-2">
                 Жизней осталось: <span className="text-red-400 font-bold">{livesLeft}</span>
+              </p>
+            </div>
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+              <p className="text-yellow-400 text-sm">
+                🕐 Следующая попытка завтра
               </p>
             </div>
           </div>
