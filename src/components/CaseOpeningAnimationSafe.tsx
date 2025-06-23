@@ -95,7 +95,7 @@ const CaseOpeningAnimationSafe = ({
       <div className="flex-1 flex items-center justify-center p-4">
         {animationPhase === 'opening' && (
           <div className="text-center">
-            <Case3DOpening caseItem={caseItem} />
+            <Case3DOpening />
             <div className="text-white text-xl mt-6">Открываем кейс...</div>
             <div className="text-slate-400 text-sm mt-2">
               {isProcessing ? 'Обработка...' : 'Подготовка...'}
@@ -105,7 +105,7 @@ const CaseOpeningAnimationSafe = ({
 
         {animationPhase === 'roulette' && rouletteData && (
           <UnifiedCaseRoulette
-            items={rouletteData.items}
+            rouletteItems={rouletteData.items}
             winnerPosition={rouletteData.winnerPosition}
             onComplete={handleRouletteComplete}
           />
@@ -114,12 +114,9 @@ const CaseOpeningAnimationSafe = ({
         {animationPhase === 'complete' && (wonSkin || wonCoins > 0) && (
           <CaseCompletePhase
             wonSkin={wonSkin}
-            wonCoins={wonCoins}
-            isComplete={isComplete}
             isProcessing={isProcessing}
             onAddToInventory={addToInventory}
             onSellDirectly={sellDirectly}
-            onClose={handleClose}
           />
         )}
 
