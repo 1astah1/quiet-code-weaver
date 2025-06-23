@@ -854,20 +854,13 @@ export type Database = {
         Returns: boolean
       }
       safe_open_case: {
-        Args:
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id?: string
-              p_coin_reward_id?: string
-              p_is_free?: boolean
-            }
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id?: string
-              p_is_free?: boolean
-            }
+        Args: {
+          p_user_id: string
+          p_case_id: string
+          p_skin_id?: string
+          p_coin_reward_id?: string
+          p_is_free?: boolean
+        }
         Returns: Json
       }
       safe_sell_skin: {

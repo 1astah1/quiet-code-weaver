@@ -16,18 +16,20 @@ interface UseCaseOpeningProps {
   onCoinsUpdate: (newCoins: number) => void;
 }
 
-// Type for RPC response
+// Updated type for RPC response
 interface SafeOpenCaseResponse {
   success: boolean;
-  skin: {
+  reward: {
     id: string;
     name: string;
-    weapon_type: string;
-    rarity: string;
+    weapon_type?: string;
+    rarity?: string;
     price: number;
-    image_url: string;
+    image_url?: string;
+    type: 'skin' | 'coin_reward';
+    amount?: number;
   };
-  inventory_id: string;
+  inventory_id?: string;
 }
 
 export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningProps) => {
@@ -162,11 +164,12 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       console.log('🎁 [CASE_OPENING] Selected skin:', selectedSkin.skins.name);
 
-      // Вызываем RPC функцию для безопасного открытия кейса
+      // Вызываем RPC функцию с всеми 5 параметрами
       const { data, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
         p_skin_id: selectedSkin.skins.id,
+        p_coin_reward_id: null, // Всегда null для обычных скинов
         p_is_free: caseItem.is_free || false
       });
 
@@ -175,17 +178,32 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error(error.message || 'Не удалось открыть кейс');
       }
 
-      // Type assertion with proper checking
+      // Безопасная проверка и приведение типов
+      if (!data || typeof data !== 'object') {
+        throw new Error('Некорректный ответ от сервера');
+      }
+
       const response = data as unknown as SafeOpenCaseResponse;
       
-      if (!response || !response.success) {
+      if (!response.success || !response.reward) {
         throw new Error('Сервер не вернул успешный результат');
       }
 
       console.log('✅ [CASE_OPENING] Case opened successfully:', response);
       
-      // Устанавливаем выигранный скин
-      setWonSkin(response.skin);
+      // Проверяем тип награды и устанавливаем соответствующий скин
+      if (response.reward.type === 'skin') {
+        setWonSkin({
+          id: response.reward.id,
+          name: response.reward.name,
+          weapon_type: response.reward.weapon_type,
+          rarity: response.reward.rarity,
+          price: response.reward.price,
+          image_url: response.reward.image_url
+        });
+      } else if (response.reward.type === 'coin_reward') {
+        setWonCoins(response.reward.amount || 0);
+      }
       
       // Обновляем баланс если кейс платный
       if (!caseItem.is_free && caseItem.price) {
@@ -201,8 +219,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         case_name: caseItem.name,
         is_free: caseItem.is_free || false,
         phase: 'complete',
-        reward_type: 'skin',
-        reward_data: response.skin
+        reward_type: response.reward.type,
+        reward_data: response.reward
       });
 
       // Завершаем анимацию через 3 секунды
