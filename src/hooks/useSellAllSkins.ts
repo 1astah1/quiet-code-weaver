@@ -44,22 +44,23 @@ export const useSellAllSkins = () => {
         const totalValue = inventoryItems.reduce((sum, item) => sum + (item.skins?.price || 0), 0);
         console.log('💰 [SELL_ALL] Total value:', totalValue);
 
-        // Помечаем все скины как проданные
-        const inventoryIds = inventoryItems.map(item => item.id);
-        const { error: sellError } = await supabase
-          .from('user_inventory')
-          .update({
-            is_sold: true,
-            sold_at: new Date().toISOString(),
-            sold_price: supabase.sql`skins.price`
-          })
-          .in('id', inventoryIds)
-          .eq('user_id', userId)
-          .eq('is_sold', false);
+        // Помечаем все скины как проданные (обрабатываем каждый по отдельности для правильной цены)
+        for (const item of inventoryItems) {
+          const { error: sellError } = await supabase
+            .from('user_inventory')
+            .update({
+              is_sold: true,
+              sold_at: new Date().toISOString(),
+              sold_price: item.skins?.price || 0
+            })
+            .eq('id', item.id)
+            .eq('user_id', userId)
+            .eq('is_sold', false);
 
-        if (sellError) {
-          console.error('❌ [SELL_ALL] Error marking items as sold:', sellError);
-          throw new Error('Не удалось продать предметы');
+          if (sellError) {
+            console.error('❌ [SELL_ALL] Error marking item as sold:', sellError);
+            throw new Error('Не удалось продать предметы');
+          }
         }
 
         // Обновляем баланс пользователя
@@ -72,6 +73,7 @@ export const useSellAllSkins = () => {
         if (coinsError) {
           console.error('❌ [SELL_ALL] Error updating coins:', coinsError);
           // Откатываем продажу предметов
+          const inventoryIds = inventoryItems.map(item => item.id);
           await supabase
             .from('user_inventory')
             .update({
