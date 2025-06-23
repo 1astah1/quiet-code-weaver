@@ -72,13 +72,19 @@ export const enhancedValidation = {
   }
 };
 
-// Security Monitoring System
+// Security Monitoring System with Admin Exemption
 export class SecurityMonitor {
   private static rateLimitMap = new Map<string, { count: number; lastReset: number; actions: Map<string, { count: number; lastReset: number }> }>();
   private static readonly RATE_LIMIT_WINDOW = 60000; // 1 minute
   private static activityLog = new Map<string, Array<{ action: string; timestamp: number; data: any }>>();
 
-  static checkClientRateLimit(userId: string, action: string, maxAttempts: number): boolean {
+  static checkClientRateLimit(userId: string, action: string, maxAttempts: number, isAdmin: boolean = false): boolean {
+    // Skip rate limiting for admin users
+    if (isAdmin) {
+      console.log(`👑 [SECURITY] Admin user bypassing rate limit for ${userId}:${action}`);
+      return true;
+    }
+
     const key = `${userId}:${action}`;
     const now = Date.now();
     const current = this.rateLimitMap.get(key);
@@ -97,11 +103,17 @@ export class SecurityMonitor {
     return true;
   }
 
-  static async checkRateLimit(userId: string, action: string, maxAttempts: number = 10): Promise<boolean> {
-    return this.checkClientRateLimit(userId, action, maxAttempts);
+  static async checkRateLimit(userId: string, action: string, maxAttempts: number = 10, isAdmin: boolean = false): Promise<boolean> {
+    return this.checkClientRateLimit(userId, action, maxAttempts, isAdmin);
   }
 
-  static detectAnomalousActivity(userId: string, action: string, value?: number): boolean {
+  static detectAnomalousActivity(userId: string, action: string, value?: number, isAdmin: boolean = false): boolean {
+    // Skip anomaly detection for admin users
+    if (isAdmin) {
+      console.log(`👑 [SECURITY] Admin user bypassing anomaly detection for ${userId}:${action}`);
+      return false;
+    }
+
     const now = Date.now();
     const userActivity = this.activityLog.get(userId) || [];
     
@@ -134,9 +146,20 @@ export class SecurityMonitor {
     userId: string,
     activity: string,
     details: Record<string, any>,
-    riskLevel: 'low' | 'medium' | 'high' = 'medium'
+    riskLevel: 'low' | 'medium' | 'high' = 'medium',
+    isAdmin: boolean = false
   ): Promise<void> {
     try {
+      // Don't log suspicious activity for admin users
+      if (isAdmin) {
+        console.log(`👑 [SECURITY] Skipping suspicious activity log for admin user: ${activity}`, {
+          userId,
+          details,
+          riskLevel
+        });
+        return;
+      }
+
       console.warn(`🚨 [SECURITY] Suspicious activity: ${activity}`, {
         userId,
         details,
@@ -144,8 +167,7 @@ export class SecurityMonitor {
         timestamp: new Date().toISOString()
       });
       
-      // В будущем здесь будет запись в базу данных
-      // когда таблица suspicious_activities будет создана
+      // In the future, this would write to database when suspicious_activities table is created
       
     } catch (error) {
       console.error('Failed to log suspicious activity:', error);
@@ -153,38 +175,41 @@ export class SecurityMonitor {
   }
 }
 
-// Secure Operation Wrapper
+// Secure Operation Wrapper with Admin Exemption
 export async function secureOperation<T>(
   operation: () => Promise<T>,
   userId: string,
   actionType: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  isAdmin: boolean = false
 ): Promise<T> {
   try {
-    console.log(`🔒 [SECURE_OP] Starting ${actionType} for user ${userId}`);
+    console.log(`🔒 [SECURE_OP] Starting ${actionType} for user ${userId}${isAdmin ? ' (ADMIN)' : ''}`);
     
-    // Log the operation attempt
+    // Log the operation attempt (but not as suspicious for admins)
     await SecurityMonitor.logSuspiciousActivity(
       userId,
       `${actionType}_attempt`,
       { metadata },
-      'low'
+      'low',
+      isAdmin
     );
     
     const result = await operation();
     
-    console.log(`✅ [SECURE_OP] ${actionType} completed successfully for user ${userId}`);
+    console.log(`✅ [SECURE_OP] ${actionType} completed successfully for user ${userId}${isAdmin ? ' (ADMIN)' : ''}`);
     return result;
     
   } catch (error) {
-    console.error(`❌ [SECURE_OP] ${actionType} failed for user ${userId}:`, error);
+    console.error(`❌ [SECURE_OP] ${actionType} failed for user ${userId}${isAdmin ? ' (ADMIN)' : ''}:`, error);
     
     // Log the operation failure
     await SecurityMonitor.logSuspiciousActivity(
       userId,
       `${actionType}_failure`,
       { error: error instanceof Error ? error.message : 'Unknown error', metadata },
-      'medium'
+      isAdmin ? 'low' : 'medium',
+      isAdmin
     );
     
     throw error;

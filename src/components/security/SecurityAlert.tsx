@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, X } from 'lucide-react';
 import { SecurityMonitor } from '@/utils/securityEnhanced';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SecurityAlertProps {
   userId: string;
 }
 
 const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
+  const { user } = useAuth();
   const [alerts, setAlerts] = useState<Array<{
     id: string;
     type: 'warning' | 'error';
@@ -16,13 +18,22 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
     timestamp: Date;
   }>>([]);
 
+  // Check if user is admin
+  const isAdmin = user?.is_admin || false;
+
   useEffect(() => {
-    // Проверяем rate limits для критичных действий
+    // Skip all security checks for admin users
+    if (isAdmin) {
+      console.log('👑 [SECURITY_ALERT] Admin user detected, skipping security checks');
+      return;
+    }
+
+    // Check rate limits for critical actions
     const checkSecurityStatus = async () => {
       const criticalActions = ['complete_task', 'claim_task_reward', 'sell_skin'];
       
       for (const action of criticalActions) {
-        // Используем существующий метод checkRateLimit
+        // Use existing checkRateLimit method
         const canPerform = SecurityMonitor.checkClientRateLimit(userId, action, 10);
         
         if (!canPerform) {
@@ -34,7 +45,7 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
             timestamp: new Date()
           }]);
           
-          // Автоматически убираем алерт через 10 секунд
+          // Auto-remove alert after 10 seconds
           setTimeout(() => {
             setAlerts(prev => prev.filter(alert => alert.id !== alertId));
           }, 10000);
@@ -44,16 +55,19 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
 
     if (userId) {
       checkSecurityStatus();
-      const interval = setInterval(checkSecurityStatus, 30000); // Проверяем каждые 30 секунд
+      const interval = setInterval(checkSecurityStatus, 30000);
       return () => clearInterval(interval);
     }
-  }, [userId]);
+  }, [userId, isAdmin]);
 
   const removeAlert = (alertId: string) => {
     setAlerts(prev => prev.filter(alert => alert.id !== alertId));
   };
 
-  if (alerts.length === 0) return null;
+  // Don't render alerts for admin users
+  if (isAdmin || alerts.length === 0) {
+    return null;
+  }
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">

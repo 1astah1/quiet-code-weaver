@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { SecurityRateLimiter } from '@/utils/security';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Shield, AlertTriangle, Crown } from 'lucide-react';
 
 interface SecurityEvent {
   id: string;
@@ -19,9 +19,18 @@ const SecurityMonitor: React.FC = () => {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
 
+  // Check if user is admin
+  const isAdmin = user?.is_admin || false;
+
   useEffect(() => {
     if (!user) {
       console.log('❌ [SECURITY_MONITOR] No user, skipping security checks');
+      return;
+    }
+
+    // Skip monitoring for admin users
+    if (isAdmin) {
+      console.log('👑 [SECURITY_MONITOR] Admin user detected, skipping security monitoring');
       return;
     }
 
@@ -53,16 +62,22 @@ const SecurityMonitor: React.FC = () => {
       }
     };
 
-    checkSecurity(); // Первоначальная проверка
+    checkSecurity();
     const interval = setInterval(checkSecurity, 1000);
     
     return () => {
       console.log('🛑 [SECURITY_MONITOR] Stopping security monitoring');
       clearInterval(interval);
     };
-  }, [user, isBlocked]);
+  }, [user, isBlocked, isAdmin]);
 
   const addSecurityEvent = (type: SecurityEvent['type'], message: string) => {
+    // Don't add events for admin users
+    if (isAdmin) {
+      console.log('👑 [SECURITY_MONITOR] Skipping event for admin user:', message);
+      return;
+    }
+
     const event: SecurityEvent = {
       id: Date.now().toString(),
       timestamp: new Date(),
@@ -74,8 +89,13 @@ const SecurityMonitor: React.FC = () => {
     setEvents(prev => [event, ...prev.slice(0, 4)]);
   };
 
-  // Слушаем события безопасности из консоли
+  // Listen for security events from console, but skip for admins
   useEffect(() => {
+    if (isAdmin) {
+      console.log('👑 [SECURITY_MONITOR] Skipping console monitoring for admin user');
+      return;
+    }
+
     console.log('👂 [SECURITY_MONITOR] Setting up console monitoring...');
     
     const originalWarn = console.warn;
@@ -116,21 +136,18 @@ const SecurityMonitor: React.FC = () => {
       console.warn = originalWarn;
       console.error = originalError;
     };
-  }, []);
+  }, [isAdmin]);
 
-  // Проверяем видимость компонента
-  useEffect(() => {
-    const shouldShow = user && (events.length > 0 || isBlocked);
-    console.log('👁️ [SECURITY_MONITOR] Visibility check:', {
-      hasUser: !!user,
-      eventsCount: events.length,
-      isBlocked,
-      shouldShow
-    });
-  }, [user, events.length, isBlocked]);
+  // Don't render anything for admin users
+  if (!user || isAdmin) {
+    if (isAdmin) {
+      console.log('👑 [SECURITY_MONITOR] Not rendering for admin user');
+    }
+    return null;
+  }
 
-  if (!user || (events.length === 0 && !isBlocked)) {
-    console.log('🚫 [SECURITY_MONITOR] Not rendering (no user or no events/blocks)');
+  if (events.length === 0 && !isBlocked) {
+    console.log('🚫 [SECURITY_MONITOR] Not rendering (no events/blocks)');
     return null;
   }
 
