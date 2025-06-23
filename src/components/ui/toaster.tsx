@@ -12,10 +12,13 @@ import {
 export function Toaster() {
   const { toasts } = useToast()
 
-  console.log('🍞 [TOASTER] Component rendering:', {
-    toastCount: toasts.length,
-    toasts: toasts.map(t => ({ id: t.id, title: t.title, variant: t.variant }))
-  });
+  // Only log if there are toasts to reduce console spam
+  if (toasts.length > 0) {
+    console.log('🍞 [TOASTER] Component rendering:', {
+      toastCount: toasts.length,
+      toasts: toasts.map(t => ({ id: t.id, title: t.title, variant: t.variant }))
+    });
+  }
 
   return (
     <ToastProvider>

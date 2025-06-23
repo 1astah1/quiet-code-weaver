@@ -41,41 +41,68 @@ export const useQuizLogic = ({
   const [quizBlocked, setQuizBlocked] = useState(false);
   const [nextQuizTime, setNextQuizTime] = useState<Date | null>(null);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  const [hasShownBlockedToast, setHasShownBlockedToast] = useState(false);
   
   const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lifeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   const queryClient = useQueryClient();
   const { checkQuizAvailability, updateQuizProgress } = useSecureQuiz();
 
+  // Check quiz access only once on mount
   useEffect(() => {
+    let mounted = true;
+    
     const checkQuizAccess = async () => {
       try {
+        console.log('🎯 [QUIZ] Checking quiz availability for user:', currentUser.id);
         const result = await checkQuizAvailability(currentUser.id);
         
+        if (!mounted) return;
+        
         if (!result.canTakeQuiz) {
+          console.log('🚫 [QUIZ] Quiz blocked:', result.reason);
           setQuizBlocked(true);
+          
           if (result.nextAvailable) {
             setNextQuizTime(result.nextAvailable);
           }
           
-          if (result.reason === '24h_cooldown') {
+          // Show toast only once and only for 24h cooldown
+          if (result.reason === '24h_cooldown' && !hasShownBlockedToast) {
+            setHasShownBlockedToast(true);
             toast({
               title: "Викторина недоступна",
               description: "Вы уже проходили викторину сегодня. Приходите завтра!",
               variant: "destructive",
             });
           }
+        } else {
+          console.log('✅ [QUIZ] Quiz available');
+          setQuizBlocked(false);
         }
       } catch (error) {
-        console.error('Error checking quiz access:', error);
+        console.error('❌ [QUIZ] Error checking quiz access:', error);
+        if (mounted && !hasShownBlockedToast) {
+          setHasShownBlockedToast(true);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось проверить доступность викторины",
+            variant: "destructive",
+          });
+        }
       }
     };
 
     checkQuizAccess();
-  }, [currentUser.id, checkQuizAvailability, toast]);
 
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser.id, checkQuizAvailability, toast, hasShownBlockedToast]);
+
+  // Life restoration check
   useEffect(() => {
     const checkLifeRestoration = async () => {
       try {
@@ -138,16 +165,21 @@ export const useQuizLogic = ({
     };
   }, [currentUser.id, onLivesUpdate]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clear all timeouts
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
       }
       if (lifeCheckIntervalRef.current) {
         clearInterval(lifeCheckIntervalRef.current);
       }
+      
+      // Dismiss any active toasts
+      dismiss();
     };
-  }, []);
+  }, [dismiss]);
 
   const updateUserStatsMutation = useMutation({
     mutationFn: async ({ lives, streak, coins }: { lives: number; streak: number; coins: number }) => {
