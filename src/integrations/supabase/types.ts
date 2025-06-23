@@ -9,13 +9,850 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      banners: {
+        Row: {
+          button_action: string
+          button_text: string
+          created_at: string | null
+          description: string
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          order_index: number | null
+          title: string
+        }
+        Insert: {
+          button_action: string
+          button_text: string
+          created_at?: string | null
+          description: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          order_index?: number | null
+          title: string
+        }
+        Update: {
+          button_action?: string
+          button_text?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          order_index?: number | null
+          title?: string
+        }
+        Relationships: []
+      }
+      case_skins: {
+        Row: {
+          case_id: string | null
+          coin_reward_id: string | null
+          custom_probability: number | null
+          id: string
+          never_drop: boolean | null
+          probability: number | null
+          reward_type: string | null
+          skin_id: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          coin_reward_id?: string | null
+          custom_probability?: number | null
+          id?: string
+          never_drop?: boolean | null
+          probability?: number | null
+          reward_type?: string | null
+          skin_id?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          coin_reward_id?: string | null
+          custom_probability?: number | null
+          id?: string
+          never_drop?: boolean | null
+          probability?: number | null
+          reward_type?: string | null
+          skin_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_skins_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_skins_skin_id_fkey"
+            columns: ["skin_id"]
+            isOneToOne: false
+            referencedRelation: "skins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cases: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_free: boolean | null
+          last_free_open: string | null
+          likes_count: number | null
+          name: string
+          price: number
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_free?: boolean | null
+          last_free_open?: string | null
+          likes_count?: number | null
+          name: string
+          price: number
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_free?: boolean | null
+          last_free_open?: string | null
+          likes_count?: number | null
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      coin_rewards: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          image_url: string | null
+          name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      daily_rewards: {
+        Row: {
+          created_at: string | null
+          day_number: number
+          id: string
+          is_active: boolean | null
+          reward_coins: number
+          reward_item_id: string | null
+          reward_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          day_number: number
+          id?: string
+          is_active?: boolean | null
+          reward_coins?: number
+          reward_item_id?: string | null
+          reward_type?: string
+        }
+        Update: {
+          created_at?: string | null
+          day_number?: number
+          id?: string
+          is_active?: boolean | null
+          reward_coins?: number
+          reward_item_id?: string | null
+          reward_type?: string
+        }
+        Relationships: []
+      }
+      faq_items: {
+        Row: {
+          answer: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          order_index: number | null
+          question: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          order_index?: number | null
+          question: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          order_index?: number | null
+          question?: string
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          current_uses: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          reward_coins: number
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          current_uses?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          reward_coins: number
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          current_uses?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          reward_coins?: number
+        }
+        Relationships: []
+      }
+      quiz_questions: {
+        Row: {
+          correct_answer: string
+          created_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question: string
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          option_a?: string
+          option_b?: string
+          option_c?: string
+          option_d?: string
+          question?: string
+        }
+        Relationships: []
+      }
+      recent_wins: {
+        Row: {
+          case_id: string | null
+          id: string
+          skin_id: string | null
+          user_id: string | null
+          won_at: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          id?: string
+          skin_id?: string | null
+          user_id?: string | null
+          won_at?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          id?: string
+          skin_id?: string | null
+          user_id?: string | null
+          won_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recent_wins_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_wins_skin_id_fkey"
+            columns: ["skin_id"]
+            isOneToOne: false
+            referencedRelation: "skins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_wins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_earnings: {
+        Row: {
+          coins_earned: number
+          earned_at: string | null
+          id: string
+          referred_id: string | null
+          referrer_id: string | null
+        }
+        Insert: {
+          coins_earned: number
+          earned_at?: string | null
+          id?: string
+          referred_id?: string | null
+          referrer_id?: string | null
+        }
+        Update: {
+          coins_earned?: number
+          earned_at?: string | null
+          id?: string
+          referred_id?: string | null
+          referrer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_earnings_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skin_withdrawal_requests: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          inventory_item_id: string
+          status: string
+          steam_trade_offer_id: string | null
+          steam_trade_url: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          inventory_item_id: string
+          status?: string
+          steam_trade_offer_id?: string | null
+          steam_trade_url: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          inventory_item_id?: string
+          status?: string
+          steam_trade_offer_id?: string | null
+          steam_trade_url?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skin_withdrawal_requests_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: true
+            referencedRelation: "user_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skins: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string | null
+          name: string
+          price: number
+          probability: number | null
+          rarity: string
+          weapon_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          price: number
+          probability?: number | null
+          rarity: string
+          weapon_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: number
+          probability?: number | null
+          rarity?: string
+          weapon_type?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          is_active: boolean | null
+          reward_coins: number
+          task_url: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          is_active?: boolean | null
+          reward_coins: number
+          task_url?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          reward_coins?: number
+          task_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      user_daily_rewards: {
+        Row: {
+          claimed_at: string | null
+          created_at: string | null
+          day_number: number
+          id: string
+          reward_coins: number
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string | null
+          day_number: number
+          id?: string
+          reward_coins?: number
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string | null
+          day_number?: number
+          id?: string
+          reward_coins?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_favorites: {
+        Row: {
+          case_id: string | null
+          created_at: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_favorites_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_free_case_openings: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          opened_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          opened_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          opened_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_free_case_openings_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_free_case_openings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_inventory: {
+        Row: {
+          id: string
+          is_sold: boolean | null
+          obtained_at: string | null
+          skin_id: string | null
+          sold_at: string | null
+          sold_price: number | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          is_sold?: boolean | null
+          obtained_at?: string | null
+          skin_id?: string | null
+          sold_at?: string | null
+          sold_price?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          is_sold?: boolean | null
+          obtained_at?: string | null
+          skin_id?: string | null
+          sold_at?: string | null
+          sold_price?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_inventory_skin_id_fkey"
+            columns: ["skin_id"]
+            isOneToOne: false
+            referencedRelation: "skins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_promo_codes: {
+        Row: {
+          id: string
+          promo_code_id: string | null
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          promo_code_id?: string | null
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          promo_code_id?: string | null
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_promo_codes_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_promo_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_quiz_progress: {
+        Row: {
+          completed: boolean | null
+          correct_answers: number | null
+          date: string | null
+          id: string
+          questions_answered: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          correct_answers?: number | null
+          date?: string | null
+          id?: string
+          questions_answered?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          correct_answers?: number | null
+          date?: string | null
+          id?: string
+          questions_answered?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_steam_settings: {
+        Row: {
+          connected_at: string | null
+          created_at: string | null
+          id: string
+          steam_avatar_url: string | null
+          steam_id: string | null
+          steam_nickname: string | null
+          user_id: string | null
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          steam_avatar_url?: string | null
+          steam_id?: string | null
+          steam_nickname?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          steam_avatar_url?: string | null
+          steam_id?: string | null
+          steam_nickname?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_steam_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          auth_id: string | null
+          coins: number | null
+          created_at: string | null
+          daily_streak: number | null
+          email: string | null
+          id: string
+          is_admin: boolean | null
+          last_ad_life_restore: string | null
+          last_daily_login: string | null
+          last_free_case_notification: string | null
+          last_life_restore: string | null
+          last_quiz_date: string | null
+          most_expensive_skin_value: number | null
+          premium_until: string | null
+          profile_private: boolean | null
+          quiz_lives: number | null
+          quiz_streak: number | null
+          referral_code: string | null
+          referred_by: string | null
+          steam_connected: boolean | null
+          total_cases_opened: number | null
+          total_spent: number | null
+          username: string
+        }
+        Insert: {
+          auth_id?: string | null
+          coins?: number | null
+          created_at?: string | null
+          daily_streak?: number | null
+          email?: string | null
+          id?: string
+          is_admin?: boolean | null
+          last_ad_life_restore?: string | null
+          last_daily_login?: string | null
+          last_free_case_notification?: string | null
+          last_life_restore?: string | null
+          last_quiz_date?: string | null
+          most_expensive_skin_value?: number | null
+          premium_until?: string | null
+          profile_private?: boolean | null
+          quiz_lives?: number | null
+          quiz_streak?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
+          steam_connected?: boolean | null
+          total_cases_opened?: number | null
+          total_spent?: number | null
+          username: string
+        }
+        Update: {
+          auth_id?: string | null
+          coins?: number | null
+          created_at?: string | null
+          daily_streak?: number | null
+          email?: string | null
+          id?: string
+          is_admin?: boolean | null
+          last_ad_life_restore?: string | null
+          last_daily_login?: string | null
+          last_free_case_notification?: string | null
+          last_life_restore?: string | null
+          last_quiz_date?: string | null
+          most_expensive_skin_value?: number | null
+          premium_until?: string | null
+          profile_private?: boolean | null
+          quiz_lives?: number | null
+          quiz_streak?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
+          steam_connected?: boolean | null
+          total_cases_opened?: number | null
+          total_spent?: number | null
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      safe_open_case: {
+        Args: {
+          p_user_id: string
+          p_case_id: string
+          p_skin_id?: string
+          p_coin_reward_id?: string
+          p_is_free?: boolean
+        }
+        Returns: Json
+      }
+      safe_update_coins: {
+        Args: {
+          p_user_id: string
+          p_coin_change: number
+          p_operation_type: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

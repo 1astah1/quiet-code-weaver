@@ -1,9 +1,9 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import OptimizedImage from "@/components/ui/OptimizedImage";
+import type { CaseSkin } from "@/utils/supabaseTypes";
 
 interface CasePreviewModalProps {
   caseItem: {
@@ -23,7 +23,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
     queryFn: async () => {
       try {
         const { data, error } = await supabase
-          .from('case_skins')
+          .from('case_skins' as any)
           .select(`
             probability,
             custom_probability,
@@ -45,7 +45,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
           throw error;
         }
         
-        return data || [];
+        return (data || []) as CaseSkin[];
       } catch (error) {
         console.error('Case skins query error:', error);
         return [];
