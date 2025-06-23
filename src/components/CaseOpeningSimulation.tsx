@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +37,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
     }
   };
 
-  const generateSkinsForAnimation = (caseRewards: any[], winnerSkin: any) => {
+  const generateSkinsForAnimation = (caseSkins: any[], winnerSkin: any) => {
     const animationSkins = [];
     const totalSkins = 50;
     const winnerPosition = Math.floor(totalSkins * 0.8);
@@ -47,12 +46,8 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
       if (i === winnerPosition) {
         animationSkins.push(winnerSkin);
       } else {
-        const randomReward = caseRewards[Math.floor(Math.random() * caseRewards.length)];
-        if (randomReward.reward_type === 'skin' && randomReward.skins) {
-          animationSkins.push(randomReward.skins);
-        } else if (randomReward.reward_type === 'coins' && randomReward.coin_rewards) {
-          animationSkins.push({ ...randomReward.coin_rewards, isCoin: true });
-        }
+        const randomSkin = caseSkins[Math.floor(Math.random() * caseSkins.length)];
+        animationSkins.push(randomSkin.skins);
       }
     }
     
@@ -63,57 +58,36 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
     setIsOpening(true);
 
     try {
-      // Get rewards from case using the new structure
-      const { data: caseRewards, error: caseRewardsError } = await supabase
-        .from('case_rewards')
+      // Get skins from case
+      const { data: caseSkins, error: caseSkinsError } = await supabase
+        .from('case_skins')
         .select(`
           probability,
-          never_drop,
-          reward_type,
-          skins (
-            id,
-            name,
-            weapon_type,
-            rarity,
-            price,
-            image_url
-          ),
-          coin_rewards (
-            id,
-            name,
-            amount,
-            image_url
-          )
+          skins (*)
         `)
-        .eq('case_id', caseItem.id)
-        .eq('is_active', true)
-        .eq('never_drop', false);
+        .eq('case_id', caseItem.id);
 
-      if (caseRewardsError) throw caseRewardsError;
+      if (caseSkinsError) throw caseSkinsError;
 
-      // Select random reward based on probability
+      // Select random skin based on probability
       const random = Math.random();
       let cumulativeProbability = 0;
-      let selectedReward = null;
+      let selectedSkin = null;
 
-      for (const reward of caseRewards || []) {
-        cumulativeProbability += reward.probability;
+      for (const item of caseSkins || []) {
+        cumulativeProbability += item.probability;
         if (random <= cumulativeProbability) {
-          selectedReward = reward;
+          selectedSkin = item.skins;
           break;
         }
       }
 
-      if (!selectedReward && caseRewards?.length) {
-        selectedReward = caseRewards[0];
+      if (!selectedSkin && caseSkins?.length) {
+        selectedSkin = caseSkins[0].skins;
       }
 
-      const selectedItem = selectedReward?.reward_type === 'skin' 
-        ? selectedReward.skins 
-        : selectedReward?.coin_rewards;
-
       // Generate animation skins
-      const animationData = generateSkinsForAnimation(caseRewards || [], selectedItem);
+      const animationData = generateSkinsForAnimation(caseSkins || [], selectedSkin);
       setAllSkins(animationData.skins);
       setWinningIndex(animationData.winnerIndex);
 
@@ -130,7 +104,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
 
       // Complete animation after 4.5 seconds
       setTimeout(async () => {
-        if (selectedItem) {
+        if (selectedSkin) {
           // Deduct coins if case is not free
           if (!caseItem.is_free) {
             const newCoins = currentUser.coins - caseItem.price;
@@ -143,7 +117,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
             onCoinsUpdate(newCoins);
           }
 
-          setWonSkin(selectedItem);
+          setWonSkin(selectedSkin);
           setIsOpening(false);
           setIsComplete(true);
           setShowDecision(true);
@@ -178,8 +152,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
         .insert({
           user_id: currentUser.id,
           skin_id: wonSkin.id,
-          case_id: caseItem.id,
-          reward_type: 'skin'
+          case_id: caseItem.id
         });
 
       toast({
@@ -215,8 +188,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
         .insert({
           user_id: currentUser.id,
           skin_id: wonSkin.id,
-          case_id: caseItem.id,
-          reward_type: 'skin'
+          case_id: caseItem.id
         });
 
       onCoinsUpdate(newCoins);
@@ -277,7 +249,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
                 {allSkins.map((skin, index) => (
                   <div
                     key={index}
-                    className={`flex-shrink-0 w-28 h-32 mx-1 bg-gradient-to-br ${getRarityColor(skin.rarity || 'Consumer')} rounded-lg p-3 flex flex-col items-center justify-center border-2 ${
+                    className={`flex-shrink-0 w-28 h-32 mx-1 bg-gradient-to-br ${getRarityColor(skin.rarity)} rounded-lg p-3 flex flex-col items-center justify-center border-2 ${
                       index === winningIndex ? 'border-orange-500 shadow-lg shadow-orange-500/50' : 'border-transparent'
                     } relative overflow-hidden`}
                   >
@@ -285,10 +257,10 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                     
                     <div className="bg-black/30 rounded w-full h-16 mb-2 flex items-center justify-center relative z-10">
-                      <span className="text-2xl">{skin.isCoin ? '🪙' : '🎯'}</span>
+                      <span className="text-2xl">🎯</span>
                     </div>
                     <p className="text-white text-xs font-semibold text-center leading-tight relative z-10">
-                      {skin.name && skin.name.length > 20 ? skin.name.substring(0, 20) + '...' : skin.name || 'Item'}
+                      {skin.name.length > 20 ? skin.name.substring(0, 20) + '...' : skin.name}
                     </p>
                     
                     {/* Rarity indicator */}
@@ -313,9 +285,9 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
           <div className="w-full h-full flex items-center justify-center">
             <div className="bg-gray-900/95 rounded-xl p-8 max-w-md w-full mx-4 text-center border border-orange-500/50">
               <h2 className="text-3xl font-bold text-white mb-6">Поздравляем!</h2>
-              <div className={`bg-gradient-to-br ${getRarityColor(wonSkin.rarity || 'Consumer')} rounded-lg p-6 mb-6`}>
+              <div className={`bg-gradient-to-br ${getRarityColor(wonSkin.rarity)} rounded-lg p-6 mb-6`}>
                 <div className="bg-black/30 rounded-lg h-32 mb-4 flex items-center justify-center">
-                  <span className="text-6xl">{wonSkin.isCoin ? '🪙' : '🎯'}</span>
+                  <span className="text-6xl">🎯</span>
                 </div>
                 <h3 className="text-white font-bold text-xl mb-2">{wonSkin.name}</h3>
                 <p className="text-white/80 mb-1">{wonSkin.weapon_type}</p>
@@ -336,7 +308,7 @@ const CaseOpeningSimulation = ({ caseItem, onClose, currentUser, onCoinsUpdate }
             <div className="bg-gray-900/95 rounded-xl p-8 max-w-md w-full mx-4 text-center border border-orange-500/50">
               <h2 className="text-2xl font-bold text-white mb-4">Что делать со скином?</h2>
               
-              <div className={`bg-gradient-to-br ${getRarityColor(wonSkin.rarity || 'Consumer')} rounded-lg p-4 mb-6`}>
+              <div className={`bg-gradient-to-br ${getRarityColor(wonSkin.rarity)} rounded-lg p-4 mb-6`}>
                 <h3 className="text-white font-bold text-lg mb-1">{wonSkin.name}</h3>
                 <p className="text-white/80 text-sm">{wonSkin.weapon_type}</p>
                 <p className="text-yellow-400 font-bold mt-2">{wonSkin.price} монет</p>

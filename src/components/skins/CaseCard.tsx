@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Package, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,6 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const handleOpen = async () => {
     if (isOpening) return;
 
-    console.log('🎯 Opening case:', caseItem.name, 'Free:', caseItem.is_free);
-
     // Для бесплатных кейсов проверяем индивидуальный таймер
     if (caseItem.is_free) {
       if (!canOpenFreeCase) {
@@ -49,19 +48,25 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
         });
         return;
       }
-    } else {
-      // Для платных кейсов проверяем монеты
-      if (currentUser.coins < caseItem.price) {
-        toast({
-          title: "Недостаточно монет",
-          description: `Для открытия кейса нужно ${caseItem.price} монет`,
-          variant: "destructive",
-        });
-        return;
-      }
+
+      // Для бесплатных кейсов не обновляем время здесь, 
+      // это будет сделано в handleFreeCaseResult
+      setIsOpening(false);
+      onOpen(caseItem);
+      return;
     }
 
-    setIsOpening(true);
+    // Для платных кейсов проверяем монеты
+    if (currentUser.coins < caseItem.price) {
+      toast({
+        title: "Недостаточно монет",
+        description: `Для открытия кейса нужно ${caseItem.price} монет`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsOpening(false);
     onOpen(caseItem);
   };
 
@@ -137,7 +142,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
           {/* Индивидуальный таймер для каждого бесплатного кейса */}
           {caseItem.is_free && (
             <FreeCaseTimer
-              lastOpenTime={null}
+              lastOpenTime={null} // Не используем это поле больше
               onTimerComplete={handleTimerComplete}
               isDisabled={!canOpenFreeCase}
               userId={currentUser.id}

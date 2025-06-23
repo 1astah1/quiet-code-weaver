@@ -18,22 +18,23 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [wonCoins, setWonCoins] = useState<number>(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'loading' | 'roulette' | 'complete'>('loading');
+  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'bonus' | 'complete'>('opening');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showBonusRoulette, setShowBonusRoulette] = useState(false);
   const [caseSkins, setCaseSkins] = useState<any[]>([]);
   const { toast } = useToast();
   const { logCaseOpening } = useCaseOpeningLogger();
 
   const startTime = Date.now();
 
-  // Загружаем содержимое кейса
+  // Загружаем скины кейса
   useEffect(() => {
     const loadCaseSkins = async () => {
       try {
-        console.log('📦 [CASE_OPENING] Loading case contents for:', caseItem?.name);
+        console.log('📦 [CASE_OPENING] Loading case skins for case:', caseItem?.name);
         
         if (!caseItem?.id) {
-          console.error('⚠️ [CASE_OPENING] No case ID provided');
+          console.log('⚠️ [CASE_OPENING] No case ID provided');
           return;
         }
         
@@ -48,32 +49,25 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
             skins (*),
             coin_rewards (*)
           `)
-          .eq('case_id', caseItem.id)
-          .eq('never_drop', false);
+          .eq('case_id', caseItem.id);
 
         if (error) {
-          console.error('❌ [CASE_OPENING] Error loading case contents:', error);
+          console.error('❌ [CASE_OPENING] Error loading case skins:', error);
           throw error;
         }
         
-        console.log('✅ [CASE_OPENING] Case contents loaded:', data?.length || 0, 'items');
+        console.log('✅ [CASE_OPENING] Case skins loaded:', data?.length || 0);
         setCaseSkins(data || []);
         
         await logCaseOpening({
           user_id: currentUser.id,
           case_id: caseItem.id,
           case_name: caseItem.name,
-          is_free: caseItem.is_free || false,
+          is_free: caseItem.is_free,
           phase: 'opening'
         });
-
-        // Переходим к рулетке после загрузки
-        setTimeout(() => {
-          setAnimationPhase('roulette');
-        }, 1000);
-        
       } catch (error) {
-        console.error('💥 [CASE_OPENING] Error loading case contents:', error);
+        console.error('💥 [CASE_OPENING] Error in loadCaseSkins:', error);
         toast({
           title: "Ошибка загрузки кейса",
           description: "Не удалось загрузить содержимое кейса",
@@ -85,8 +79,22 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     if (caseItem?.id && currentUser?.id) {
       loadCaseSkins();
     }
-  }, [caseItem?.id, currentUser.id]);
+  }, [caseItem?.id, currentUser.id, logCaseOpening, toast]);
 
+  // Запуск анимации открытия
+  useEffect(() => {
+    if (caseSkins.length > 0) {
+      console.log('🎬 [CASE_OPENING] Starting animation');
+      
+      // Фаза opening
+      setTimeout(() => {
+        console.log('🔍 [CASE_OPENING] Moving to revealing phase');
+        setAnimationPhase('revealing');
+      }, 2000);
+    }
+  }, [caseSkins.length]);
+
+  // Выбор случайной награды
   const selectRandomReward = (availableRewards: any[]) => {
     console.log('🎲 [CASE_OPENING] Selecting random reward from:', availableRewards.length, 'options');
     
@@ -95,13 +103,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       return null;
     }
 
-    // Считаем общую вероятность
     const totalProbability = availableRewards.reduce((sum, item) => {
       const prob = item.custom_probability || item.probability || 0.01;
       return sum + prob;
     }, 0);
-
-    console.log('📊 [CASE_OPENING] Total probability:', totalProbability);
 
     const random = Math.random() * totalProbability;
     let currentSum = 0;
@@ -118,162 +123,104 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
     }
 
-    // Fallback на первый элемент
     console.log('⚠️ [CASE_OPENING] Fallback to first reward');
     return availableRewards[0];
   };
 
-  const handleRouletteComplete = async (selectedReward: any) => {
+  // Обработка результата платного кейса
+  const handlePaidCaseOpening = async () => {
     try {
-      console.log('🎰 [CASE_OPENING] Roulette completed, processing reward:', selectedReward);
+      console.log('💳 [CASE_OPENING] Processing paid case opening');
+      
+      if (currentUser.coins < caseItem.price) {
+        throw new Error('Недостаточно монет');
+      }
 
+      const availableRewards = caseSkins.filter(item => !item.never_drop);
+      if (availableRewards.length === 0) {
+        throw new Error('В кейсе нет доступных наград');
+      }
+
+      const selectedReward = selectRandomReward(availableRewards);
       if (!selectedReward) {
         throw new Error('Не удалось выбрать награду');
       }
 
-      // Для бесплатных кейсов проверяем доступность
-      if (caseItem.is_free) {
-        // Проверяем когда последний раз открывали этот бесплатный кейс
-        const { data: lastOpening } = await supabase
-          .from('user_free_case_openings')
-          .select('opened_at')
-          .eq('user_id', currentUser.id)
-          .eq('case_id', caseItem.id)
-          .order('opened_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (lastOpening) {
-          const timeDiff = Date.now() - new Date(lastOpening.opened_at).getTime();
-          const twoHours = 2 * 60 * 60 * 1000;
-          
-          if (timeDiff < twoHours) {
-            throw new Error('Бесплатный кейс можно открыть только раз в 2 часа');
-          }
-        }
-      } else {
-        // Для платных кейсов проверяем баланс и списываем деньги
-        if (currentUser.coins < caseItem.price) {
-          throw new Error('Недостаточно монет для открытия кейса');
-        }
-
-        const { error: coinsError } = await supabase.rpc('safe_update_coins', {
-          p_user_id: currentUser.id,
-          p_coin_change: -caseItem.price,
-          p_operation_type: 'case_open'
-        });
-
-        if (coinsError) {
-          throw new Error('Не удалось списать монеты: ' + coinsError.message);
-        }
-
-        onCoinsUpdate(currentUser.coins - caseItem.price);
-      }
-
-      // Обрабатываем награду
-      if (selectedReward.reward_type === 'coin_reward' && selectedReward.coin_rewards) {
-        console.log('🪙 [CASE_OPENING] Processing coin reward');
+      if (selectedReward.reward_type === 'coin_reward') {
+        console.log('🪙 [CASE_OPENING] Opening case with coin reward');
         
-        const { error: addCoinsError } = await supabase.rpc('safe_update_coins', {
+        const { data, error } = await supabase.rpc('safe_open_case', {
           p_user_id: currentUser.id,
-          p_coin_change: selectedReward.coin_rewards.amount,
-          p_operation_type: 'coin_reward'
+          p_case_id: caseItem.id,
+          p_coin_reward_id: selectedReward.coin_rewards.id,
+          p_is_free: false
         });
 
-        if (addCoinsError) {
-          throw new Error('Не удалось добавить монеты: ' + addCoinsError.message);
-        }
-
+        if (error) throw error;
+        
         setWonCoins(selectedReward.coin_rewards.amount);
+        onCoinsUpdate(currentUser.coins - caseItem.price + selectedReward.coin_rewards.amount);
         
-        if (!caseItem.is_free) {
-          onCoinsUpdate(currentUser.coins - caseItem.price + selectedReward.coin_rewards.amount);
-        } else {
-          onCoinsUpdate(currentUser.coins + selectedReward.coin_rewards.amount);
-        }
-
-        await logCaseOpening({
-          user_id: currentUser.id,
-          case_id: caseItem.id,
-          case_name: caseItem.name,
-          is_free: caseItem.is_free || false,
-          phase: 'complete',
-          reward_type: 'coin_reward',
-          reward_data: selectedReward.coin_rewards,
-          duration_ms: Date.now() - startTime
-        });
-
-      } else if (selectedReward.skins) {
-        console.log('🔫 [CASE_OPENING] Processing skin reward');
-        
-        const { error: inventoryError } = await supabase
-          .from('user_inventory')
+        // Записываем в recent_wins
+        await supabase
+          .from('recent_wins')
           .insert({
             user_id: currentUser.id,
-            skin_id: selectedReward.skins.id
+            case_id: caseItem.id,
+            skin_id: null,
+            reward_type: 'coins',
+            reward_data: { amount: selectedReward.coin_rewards.amount },
+            won_at: new Date().toISOString()
           });
+        
+      } else {
+        console.log('🔫 [CASE_OPENING] Opening case with skin');
+        
+        const { data, error } = await supabase.rpc('safe_open_case', {
+          p_user_id: currentUser.id,
+          p_case_id: caseItem.id,
+          p_skin_id: selectedReward.skins.id,
+          p_is_free: false
+        });
 
-        if (inventoryError) {
-          throw new Error('Не удалось добавить скин в инвентарь: ' + inventoryError.message);
-        }
-
+        if (error) throw error;
+        
         setWonSkin(selectedReward.skins);
-
-        await logCaseOpening({
-          user_id: currentUser.id,
-          case_id: caseItem.id,
-          case_name: caseItem.name,
-          is_free: caseItem.is_free || false,
-          phase: 'complete',
-          reward_type: 'skin',
-          reward_data: selectedReward.skins,
-          duration_ms: Date.now() - startTime
-        });
-      }
-
-      // Записываем в recent_wins
-      await supabase
-        .from('recent_wins')
-        .insert({
-          user_id: currentUser.id,
-          case_id: caseItem.id,
-          skin_id: selectedReward.skins?.id || null,
-          reward_type: selectedReward.reward_type === 'coin_reward' ? 'coins' : 'skin',
-          reward_data: selectedReward.reward_type === 'coin_reward' ? 
-            { amount: selectedReward.coin_rewards.amount } : 
-            selectedReward.skins,
-          won_at: new Date().toISOString()
-        });
-
-      // Для бесплатных кейсов обновляем время последнего открытия
-      if (caseItem.is_free) {
+        onCoinsUpdate(currentUser.coins - caseItem.price);
+        
+        // Записываем в recent_wins
         await supabase
-          .from('user_free_case_openings')
-          .upsert({
+          .from('recent_wins')
+          .insert({
             user_id: currentUser.id,
             case_id: caseItem.id,
-            opened_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,case_id'
+            skin_id: selectedReward.skins.id,
+            reward_type: 'skin',
+            reward_data: selectedReward.skins,
+            won_at: new Date().toISOString()
           });
       }
 
-      setAnimationPhase('complete');
-      setIsComplete(true);
+      // Завершаем через 3 секунды
+      setTimeout(() => {
+        if (selectedReward.reward_type === 'coin_reward') {
+          // Проверяем бонус для монет
+          if (Math.random() < 0.15) { // 15% шанс на бонус
+            console.log('🎁 [CASE_OPENING] Bonus multiplier triggered');
+            setShowBonusRoulette(true);
+            setAnimationPhase('bonus');
+          } else {
+            setIsComplete(true);
+            setAnimationPhase('complete');
+          }
+        } else {
+          setIsComplete(true);
+          setAnimationPhase('complete');
+        }
+      }, 3000);
 
     } catch (error: any) {
-      console.error('❌ [CASE_OPENING] Error processing reward:', error);
-      
-      await logCaseOpening({
-        user_id: currentUser.id,
-        case_id: caseItem.id,
-        case_name: caseItem.name,
-        is_free: caseItem.is_free || false,
-        phase: 'error',
-        error_message: error.message,
-        duration_ms: Date.now() - startTime
-      });
-      
+      console.error('❌ [CASE_OPENING] Paid case opening error:', error);
       toast({
         title: "Ошибка открытия кейса",
         description: error.message,
@@ -282,8 +229,117 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     }
   };
 
+  // Обработка результата бесплатного кейса
+  const handleFreeCaseResult = async (reward: any) => {
+    console.log('🎯 [CASE_OPENING] Free case result received:', reward);
+    
+    try {
+      if (reward.type === 'coins') {
+        console.log('🪙 [CASE_OPENING] Processing free case coin reward:', reward.coins);
+        
+        // Обновляем монеты пользователя
+        const { error } = await supabase.rpc('safe_update_coins', {
+          p_user_id: currentUser.id,
+          p_coin_change: reward.coins,
+          p_operation_type: 'free_case_coins'
+        });
+
+        if (error) {
+          console.error('❌ [CASE_OPENING] Error updating coins:', error);
+          throw error;
+        }
+
+        setWonCoins(reward.coins);
+        onCoinsUpdate(currentUser.coins + reward.coins);
+        
+        // Записываем в recent_wins
+        await supabase
+          .from('recent_wins')
+          .insert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            skin_id: null,
+            reward_type: 'coins',
+            reward_data: { amount: reward.coins },
+            won_at: new Date().toISOString()
+          });
+        
+      } else if (reward.type === 'skin' && reward.skin) {
+        console.log('🔫 [CASE_OPENING] Processing free case skin reward:', reward.skin);
+        
+        if (!reward.skin || !reward.skin.id) {
+          console.error('❌ [CASE_OPENING] Invalid skin data received:', reward.skin);
+          throw new Error('Получен некорректный скин');
+        }
+        
+        // Добавляем скин в инвентарь
+        const { error } = await supabase
+          .from('user_inventory')
+          .insert({
+            user_id: currentUser.id,
+            skin_id: reward.skin.id
+          });
+
+        if (error) {
+          console.error('❌ [CASE_OPENING] Error adding skin to inventory:', error);
+          throw error;
+        }
+
+        setWonSkin(reward.skin);
+        
+        // Записываем в recent_wins
+        await supabase
+          .from('recent_wins')
+          .insert({
+            user_id: currentUser.id,
+            case_id: caseItem.id,
+            skin_id: reward.skin.id,
+            reward_type: 'skin',
+            reward_data: reward.skin,
+            won_at: new Date().toISOString()
+          });
+      }
+
+      // Обновляем время последнего открытия этого конкретного бесплатного кейса
+      console.log('⏰ [CASE_OPENING] Updating individual case opening time');
+      
+      const { error: openingError } = await supabase
+        .from('user_free_case_openings')
+        .upsert({
+          user_id: currentUser.id,
+          case_id: caseItem.id,
+          opened_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,case_id'
+        });
+
+      if (openingError) {
+        console.error('❌ [CASE_OPENING] Error updating case opening time:', openingError);
+      }
+
+      console.log('✅ [CASE_OPENING] Free case processing completed successfully');
+      setIsComplete(true);
+      setAnimationPhase('complete');
+      
+    } catch (error: any) {
+      console.error('❌ [CASE_OPENING] Free case result error:', error);
+      toast({
+        title: "Ошибка обработки награды",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Запуск открытия платного кейса
+  useEffect(() => {
+    if (animationPhase === 'revealing' && !caseItem?.is_free && caseSkins.length > 0) {
+      handlePaidCaseOpening();
+    }
+  }, [animationPhase, caseItem?.is_free, caseSkins.length]);
+
   const addToInventory = async () => {
-    console.log('📦 [CASE_OPENING] Item already in inventory');
+    console.log('📦 [CASE_OPENING] Adding to inventory');
     setIsProcessing(false);
   };
 
@@ -293,24 +349,13 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     console.log('💰 [CASE_OPENING] Selling skin directly:', wonSkin.name);
     setIsProcessing(true);
     try {
-      // Удаляем из инвентаря
-      const { error: removeError } = await supabase
-        .from('user_inventory')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('skin_id', wonSkin.id)
-        .eq('is_sold', false);
-
-      if (removeError) throw removeError;
-
-      // Добавляем монеты
-      const { error: coinsError } = await supabase.rpc('safe_update_coins', {
+      const { error } = await supabase.rpc('safe_update_coins', {
         p_user_id: currentUser.id,
         p_coin_change: wonSkin.price,
         p_operation_type: 'skin_sell'
       });
 
-      if (coinsError) throw coinsError;
+      if (error) throw error;
       
       onCoinsUpdate(currentUser.coins + wonSkin.price);
       toast({ title: `Скин продан за ${wonSkin.price} монет` });
@@ -326,16 +371,32 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     }
   };
 
+  const handleBonusComplete = (multiplier: number, finalCoins: number) => {
+    console.log('🎁 [CASE_OPENING] Bonus completed:', { multiplier, finalCoins });
+    setWonCoins(finalCoins);
+    onCoinsUpdate(currentUser.coins - caseItem.price + finalCoins);
+    setIsComplete(true);
+    setAnimationPhase('complete');
+  };
+
+  const handleBonusSkip = () => {
+    console.log('⏭️ [CASE_OPENING] Bonus skipped');
+    setIsComplete(true);
+    setAnimationPhase('complete');
+  };
+
   return {
     wonSkin,
     wonCoins,
     isComplete,
     animationPhase,
     isProcessing,
-    caseSkins,
-    selectRandomReward,
-    handleRouletteComplete,
+    showBonusRoulette,
     addToInventory,
-    sellDirectly
+    sellDirectly,
+    caseSkins,
+    handleBonusComplete,
+    handleBonusSkip,
+    handleFreeCaseResult
   };
 };

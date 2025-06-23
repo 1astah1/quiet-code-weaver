@@ -1,166 +1,98 @@
 
 import { useState, useEffect } from "react";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import LazyImage from "@/components/ui/LazyImage";
 
 interface CaseRouletteProps {
   caseSkins: any[];
-  onComplete: (selectedReward: any) => void;
-  selectRandomReward: (rewards: any[]) => any;
+  wonSkin: any;
+  onComplete: () => void;
 }
 
-const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRouletteProps) => {
+const CaseRoulette = ({ caseSkins, wonSkin, onComplete }: CaseRouletteProps) => {
+  const [items, setItems] = useState<any[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
-  const [rouletteItems, setRouletteItems] = useState<any[]>([]);
-  const [finalTransform, setFinalTransform] = useState(0);
-
-  console.log('CaseRoulette: Rendering with', caseSkins.length, 'items');
 
   useEffect(() => {
-    // Запускаем рулетку через небольшую задержку
-    setTimeout(() => {
-      startRoulette();
-    }, 1000);
-  }, [caseSkins]);
+    console.log('CaseRoulette: Initializing');
+    
+    if (!caseSkins || !wonSkin) {
+      console.error('CaseRoulette: Missing required props');
+      setTimeout(onComplete, 1000);
+      return;
+    }
 
-  const startRoulette = () => {
-    console.log('🎰 Starting roulette');
-    setIsSpinning(true);
-    
-    // Создаем расширенный список для рулетки (больше элементов для длинной прокрутки)
-    const expandedItems = [];
-    const itemsToShow = 100; // Увеличиваем количество элементов
-    
-    // Заполняем рулетку случайными элементами из доступных
-    for (let i = 0; i < itemsToShow; i++) {
-      const randomItem = caseSkins[Math.floor(Math.random() * caseSkins.length)];
-      expandedItems.push({
-        ...randomItem,
-        id: `roulette-${i}`,
-        displayData: randomItem.reward_type === 'coin_reward' ? randomItem.coin_rewards : randomItem.skins
-      });
+    // Создаем простой массив предметов
+    const rouletteItems = [];
+    for (let i = 0; i < 10; i++) {
+      if (i === 5) {
+        rouletteItems.push(wonSkin);
+      } else {
+        const randomIndex = Math.floor(Math.random() * caseSkins.length);
+        rouletteItems.push(caseSkins[randomIndex]?.skins || wonSkin);
+      }
     }
     
-    setRouletteItems(expandedItems);
-    
-    // Рассчитываем финальную позицию для остановки под стрелочкой
-    const itemWidth = 96; // ширина одного элемента (w-24 = 96px)
-    const containerWidth = 1024; // примерная ширина контейнера
-    const centerPosition = containerWidth / 2; // центр контейнера (где стрелочка)
-    
-    // Случайная позиция остановки в диапазоне последних 20 элементов
-    const minStopIndex = itemsToShow - 25;
-    const maxStopIndex = itemsToShow - 5;
-    const stopIndex = Math.floor(Math.random() * (maxStopIndex - minStopIndex) + minStopIndex);
-    
-    // Рассчитываем трансформацию чтобы нужный элемент оказался под стрелочкой
-    const targetTransform = -(stopIndex * itemWidth - centerPosition + itemWidth / 2);
-    setFinalTransform(targetTransform);
-    
-    // Анимация длится 6 секунд для более плавного эффекта
-    setTimeout(() => {
-      setIsSpinning(false);
-      
-      // После остановки определяем какой элемент под стрелочкой
-      setTimeout(() => {
-        // Находим элемент который под стрелочкой
-        const winnerItem = expandedItems[stopIndex];
-        console.log('🎯 Winner item at index:', stopIndex, winnerItem);
-        
-        // Передаем именно тот элемент который под стрелочкой
-        onComplete(winnerItem);
-      }, 1500); // Пауза для показа результата
-    }, 6000); // Увеличена длительность анимации
-  };
+    setItems(rouletteItems);
 
-  const getRarityColor = (rarity: string) => {
-    const rarityColors: { [key: string]: string } = {
-      'consumer': '#b0c3d9',
-      'industrial': '#5e98d9',
-      'mil-spec': '#4b69ff',
-      'restricted': '#8847ff',
-      'classified': '#d32ce6',
-      'covert': '#eb4b4b',
-      'contraband': '#e4ae39'
+    // Запускаем анимацию
+    const startTimer = setTimeout(() => {
+      setIsSpinning(true);
+    }, 500);
+
+    const endTimer = setTimeout(() => {
+      setIsSpinning(false);
+      setTimeout(onComplete, 1000);
+    }, 3000);
+
+    return () => {
+      clearTimeout(startTimer);
+      clearTimeout(endTimer);
     };
-    return rarityColors[rarity?.toLowerCase()] || '#666666';
-  };
+  }, [caseSkins, wonSkin, onComplete]);
+
+  if (!items.length) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-white text-xl">Подготовка рулетки...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-[500px] flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden">
-      <div className="text-white text-2xl font-bold mb-8">
-        {isSpinning ? 'Крутим рулетку...' : 'Результат!'}
-      </div>
-
-      {/* Рулетка */}
-      <div className="relative w-full max-w-4xl h-32 bg-slate-800 rounded-lg overflow-hidden border-2 border-orange-500/50">
-        {/* Указатель */}
+    <div className="space-y-8 p-4 bg-slate-900">
+      <h2 className="text-3xl font-bold text-white text-center">Рулетка!</h2>
+      
+      <div className="relative overflow-hidden bg-slate-800 rounded-lg border-2 border-orange-500/50">
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="w-1 h-32 bg-orange-500 shadow-lg shadow-orange-500/50"></div>
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2">
-            <div className="w-6 h-6 bg-orange-500 rotate-45 border-2 border-orange-600"></div>
-          </div>
+          <div className="w-0 h-0 border-l-[15px] border-r-[15px] border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500"></div>
         </div>
-
-        {/* Элементы рулетки */}
-        <div 
-          className={`flex h-full ${
-            isSpinning ? 'transition-transform duration-6000 ease-out' : ''
-          }`}
-          style={{
-            transform: isSpinning ? `translateX(${finalTransform}px)` : 'translateX(0)',
-          }}
-        >
-          {rouletteItems.map((item, index) => {
-            return (
-              <div
-                key={`${item.id}-${index}`}
-                className="flex-shrink-0 w-24 h-32 border-r border-slate-700 flex flex-col items-center justify-center p-2 relative"
-                style={{
-                  backgroundColor: item.displayData?.rarity ? 
-                    getRarityColor(item.displayData.rarity) + '20' : 
-                    (item.reward_type === 'coin_reward' ? '#fbbf2420' : '#374151')
-                }}
-              >
-                {/* Изображение */}
-                <div className="w-16 h-16 mb-1">
-                  {item.reward_type === 'coin_reward' ? (
-                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">₽</span>
-                    </div>
-                  ) : item.displayData?.image_url ? (
-                    <OptimizedImage
-                      src={item.displayData.image_url}
-                      alt={item.displayData.name || 'Item'}
-                      className="w-full h-full object-contain"
-                      fallback={
-                        <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
-                          <span className="text-white text-xs">🔫</span>
-                        </div>
-                      }
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
-                      <span className="text-white text-xs">🔫</span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Название */}
-                <div className="text-white text-xs text-center leading-tight">
-                  {item.reward_type === 'coin_reward' 
-                    ? `${item.displayData?.amount || 0}₽`
-                    : (item.displayData?.name || 'Item')
-                  }
-                </div>
+        
+        <div className={`flex transition-transform duration-2000 ease-out ${isSpinning ? '-translate-x-1/2' : ''}`}>
+          {items.map((item, index) => (
+            <div key={index} className="flex-shrink-0 w-32 h-32 border border-slate-600 p-2 flex flex-col items-center justify-center bg-slate-700">
+              <div className="w-full h-2/3 flex items-center justify-center mb-1">
+                {item?.image_url ? (
+                  <LazyImage
+                    src={item.image_url}
+                    alt={item.name || 'Скин'}
+                    className="w-full h-full object-contain"
+                    fallback={<div className="text-2xl">🔫</div>}
+                  />
+                ) : (
+                  <div className="text-2xl">🔫</div>
+                )}
               </div>
-            );
-          })}
+              <div className="text-white text-xs text-center truncate w-full">
+                {item?.name?.substring(0, 12) || 'Скин'}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Подсветка по краям для эффекта */}
-      <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-slate-900 to-transparent pointer-events-none z-5"></div>
-      <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-slate-900 to-transparent pointer-events-none z-5"></div>
+      <p className="text-yellow-400 text-xl font-semibold text-center animate-pulse">
+        {isSpinning ? 'Определяем победителя...' : 'Результат готов!'}
+      </p>
     </div>
   );
 };

@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
-import { useSellAllSkins } from "@/hooks/useSellAllSkins";
 import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 import { inventoryLimiter } from "@/utils/rateLimiter";
@@ -21,7 +20,6 @@ interface InventoryScreenProps {
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
   const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
   const sellSkinMutation = useSellSkin();
-  const sellAllMutation = useSellAllSkins();
   const { toast } = useToast();
   
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -71,35 +69,6 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     }
   };
 
-  const handleSellAll = async () => {
-    try {
-      if (!inventory || inventory.length === 0) {
-        toast({
-          title: "Нет предметов",
-          description: "В инвентаре нет предметов для продажи",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (sellAllMutation.isPending) {
-        console.log('Sell all already in progress');
-        return;
-      }
-
-      const result = await sellAllMutation.mutateAsync({
-        userId: currentUser.id
-      });
-
-      if (result && result.totalValue !== undefined) {
-        console.log('All skins sold, updating coins by:', result.totalValue);
-        onCoinsUpdate(currentUser.coins + result.totalValue);
-      }
-    } catch (error) {
-      console.error('Error selling all skins:', error);
-    }
-  };
-
   const handleWithdrawSkin = (item: any) => {
     setSelectedItem(item);
     setWithdrawModalOpen(true);
@@ -135,27 +104,8 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
   return (
     <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
       <div className="mb-4 sm:mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">Мои выигрыши</h1>
-            <p className="text-slate-400 text-xs sm:text-sm md:text-base">Управляйте своими скинами</p>
-          </div>
-          
-          {inventory && inventory.length > 0 && (
-            <button
-              onClick={handleSellAll}
-              disabled={sellAllMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-2 sm:px-4 sm:py-2 rounded text-xs sm:text-sm font-medium transition-all flex items-center space-x-1 sm:space-x-2"
-            >
-              {sellAllMutation.isPending ? (
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-              ) : (
-                <Coins className="w-3 h-3 sm:w-4 sm:h-4" />
-              )}
-              <span>Продать все</span>
-            </button>
-          )}
-        </div>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">Мои выигрыши</h1>
+        <p className="text-slate-400 text-xs sm:text-sm md:text-base">Управляйте своими скинами</p>
       </div>
 
       {!inventory || inventory.length === 0 ? (
@@ -178,6 +128,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                   {item.skins.rarity.split(' ')[0]}
                 </div>
 
+                {/* Skin Image */}
                 <div className="bg-black/30 rounded-lg aspect-square mb-1.5 flex items-center justify-center overflow-hidden">
                   {item.skins.image_url ? (
                     <OptimizedImage
@@ -198,6 +149,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                   )}
                 </div>
 
+                {/* Skin Info */}
                 <div className="space-y-1">
                   <div>
                     <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins.name}>
@@ -215,6 +167,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                     </div>
                   </div>
 
+                  {/* Action Buttons */}
                   <div className="space-y-1">
                     <button
                       onClick={() => handleSellSkin(item.id, item.skins.price)}
@@ -254,6 +207,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         </div>
       )}
 
+      {/* Модальное окно для вывода скина */}
       {selectedItem && (
         <WithdrawSkinModal
           isOpen={withdrawModalOpen}

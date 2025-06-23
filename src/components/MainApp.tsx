@@ -1,215 +1,398 @@
-
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import WelcomeScreen from "@/components/WelcomeScreen";
-import SkinsScreen from "@/components/SkinsScreen";
-import BannerCarousel from "@/components/BannerCarousel";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import Header from "@/components/Header";
+import Sidebar from "@/components/Sidebar";
+import MainScreen from "@/components/screens/MainScreen";
+import SkinsScreen from "@/components/screens/SkinsScreen";
+import QuizScreen from "@/components/screens/QuizScreen";
+import TasksScreen from "@/components/screens/TasksScreen";
+import InventoryScreen from "@/components/inventory/InventoryScreen";
+import SettingsScreen from "@/components/settings/SettingsScreen";
+import AdminPanel from "@/components/AdminPanel";
+import AuthScreen from "@/components/auth/AuthScreen";
+import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import SecurityMonitor from "@/components/security/SecurityMonitor";
 import { useToast } from "@/hooks/use-toast";
+import { auditLog } from "@/utils/security";
+import BottomNavigation from "@/components/BottomNavigation";
+import { useTranslation } from "@/hooks/useTranslation";
+import { useCriticalImagePreloader } from "@/hooks/useImagePreloader";
 
-export type Screen = 'welcome' | 'skins' | 'tasks' | 'quiz' | 'inventory' | 'settings' | 'admin';
+export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
+
+interface CurrentUser {
+  id: string;
+  username: string;
+  coins: number;
+  lives: number;
+  streak: number;
+  isPremium: boolean;
+  isAdmin: boolean;
+  avatar_url?: string;
+  language_code?: string;
+  sound_enabled?: boolean;
+  vibration_enabled?: boolean;
+  profile_private?: boolean;
+}
 
 const MainApp = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  console.log('🚀 [MAIN_APP] Component mounting/rendering');
+  
+  // Предзагружаем критические изображения
+  useCriticalImagePreloader();
+  
+  const { user, isLoading: authLoading, signOut } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<Screen>('main');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
+  const { t } = useTranslation(currentUser?.language_code);
 
-  // Используем хук для получения данных пользователя
-  const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
-
-  // Инициализация аутентификации
+  // Логирование изменений состояния
   useEffect(() => {
-    let mounted = true;
+    console.log('📊 [MAIN_APP] State change:', {
+      hasUser: !!user,
+      userId: user?.id,
+      authLoading,
+      isLoading,
+      currentScreen,
+      hasCurrentUser: !!currentUser
+    });
+  }, [user, authLoading, isLoading, currentScreen, currentUser]);
 
-    const initializeAuth = async () => {
-      try {
-        console.log('🔄 Initializing authentication...');
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          if (mounted) {
-            setAuthUser(null);
-            setCurrentScreen('welcome');
+  const loadUserData = async () => {
+    console.log('👤 [MAIN_APP] Starting loadUserData for:', user?.id);
+    
+    if (!user?.id) {
+      console.log('❌ [MAIN_APP] No user ID, stopping load');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔐 [MAIN_APP] Validating user ID format...');
+      
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
+        console.error('❌ [MAIN_APP] Invalid user ID format detected:', user.id);
+        await signOut();
+        return;
+      }
+      
+      console.log('📡 [MAIN_APP] Searching user by internal ID...');
+      let { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      console.log('📊 [MAIN_APP] Internal ID search result:', { found: !!userData, error: !!error });
+
+      if (!userData && user.id) {
+        console.log('📡 [MAIN_APP] Searching user by auth_id...');
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: userByAuthId, error: authError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .maybeSingle();
+          
+          console.log('📊 [MAIN_APP] Auth ID search result:', { found: !!userByAuthId, error: !!authError });
+          
+          if (!authError && userByAuthId) {
+            userData = userByAuthId;
+            error = null;
           }
+        }
+      }
+
+      if (error) {
+        console.error('❌ [MAIN_APP] User data loading error:', error);
+        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
+        
+        if (error.code === 'PGRST301' || error.code === 'PGRST116') {
+          console.log('🚪 [MAIN_APP] Critical error, signing out...');
+          await signOut();
           return;
         }
-
-        if (session?.user && mounted) {
-          console.log('✅ User authenticated:', session.user.id);
-          setAuthUser(session.user);
-          setCurrentScreen('skins');
-        } else {
-          console.log('❌ No active session');
-          if (mounted) {
-            setAuthUser(null);
-            setCurrentScreen('welcome');
-          }
-        }
-      } catch (error) {
-        console.error('💥 Auth initialization error:', error);
-        if (mounted) {
-          setAuthUser(null);
-          setCurrentScreen('welcome');
-        }
-      } finally {
-        if (mounted) {
-          setAuthLoading(false);
-        }
+        
+        setIsLoading(false);
+        return;
       }
-    };
 
-    initializeAuth();
-
-    // Подписываемся на изменения аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
-
-        try {
-          if (event === 'SIGNED_IN' && session?.user) {
-            setAuthUser(session.user);
-            setCurrentScreen('skins');
-            toast({
-              title: "Добро пожаловать!",
-              description: "Вы успешно вошли в аккаунт",
-            });
-          } else if (event === 'SIGNED_OUT') {
-            setAuthUser(null);
-            setCurrentScreen('welcome');
-          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-            setAuthUser(session.user);
-          }
-        } catch (error) {
-          console.error('💥 Auth state change error:', error);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [toast]);
-
-  // Обработка ошибок пользователя
-  useEffect(() => {
-    if (userError && authUser) {
-      console.error('❌ User data error:', userError);
-      if (userError.message.includes('User not found')) {
-        // Пользователь не найден в базе, возможно, нужно создать профиль
+      if (!userData) {
+        console.error('❌ [MAIN_APP] User data not found in database');
         toast({
-          title: "Ошибка профиля",
-          description: "Пожалуйста, перезайдите в аккаунт",
+          title: t('error'),
+          description: t('userDataNotFound'),
           variant: "destructive",
         });
+        await signOut();
+        return;
       }
+
+      console.log('🔍 [MAIN_APP] Validating user data integrity...');
+      if (userData.coins < 0 || userData.coins > 10000000) {
+        console.warn('⚠️ [MAIN_APP] Suspicious coin amount detected:', userData.coins);
+        await auditLog(userData.id, 'suspicious_coin_amount', { coins: userData.coins }, false);
+      }
+
+      console.log('👤 [MAIN_APP] Getting auth user avatar...');
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      const userProfile = {
+        id: userData.id,
+        username: userData.username || t('user'),
+        coins: Math.max(0, Math.min(userData.coins || 0, 10000000)),
+        lives: Math.max(0, Math.min(userData.quiz_lives || 5, 10)),
+        streak: Math.max(0, userData.quiz_streak || 0),
+        isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
+        isAdmin: userData.is_admin || false,
+        avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
+        language_code: userData.language_code || 'ru',
+        sound_enabled: userData.sound_enabled,
+        vibration_enabled: userData.vibration_enabled,
+        profile_private: userData.profile_private
+      };
+
+      console.log('✅ [MAIN_APP] User profile created:', {
+        id: userProfile.id,
+        username: userProfile.username,
+        coins: userProfile.coins,
+        isAdmin: userProfile.isAdmin
+      });
+
+      setCurrentUser(userProfile);
+      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
+    } catch (error) {
+      console.error('💥 [MAIN_APP] Unexpected error in loadUserData:', error);
+      console.error('💥 [MAIN_APP] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
+      
+      console.log('🚪 [MAIN_APP] Signing out due to unexpected error...');
+      await signOut();
+    } finally {
+      console.log('⏹️ [MAIN_APP] loadUserData completed, setting loading to false');
+      setIsLoading(false);
     }
-  }, [userError, authUser, toast]);
+  };
+
+  useEffect(() => {
+    console.log('🔄 [MAIN_APP] User effect triggered:', { hasUser: !!user, authLoading });
+    
+    if (user) {
+      loadUserData();
+    } else if (!authLoading) {
+      console.log('📝 [MAIN_APP] No user and auth not loading, setting loading to false');
+      setIsLoading(false);
+    }
+  }, [user, authLoading]);
+
+  const handleCoinsUpdate = async (newCoins: number) => {
+    console.log('💰 [MAIN_APP] Coins update requested:', { oldCoins: currentUser?.coins, newCoins });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
+      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
+      console.log('✅ [MAIN_APP] Coins updated successfully');
+    }
+  };
+
+  const handleLivesUpdate = async (newLives: number) => {
+    console.log('❤️ [MAIN_APP] Lives update requested:', { oldLives: currentUser?.lives, newLives });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
+      await auditLog(currentUser.id, 'lives_updated', { newLives });
+      console.log('✅ [MAIN_APP] Lives updated successfully');
+    }
+  };
+
+  const handleStreakUpdate = async (newStreak: number) => {
+    console.log('🔥 [MAIN_APP] Streak update requested:', { oldStreak: currentUser?.streak, newStreak });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
+      await auditLog(currentUser.id, 'streak_updated', { newStreak });
+      console.log('✅ [MAIN_APP] Streak updated successfully');
+    }
+  };
 
   const handleSignOut = async () => {
+    console.log('🚪 [MAIN_APP] Sign out requested');
+    
     try {
-      console.log('🚪 Signing out...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('❌ Sign out error:', error);
-        toast({
-          title: "Ошибка выхода",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "До свидания!",
-          description: "Вы успешно вышли из аккаунта",
-        });
+      if (currentUser) {
+        await auditLog(currentUser.id, 'user_signed_out', {});
       }
+      
+      console.log('🧹 [MAIN_APP] Clearing session data...');
+      sessionStorage.clear();
+      localStorage.removeItem('supabase.auth.token');
+      
+      console.log('📡 [MAIN_APP] Calling Supabase signOut...');
+      await signOut();
+      setCurrentUser(null);
+      setCurrentScreen('main');
+      console.log('✅ [MAIN_APP] Sign out completed successfully');
     } catch (error) {
-      console.error('💥 Sign out error:', error);
+      console.error('💥 [MAIN_APP] Error during sign out:', error);
+      console.log('🔄 [MAIN_APP] Force clearing state and reloading...');
+      setCurrentUser(null);
+      window.location.reload();
     }
   };
 
-  const handleCoinsUpdate = (newCoins: number) => {
-    // Force refetch of user data when coins are updated
-    window.location.reload();
+  const handleAuthSuccess = () => {
+    console.log('🎉 [MAIN_APP] Auth success, loading user data...');
+    loadUserData();
   };
 
-  // Показываем загрузку пока инициализируется аутентификация
-  if (authLoading) {
+  const handleCaseOpen = (caseItem: any) => {
+    console.log('📦 [MAIN_APP] Case open requested:', caseItem);
+    setOpeningCase(caseItem);
+  };
+
+  const handleScreenChange = (screen: string) => {
+    console.log('📱 [MAIN_APP] Screen change requested:', { from: currentScreen, to: screen });
+    setCurrentScreen(screen as Screen);
+  };
+
+  console.log('🎨 [MAIN_APP] Rendering component:', { authLoading, isLoading, hasUser: !!user, hasCurrentUser: !!currentUser });
+
+  if (authLoading || isLoading) {
+    console.log('⏳ [MAIN_APP] Showing loading screen');
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Загрузка...</p>
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">{t('loading')}</p>
         </div>
       </div>
     );
   }
 
-  // Показываем экран входа если пользователь не аутентифицирован
-  if (!authUser) {
-    return <WelcomeScreen />;
-  }
-
-  // Ждем загрузки данных пользователя
-  if (userLoading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Загрузка профиля...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Если есть ошибка загрузки пользователя, показываем экран входа
-  if (userError || !currentUser) {
-    return <WelcomeScreen />;
+  if (!user || !currentUser) {
+    console.log('🔐 [MAIN_APP] Showing auth screen');
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
 
   const renderScreen = () => {
+    console.log('🎯 [MAIN_APP] Rendering screen:', currentScreen);
+    
     switch (currentScreen) {
+      case 'main':
+        return (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
       case 'skins':
-        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return (
+          <SkinsScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'quiz':
+        return (
+          <QuizScreen 
+            currentUser={{
+              id: currentUser.id,
+              username: currentUser.username,
+              coins: currentUser.coins,
+              quiz_lives: currentUser.lives,
+              quiz_streak: currentUser.streak
+            }}
+            onCoinsUpdate={handleCoinsUpdate}
+            onBack={() => setCurrentScreen('main')}
+            onLivesUpdate={handleLivesUpdate}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        );
+      case 'tasks':
+        return (
+          <TasksScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'inventory':
+        return (
+          <InventoryScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'settings':
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'admin':
+        return currentUser.isAdmin ? <AdminPanel /> : (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
       default:
-        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+        return (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Simple header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">FastMarket</h1>
-          <div className="flex items-center space-x-4">
-            <div className="text-yellow-400 font-bold">
-              💰 {currentUser.coins} монет
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="text-gray-400 hover:text-white text-sm"
-            >
-              Выход
-            </button>
-          </div>
-        </div>
-      </div>
+  console.log('✅ [MAIN_APP] Rendering main application interface');
 
-      <main className="pt-4">
-        <div className="container mx-auto px-4 py-6">
-          {currentScreen === 'skins' && (
-            <BannerCarousel onBannerAction={setCurrentScreen} />
-          )}
-          {renderScreen()}
+  return (
+    <div className="min-h-screen bg-black overflow-hidden">
+      <SecurityMonitor />
+      
+      <div className="flex flex-col h-screen">
+        <Header 
+          currentUser={currentUser}
+          onMenuClick={() => setIsSidebarOpen(true)}
+        />
+        
+        <div className="flex-1 overflow-hidden">
+          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10">
+            <div className="max-w-7xl mx-auto">
+              {renderScreen()}
+            </div>
+          </main>
         </div>
-      </main>
+
+        <BottomNavigation 
+          currentScreen={currentScreen}
+          onScreenChange={handleScreenChange}
+          currentLanguage={currentUser?.language_code}
+        />
+
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentUser={currentUser}
+          onScreenChange={setCurrentScreen}
+          onSignOut={handleSignOut}
+        />
+
+        {openingCase && (
+          <CaseOpeningAnimation
+            caseItem={openingCase}
+            onClose={() => setOpeningCase(null)}
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        )}
+      </div>
     </div>
   );
 };

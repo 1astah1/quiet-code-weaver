@@ -13,89 +13,86 @@ export type Database = {
         Row: {
           button_action: string
           button_text: string
-          created_at: string
+          created_at: string | null
           description: string
           id: string
           image_url: string | null
-          is_active: boolean
-          order_index: number
+          is_active: boolean | null
+          order_index: number | null
           title: string
         }
         Insert: {
           button_action: string
           button_text: string
-          created_at?: string
+          created_at?: string | null
           description: string
           id?: string
           image_url?: string | null
-          is_active?: boolean
-          order_index?: number
+          is_active?: boolean | null
+          order_index?: number | null
           title: string
         }
         Update: {
           button_action?: string
           button_text?: string
-          created_at?: string
+          created_at?: string | null
           description?: string
           id?: string
           image_url?: string | null
-          is_active?: boolean
-          order_index?: number
+          is_active?: boolean | null
+          order_index?: number | null
           title?: string
         }
         Relationships: []
       }
-      case_rewards: {
+      case_skins: {
         Row: {
-          case_id: string
+          case_id: string | null
           coin_reward_id: string | null
-          created_at: string
+          custom_probability: number | null
           id: string
-          is_active: boolean
-          never_drop: boolean
-          probability: number
-          reward_type: Database["public"]["Enums"]["reward_type"]
+          never_drop: boolean | null
+          probability: number | null
+          reward_type: string | null
           skin_id: string | null
         }
         Insert: {
-          case_id: string
+          case_id?: string | null
           coin_reward_id?: string | null
-          created_at?: string
+          custom_probability?: number | null
           id?: string
-          is_active?: boolean
-          never_drop?: boolean
-          probability: number
-          reward_type?: Database["public"]["Enums"]["reward_type"]
+          never_drop?: boolean | null
+          probability?: number | null
+          reward_type?: string | null
           skin_id?: string | null
         }
         Update: {
-          case_id?: string
+          case_id?: string | null
           coin_reward_id?: string | null
-          created_at?: string
+          custom_probability?: number | null
           id?: string
-          is_active?: boolean
-          never_drop?: boolean
-          probability?: number
-          reward_type?: Database["public"]["Enums"]["reward_type"]
+          never_drop?: boolean | null
+          probability?: number | null
+          reward_type?: string | null
           skin_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "case_rewards_case_id_fkey"
+            foreignKeyName: "case_skins_case_id_fkey"
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "case_rewards_coin_reward_id_fkey"
+            foreignKeyName: "case_skins_coin_reward_id_fkey"
             columns: ["coin_reward_id"]
             isOneToOne: false
             referencedRelation: "coin_rewards"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "case_rewards_skin_id_fkey"
+            foreignKeyName: "case_skins_skin_id_fkey"
             columns: ["skin_id"]
             isOneToOne: false
             referencedRelation: "skins"
@@ -105,67 +102,67 @@ export type Database = {
       }
       cases: {
         Row: {
-          case_type: string
+          case_type: string | null
           cover_image_url: string | null
-          created_at: string
+          created_at: string | null
           description: string | null
           id: string
           image_url: string | null
-          is_active: boolean
-          is_free: boolean
-          likes_count: number
+          is_free: boolean | null
+          last_free_open: string | null
+          likes_count: number | null
           name: string
           price: number
-          rarity_color: string
+          rarity_color: string | null
         }
         Insert: {
-          case_type?: string
+          case_type?: string | null
           cover_image_url?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
-          is_free?: boolean
-          likes_count?: number
+          is_free?: boolean | null
+          last_free_open?: string | null
+          likes_count?: number | null
           name: string
           price: number
-          rarity_color?: string
+          rarity_color?: string | null
         }
         Update: {
-          case_type?: string
+          case_type?: string | null
           cover_image_url?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
-          is_free?: boolean
-          likes_count?: number
+          is_free?: boolean | null
+          last_free_open?: string | null
+          likes_count?: number | null
           name?: string
           price?: number
-          rarity_color?: string
+          rarity_color?: string | null
         }
         Relationships: []
       }
       coin_rewards: {
         Row: {
           amount: number
-          created_at: string
+          created_at: string | null
           id: string
           image_url: string | null
           name: string
         }
         Insert: {
           amount: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
           name: string
         }
         Update: {
           amount?: number
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
           name?: string
@@ -174,28 +171,28 @@ export type Database = {
       }
       daily_rewards: {
         Row: {
-          created_at: string
+          created_at: string | null
           day_number: number
           id: string
-          is_active: boolean
+          is_active: boolean | null
           reward_coins: number
           reward_item_id: string | null
           reward_type: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           day_number: number
           id?: string
-          is_active?: boolean
-          reward_coins: number
+          is_active?: boolean | null
+          reward_coins?: number
           reward_item_id?: string | null
           reward_type?: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           day_number?: number
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           reward_coins?: number
           reward_item_id?: string | null
           reward_type?: string
@@ -205,26 +202,26 @@ export type Database = {
       faq_items: {
         Row: {
           answer: string
-          created_at: string
+          created_at: string | null
           id: string
-          is_active: boolean
-          order_index: number
+          is_active: boolean | null
+          order_index: number | null
           question: string
         }
         Insert: {
           answer: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
-          order_index?: number
+          is_active?: boolean | null
+          order_index?: number | null
           question: string
         }
         Update: {
           answer?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
-          order_index?: number
+          is_active?: boolean | null
+          order_index?: number | null
           question?: string
         }
         Relationships: []
@@ -232,31 +229,31 @@ export type Database = {
       promo_codes: {
         Row: {
           code: string
-          created_at: string
-          current_uses: number
+          created_at: string | null
+          current_uses: number | null
           expires_at: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           max_uses: number | null
           reward_coins: number
         }
         Insert: {
           code: string
-          created_at?: string
-          current_uses?: number
+          created_at?: string | null
+          current_uses?: number | null
           expires_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           max_uses?: number | null
           reward_coins: number
         }
         Update: {
           code?: string
-          created_at?: string
-          current_uses?: number
+          created_at?: string | null
+          current_uses?: number | null
           expires_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           max_uses?: number | null
           reward_coins?: number
         }
@@ -264,12 +261,12 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
-          category: string
+          category: string | null
           correct_answer: string
-          created_at: string
+          created_at: string | null
           id: string
           image_url: string | null
-          is_active: boolean
+          is_active: boolean | null
           option_a: string
           option_b: string
           option_c: string
@@ -277,12 +274,12 @@ export type Database = {
           question: string
         }
         Insert: {
-          category?: string
+          category?: string | null
           correct_answer: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           option_a: string
           option_b: string
           option_c: string
@@ -290,12 +287,12 @@ export type Database = {
           question: string
         }
         Update: {
-          category?: string
+          category?: string | null
           correct_answer?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           option_a?: string
           option_b?: string
           option_c?: string
@@ -306,34 +303,31 @@ export type Database = {
       }
       recent_wins: {
         Row: {
-          case_id: string
-          coin_reward_id: string | null
+          case_id: string | null
           id: string
           reward_data: Json | null
-          reward_type: Database["public"]["Enums"]["reward_type"]
+          reward_type: string | null
           skin_id: string | null
-          user_id: string
-          won_at: string
+          user_id: string | null
+          won_at: string | null
         }
         Insert: {
-          case_id: string
-          coin_reward_id?: string | null
+          case_id?: string | null
           id?: string
           reward_data?: Json | null
-          reward_type?: Database["public"]["Enums"]["reward_type"]
+          reward_type?: string | null
           skin_id?: string | null
-          user_id: string
-          won_at?: string
+          user_id?: string | null
+          won_at?: string | null
         }
         Update: {
-          case_id?: string
-          coin_reward_id?: string | null
+          case_id?: string | null
           id?: string
           reward_data?: Json | null
-          reward_type?: Database["public"]["Enums"]["reward_type"]
+          reward_type?: string | null
           skin_id?: string | null
-          user_id?: string
-          won_at?: string
+          user_id?: string | null
+          won_at?: string | null
         }
         Relationships: [
           {
@@ -344,17 +338,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "recent_wins_coin_reward_id_fkey"
-            columns: ["coin_reward_id"]
+            foreignKeyName: "recent_wins_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "coin_rewards"
+            referencedRelation: "leaderboard"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "recent_wins_skin_id_fkey"
-            columns: ["skin_id"]
+            foreignKeyName: "recent_wins_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "skins"
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -369,31 +363,59 @@ export type Database = {
       referral_earnings: {
         Row: {
           coins_earned: number
-          earned_at: string
+          earned_at: string | null
           id: string
-          referred_id: string
-          referrer_id: string
+          referred_id: string | null
+          referrer_id: string | null
         }
         Insert: {
           coins_earned: number
-          earned_at?: string
+          earned_at?: string | null
           id?: string
-          referred_id: string
-          referrer_id: string
+          referred_id?: string | null
+          referrer_id?: string | null
         }
         Update: {
           coins_earned?: number
-          earned_at?: string
+          earned_at?: string | null
           id?: string
-          referred_id?: string
-          referrer_id?: string
+          referred_id?: string | null
+          referrer_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "referral_earnings_referred_id_fkey"
             columns: ["referred_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -408,76 +430,68 @@ export type Database = {
       security_audit_log: {
         Row: {
           action: string
-          created_at: string
+          created_at: string | null
           details: Json | null
           id: string
-          ip_address: unknown | null
-          success: boolean
+          ip_address: string | null
+          success: boolean | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action: string
-          created_at?: string
+          created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
-          success?: boolean
+          ip_address?: string | null
+          success?: boolean | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string
-          created_at?: string
+          created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
-          success?: boolean
+          ip_address?: string | null
+          success?: boolean | null
           user_agent?: string | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "security_audit_log_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       skin_withdrawal_requests: {
         Row: {
-          created_at: string
+          created_at: string | null
           error_message: string | null
           id: string
           inventory_item_id: string
-          status: Database["public"]["Enums"]["withdrawal_status"]
+          status: string
           steam_trade_offer_id: string | null
           steam_trade_url: string
-          updated_at: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           error_message?: string | null
           id?: string
           inventory_item_id: string
-          status?: Database["public"]["Enums"]["withdrawal_status"]
+          status?: string
           steam_trade_offer_id?: string | null
           steam_trade_url: string
-          updated_at?: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           error_message?: string | null
           id?: string
           inventory_item_id?: string
-          status?: Database["public"]["Enums"]["withdrawal_status"]
+          status?: string
           steam_trade_offer_id?: string | null
           steam_trade_url?: string
-          updated_at?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -492,6 +506,20 @@ export type Database = {
             foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skin_withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -499,35 +527,32 @@ export type Database = {
       }
       skins: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           image_url: string | null
-          is_active: boolean
           name: string
           price: number
-          probability: number
+          probability: number | null
           rarity: string
           weapon_type: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
           name: string
           price: number
-          probability?: number
+          probability?: number | null
           rarity: string
           weapon_type: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           image_url?: string | null
-          is_active?: boolean
           name?: string
           price?: number
-          probability?: number
+          probability?: number | null
           rarity?: string
           weapon_type?: string
         }
@@ -535,31 +560,31 @@ export type Database = {
       }
       tasks: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string
           id: string
           image_url: string | null
-          is_active: boolean
+          is_active: boolean | null
           reward_coins: number
           task_url: string | null
           title: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description: string
           id?: string
           image_url?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           reward_coins: number
           task_url?: string | null
           title: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string
           id?: string
           image_url?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           reward_coins?: number
           task_url?: string | null
           title?: string
@@ -568,27 +593,44 @@ export type Database = {
       }
       user_daily_rewards: {
         Row: {
-          claimed_at: string
+          claimed_at: string | null
+          created_at: string | null
           day_number: number
           id: string
           reward_coins: number
           user_id: string
         }
         Insert: {
-          claimed_at?: string
+          claimed_at?: string | null
+          created_at?: string | null
           day_number: number
           id?: string
-          reward_coins: number
+          reward_coins?: number
           user_id: string
         }
         Update: {
-          claimed_at?: string
+          claimed_at?: string | null
+          created_at?: string | null
           day_number?: number
           id?: string
           reward_coins?: number
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_daily_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_daily_rewards_user_id_fkey"
             columns: ["user_id"]
@@ -600,22 +642,22 @@ export type Database = {
       }
       user_favorites: {
         Row: {
-          case_id: string
-          created_at: string
+          case_id: string | null
+          created_at: string | null
           id: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          case_id: string
-          created_at?: string
+          case_id?: string | null
+          created_at?: string | null
           id?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          case_id?: string
-          created_at?: string
+          case_id?: string | null
+          created_at?: string | null
           id?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -623,6 +665,20 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -637,69 +693,54 @@ export type Database = {
       user_free_case_openings: {
         Row: {
           case_id: string
+          created_at: string
           id: string
           opened_at: string
           user_id: string
         }
         Insert: {
           case_id: string
+          created_at?: string
           id?: string
           opened_at?: string
           user_id: string
         }
         Update: {
           case_id?: string
+          created_at?: string
           id?: string
           opened_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_free_case_openings_case_id_fkey"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_free_case_openings_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_inventory: {
         Row: {
-          created_at: string
           id: string
-          is_sold: boolean
-          obtained_at: string
-          skin_id: string
+          is_sold: boolean | null
+          obtained_at: string | null
+          skin_id: string | null
           sold_at: string | null
           sold_price: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          created_at?: string
           id?: string
-          is_sold?: boolean
-          obtained_at?: string
-          skin_id: string
+          is_sold?: boolean | null
+          obtained_at?: string | null
+          skin_id?: string | null
           sold_at?: string | null
           sold_price?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          created_at?: string
           id?: string
-          is_sold?: boolean
-          obtained_at?: string
-          skin_id?: string
+          is_sold?: boolean | null
+          obtained_at?: string | null
+          skin_id?: string | null
           sold_at?: string | null
           sold_price?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -707,6 +748,20 @@ export type Database = {
             columns: ["skin_id"]
             isOneToOne: false
             referencedRelation: "skins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -721,21 +776,21 @@ export type Database = {
       user_promo_codes: {
         Row: {
           id: string
-          promo_code_id: string
-          used_at: string
-          user_id: string
+          promo_code_id: string | null
+          used_at: string | null
+          user_id: string | null
         }
         Insert: {
           id?: string
-          promo_code_id: string
-          used_at?: string
-          user_id: string
+          promo_code_id?: string | null
+          used_at?: string | null
+          user_id?: string | null
         }
         Update: {
           id?: string
-          promo_code_id?: string
-          used_at?: string
-          user_id?: string
+          promo_code_id?: string | null
+          used_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -749,6 +804,20 @@ export type Database = {
             foreignKeyName: "user_promo_codes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_promo_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_promo_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -756,33 +825,44 @@ export type Database = {
       }
       user_quiz_progress: {
         Row: {
-          completed: boolean
-          correct_answers: number
-          created_at: string
-          date: string
+          completed: boolean | null
+          correct_answers: number | null
+          date: string | null
           id: string
-          questions_answered: number
-          user_id: string
+          questions_answered: number | null
+          user_id: string | null
         }
         Insert: {
-          completed?: boolean
-          correct_answers?: number
-          created_at?: string
-          date?: string
+          completed?: boolean | null
+          correct_answers?: number | null
+          date?: string | null
           id?: string
-          questions_answered?: number
-          user_id: string
+          questions_answered?: number | null
+          user_id?: string | null
         }
         Update: {
-          completed?: boolean
-          correct_answers?: number
-          created_at?: string
-          date?: string
+          completed?: boolean | null
+          correct_answers?: number | null
+          date?: string | null
           id?: string
-          questions_answered?: number
-          user_id?: string
+          questions_answered?: number | null
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_quiz_progress_user_id_fkey"
             columns: ["user_id"]
@@ -792,65 +872,53 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_steam_settings: {
         Row: {
-          connected_at: string
+          connected_at: string | null
+          created_at: string | null
           id: string
           steam_avatar_url: string | null
           steam_id: string | null
           steam_nickname: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          connected_at?: string
+          connected_at?: string | null
+          created_at?: string | null
           id?: string
           steam_avatar_url?: string | null
           steam_id?: string | null
           steam_nickname?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          connected_at?: string
+          connected_at?: string | null
+          created_at?: string | null
           id?: string
           steam_avatar_url?: string | null
           steam_id?: string | null
           steam_nickname?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "user_steam_settings_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_steam_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_steam_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -860,162 +928,192 @@ export type Database = {
         Row: {
           claimed_at: string | null
           completed_at: string | null
-          created_at: string
+          created_at: string | null
           id: string
-          status: Database["public"]["Enums"]["task_status"]
+          status: string
           task_id: string
           user_id: string
         }
         Insert: {
           claimed_at?: string | null
           completed_at?: string | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          status?: Database["public"]["Enums"]["task_status"]
+          status?: string
           task_id: string
           user_id: string
         }
         Update: {
           claimed_at?: string | null
           completed_at?: string | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          status?: Database["public"]["Enums"]["task_status"]
+          status?: string
           task_id?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_task_progress_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_task_progress_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       users: {
         Row: {
           auth_id: string | null
-          coins: number
-          created_at: string
-          daily_streak: number
+          coins: number | null
+          created_at: string | null
+          daily_streak: number | null
           email: string | null
           id: string
-          language_code: string
+          is_admin: boolean | null
+          language_code: string | null
           last_ad_life_restore: string | null
           last_daily_login: string | null
           last_free_case_notification: string | null
           last_life_restore: string | null
           last_quiz_date: string | null
-          most_expensive_skin_value: number
+          most_expensive_skin_value: number | null
           premium_until: string | null
-          profile_private: boolean
-          quiz_lives: number
-          quiz_streak: number
+          profile_private: boolean | null
+          quiz_lives: number | null
+          quiz_streak: number | null
           referral_code: string | null
           referred_by: string | null
-          sound_enabled: boolean
-          steam_connected: boolean
+          sound_enabled: boolean | null
+          steam_connected: boolean | null
           steam_trade_url: string | null
-          total_cases_opened: number
-          total_spent: number
-          updated_at: string
+          total_cases_opened: number | null
+          total_spent: number | null
           username: string
-          vibration_enabled: boolean
+          vibration_enabled: boolean | null
         }
         Insert: {
           auth_id?: string | null
-          coins?: number
-          created_at?: string
-          daily_streak?: number
+          coins?: number | null
+          created_at?: string | null
+          daily_streak?: number | null
           email?: string | null
           id?: string
-          language_code?: string
+          is_admin?: boolean | null
+          language_code?: string | null
           last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
           last_life_restore?: string | null
           last_quiz_date?: string | null
-          most_expensive_skin_value?: number
+          most_expensive_skin_value?: number | null
           premium_until?: string | null
-          profile_private?: boolean
-          quiz_lives?: number
-          quiz_streak?: number
+          profile_private?: boolean | null
+          quiz_lives?: number | null
+          quiz_streak?: number | null
           referral_code?: string | null
           referred_by?: string | null
-          sound_enabled?: boolean
-          steam_connected?: boolean
+          sound_enabled?: boolean | null
+          steam_connected?: boolean | null
           steam_trade_url?: string | null
-          total_cases_opened?: number
-          total_spent?: number
-          updated_at?: string
+          total_cases_opened?: number | null
+          total_spent?: number | null
           username: string
-          vibration_enabled?: boolean
+          vibration_enabled?: boolean | null
         }
         Update: {
           auth_id?: string | null
-          coins?: number
-          created_at?: string
-          daily_streak?: number
+          coins?: number | null
+          created_at?: string | null
+          daily_streak?: number | null
           email?: string | null
           id?: string
-          language_code?: string
+          is_admin?: boolean | null
+          language_code?: string | null
           last_ad_life_restore?: string | null
           last_daily_login?: string | null
           last_free_case_notification?: string | null
           last_life_restore?: string | null
           last_quiz_date?: string | null
-          most_expensive_skin_value?: number
+          most_expensive_skin_value?: number | null
           premium_until?: string | null
-          profile_private?: boolean
-          quiz_lives?: number
-          quiz_streak?: number
+          profile_private?: boolean | null
+          quiz_lives?: number | null
+          quiz_streak?: number | null
           referral_code?: string | null
           referred_by?: string | null
-          sound_enabled?: boolean
-          steam_connected?: boolean
+          sound_enabled?: boolean | null
+          steam_connected?: boolean | null
           steam_trade_url?: string | null
-          total_cases_opened?: number
-          total_spent?: number
-          updated_at?: string
+          total_cases_opened?: number | null
+          total_spent?: number | null
           username?: string
-          vibration_enabled?: boolean
+          vibration_enabled?: boolean | null
         }
         Relationships: []
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard: {
+        Row: {
+          id: string | null
+          items_in_inventory: number | null
+          items_sold: number | null
+          most_expensive_skin_value: number | null
+          rank: number | null
+          total_cases_opened: number | null
+          total_earned: number | null
+          total_spent: number | null
+          username: string | null
+        }
+        Relationships: []
+      }
+      user_rankings: {
+        Row: {
+          id: string | null
+          most_expensive_skin_value: number | null
+          total_cases_opened: number | null
+          total_inventory_value: number | null
+          total_items_count: number | null
+          total_spent: number | null
+          username: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      get_current_user_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      has_role: {
+      check_rate_limit: {
         Args: {
-          user_id: string
-          role_name: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+          p_action_type: string
+          p_max_attempts?: number
+          p_time_window_minutes?: number
         }
         Returns: boolean
       }
-      safe_open_case: {
+      check_time_limit: {
         Args: {
           p_user_id: string
-          p_case_id: string
-          p_reward_type?: Database["public"]["Enums"]["reward_type"]
-          p_skin_id?: string
-          p_coin_reward_id?: string
-          p_is_free?: boolean
+          p_action_type: string
+          p_interval_minutes?: number
         }
+        Returns: boolean
+      }
+      cleanup_duplicate_users: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      safe_open_case: {
+        Args:
+          | {
+              p_user_id: string
+              p_case_id: string
+              p_skin_id: string
+              p_is_free?: boolean
+            }
+          | {
+              p_user_id: string
+              p_case_id: string
+              p_skin_id?: string
+              p_coin_reward_id?: string
+              p_is_free?: boolean
+            }
         Returns: Json
       }
       safe_update_coins: {
@@ -1026,21 +1124,17 @@ export type Database = {
         }
         Returns: boolean
       }
-      sell_all_user_skins: {
-        Args: { p_user_id: string }
-        Returns: Json
+      safe_update_coins_v2: {
+        Args: {
+          p_user_id: string
+          p_coin_change: number
+          p_operation_type?: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "user"
-      reward_type: "skin" | "coins"
-      task_status: "available" | "completed" | "claimed"
-      withdrawal_status:
-        | "pending"
-        | "processing"
-        | "completed"
-        | "failed"
-        | "cancelled"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1155,17 +1249,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-      reward_type: ["skin", "coins"],
-      task_status: ["available", "completed", "claimed"],
-      withdrawal_status: [
-        "pending",
-        "processing",
-        "completed",
-        "failed",
-        "cancelled",
-      ],
-    },
+    Enums: {},
   },
 } as const
