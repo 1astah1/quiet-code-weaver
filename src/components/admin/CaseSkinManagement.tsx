@@ -56,7 +56,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       return data || [];
     },
     staleTime: 0, // Всегда считать данные устаревшими
-    cacheTime: 0, // Не кэшировать данные
+    gcTime: 0, // Не кэшировать данные (was cacheTime in older versions)
     refetchOnWindowFocus: true,
     refetchOnMount: true
   });
