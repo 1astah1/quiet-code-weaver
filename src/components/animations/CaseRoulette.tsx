@@ -17,48 +17,47 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
   console.log('CaseRoulette: Rendering with', caseSkins.length, 'items');
 
   useEffect(() => {
-    // Создаем расширенный список для рулетки
-    const expandedItems = [];
-    const itemsToShow = 50;
-    
-    for (let i = 0; i < itemsToShow; i++) {
-      const randomItem = caseSkins[Math.floor(Math.random() * caseSkins.length)];
-      expandedItems.push({
-        ...randomItem,
-        id: `roulette-${i}`,
-        displayData: randomItem.reward_type === 'coin_reward' ? randomItem.coin_rewards : randomItem.skins
-      });
-    }
-    
-    setRouletteItems(expandedItems);
-    
     // Запускаем рулетку через небольшую задержку
     setTimeout(() => {
-      startRoulette(expandedItems);
+      startRoulette();
     }, 1000);
   }, [caseSkins]);
 
-  const startRoulette = (items: any[]) => {
+  const startRoulette = () => {
     console.log('🎰 Starting roulette');
     setIsSpinning(true);
     
-    // Выбираем случайную награду по вероятностям
+    // Сначала выбираем случайную награду по вероятностям
     const selected = selectRandomReward(caseSkins);
     console.log('🎯 Selected reward for roulette:', selected);
     
     if (selected) {
-      // Находим позицию в середине рулетки (под указателем)
-      const centerPosition = Math.floor(items.length * 0.85); // Позиция под указателем
+      // Создаем расширенный список для рулетки
+      const expandedItems = [];
+      const itemsToShow = 50;
       
-      // Заменяем элемент под указателем на выигранную награду
-      const updatedItems = [...items];
-      updatedItems[centerPosition] = {
+      // Заполняем рулетку случайными элементами
+      for (let i = 0; i < itemsToShow; i++) {
+        const randomItem = caseSkins[Math.floor(Math.random() * caseSkins.length)];
+        expandedItems.push({
+          ...randomItem,
+          id: `roulette-${i}`,
+          displayData: randomItem.reward_type === 'coin_reward' ? randomItem.coin_rewards : randomItem.skins
+        });
+      }
+      
+      // Находим позицию в середине рулетки (под указателем)
+      const centerPosition = Math.floor(itemsToShow * 0.85); // Позиция под указателем
+      
+      // ВАЖНО: Заменяем элемент под указателем на ТОЧНО выигранную награду
+      expandedItems[centerPosition] = {
         ...selected,
         id: `winner-${centerPosition}`,
-        displayData: selected.reward_type === 'coin_reward' ? selected.coin_rewards : selected.skins
+        displayData: selected.reward_type === 'coin_reward' ? selected.coin_rewards : selected.skins,
+        isWinner: true // Помечаем как победный элемент
       };
       
-      setRouletteItems(updatedItems);
+      setRouletteItems(expandedItems);
       setWinnerIndex(centerPosition);
       setSelectedReward(selected);
       
@@ -67,6 +66,7 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
         setIsSpinning(false);
         // Еще секунда показа результата
         setTimeout(() => {
+          // Передаем ТОЧНО ТУ награду, которая под указателем
           onComplete(selected);
         }, 1000);
       }, 4000);
@@ -112,18 +112,18 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
           }}
         >
           {rouletteItems.map((item, index) => {
-            const isWinner = index === winnerIndex && selectedReward;
+            const isWinner = index === winnerIndex && selectedReward && !isSpinning;
             
             return (
               <div
                 key={`${item.id}-${index}`}
                 className={`flex-shrink-0 w-24 h-32 border-r border-slate-700 flex flex-col items-center justify-center p-2 relative ${
-                  isWinner && !isSpinning ? 'ring-2 ring-yellow-400 bg-yellow-400/20' : ''
+                  isWinner ? 'ring-4 ring-yellow-400 bg-yellow-400/20 animate-pulse' : ''
                 }`}
                 style={{
                   backgroundColor: item.displayData?.rarity ? 
                     getRarityColor(item.displayData.rarity) + '20' : 
-                    '#374151'
+                    (item.reward_type === 'coin_reward' ? '#fbbf2420' : '#374151')
                 }}
               >
                 {/* Изображение */}
