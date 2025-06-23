@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
+import { useInventoryData } from "@/hooks/useInventoryData";
+import { useSkinSale } from "@/hooks/useSkinSale";
 import { useSellAllSkins } from "@/hooks/useSellAllSkins";
 import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";

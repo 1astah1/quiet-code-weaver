@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -57,6 +56,15 @@ const MainApp: React.FC = () => {
     quiz_streak: user.quiz_streak || 0
   };
 
+  const sidebarUser = {
+    username: user.username || 'User',
+    coins: user.coins || 0,
+    isPremium: user.isPremium || false,
+    isAdmin: user.isAdmin || false,
+    avatar_url: user.avatar_url,
+    language_code: user.language_code || 'ru'
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'inventory':
@@ -108,7 +116,7 @@ const MainApp: React.FC = () => {
       <Sidebar 
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        currentUser={currentUser}
+        currentUser={sidebarUser}
         onScreenChange={(screen: string) => setCurrentScreen(screen as Screen)}
         onSignOut={signOut}
       />
