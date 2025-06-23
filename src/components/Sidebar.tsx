@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { X, Settings, LogOut, Crown, Shield, Coins } from "lucide-react";
 import { Screen } from "@/components/MainApp";

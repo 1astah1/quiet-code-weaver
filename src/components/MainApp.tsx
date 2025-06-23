@@ -1,339 +1,398 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { cleanupAuthState } from "@/utils/authCleanup";
-import LoadingScreen from "@/components/LoadingScreen";
-import WelcomeScreen from "@/components/WelcomeScreen";
+import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import BottomNavigation from "@/components/BottomNavigation";
+import MainScreen from "@/components/screens/MainScreen";
 import SkinsScreen from "@/components/screens/SkinsScreen";
 import QuizScreen from "@/components/screens/QuizScreen";
 import TasksScreen from "@/components/screens/TasksScreen";
-import ProfileScreen from "@/components/screens/ProfileScreen";
-import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
-import MainScreen from "@/components/screens/MainScreen";
 import InventoryScreen from "@/components/inventory/InventoryScreen";
-import SecurityStatus from "@/components/security/SecurityStatus";
+import SettingsScreen from "@/components/settings/SettingsScreen";
+import AdminPanel from "@/components/AdminPanel";
+import AuthScreen from "@/components/auth/AuthScreen";
+import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import SecurityMonitor from "@/components/security/SecurityMonitor";
+import { useToast } from "@/hooks/use-toast";
+import { auditLog } from "@/utils/security";
+import BottomNavigation from "@/components/BottomNavigation";
+import { useTranslation } from "@/hooks/useTranslation";
+import { useCriticalImagePreloader } from "@/hooks/useImagePreloader";
 
-export type Screen = "main" | "skins" | "quiz" | "tasks" | "profile" | "leaderboard" | "inventory" | "settings" | "admin";
+export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
-interface User {
+interface CurrentUser {
   id: string;
   username: string;
   coins: number;
-  quiz_lives: number;
-  quiz_streak: number;
-  is_admin?: boolean;
+  lives: number;
+  streak: number;
+  isPremium: boolean;
+  isAdmin: boolean;
+  avatar_url?: string;
   language_code?: string;
-  premium_until?: string;
+  sound_enabled?: boolean;
+  vibration_enabled?: boolean;
+  profile_private?: boolean;
 }
 
 const MainApp = () => {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [currentScreen, setCurrentScreen] = useState<Screen>("main");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authInitialized, setAuthInitialized] = useState(false);
+  console.log('🚀 [MAIN_APP] Component mounting/rendering');
+  
+  // Предзагружаем критические изображения
+  useCriticalImagePreloader();
+  
+  const { user, isLoading: authLoading, signOut } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<Screen>('main');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
+  const { t } = useTranslation(currentUser?.language_code);
 
+  // Логирование изменений состояния
   useEffect(() => {
-    let mounted = true;
-    let initTimeout: NodeJS.Timeout;
+    console.log('📊 [MAIN_APP] State change:', {
+      hasUser: !!user,
+      userId: user?.id,
+      authLoading,
+      isLoading,
+      currentScreen,
+      hasCurrentUser: !!currentUser
+    });
+  }, [user, authLoading, isLoading, currentScreen, currentUser]);
 
-    const initializeAuth = async () => {
-      try {
-        console.log("🚀 Initializing authentication...");
-        
-        // Небольшая задержка для предотвращения race conditions
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Сначала устанавливаем слушатель изменений состояния auth
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log("🔄 Auth state changed:", event, session?.user?.id);
-            
-            if (!mounted) return;
+  const loadUserData = async () => {
+    console.log('👤 [MAIN_APP] Starting loadUserData for:', user?.id);
+    
+    if (!user?.id) {
+      console.log('❌ [MAIN_APP] No user ID, stopping load');
+      setIsLoading(false);
+      return;
+    }
 
-            if (event === 'SIGNED_IN' && session?.user) {
-              console.log("✅ User signed in");
-              setIsAuthenticated(true);
-              // Отложенная загрузка профиля для предотвращения deadlock
-              setTimeout(() => {
-                if (mounted) {
-                  loadUserProfile(session.user.id);
-                }
-              }, 200);
-            } else if (event === 'SIGNED_OUT') {
-              console.log("👋 User signed out");
-              handleSignOut();
-            } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-              console.log("🔄 Token refreshed");
-              setTimeout(() => {
-                if (mounted) {
-                  loadUserProfile(session.user.id);
-                }
-              }, 100);
-            }
-          }
-        );
-
-        // Затем проверяем существующую сессию
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("❌ Session error:", error);
-          cleanupAuthState();
-          setIsAuthenticated(false);
-        } else if (session?.user && mounted) {
-          console.log("✅ Found existing session:", session.user.id);
-          setIsAuthenticated(true);
-          await loadUserProfile(session.user.id);
-        } else {
-          console.log("ℹ️ No existing session found");
-          setIsAuthenticated(false);
-        }
-
-        // Cleanup subscription when component unmounts
-        return () => {
-          mounted = false;
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error("❌ Auth initialization error:", error);
-        if (mounted) {
-          cleanupAuthState();
-          setIsAuthenticated(false);
-        }
-      } finally {
-        if (mounted) {
-          setAuthInitialized(true);
-          setLoading(false);
-        }
-      }
-    };
-
-    // Отложенная инициализация
-    initTimeout = setTimeout(() => {
-      if (mounted) {
-        initializeAuth();
-      }
-    }, 100);
-
-    return () => {
-      mounted = false;
-      if (initTimeout) clearTimeout(initTimeout);
-    };
-  }, []);
-
-  const loadUserProfile = async (authId: string) => {
     try {
-      console.log("🔄 Loading user profile for:", authId);
+      console.log('🔐 [MAIN_APP] Validating user ID format...');
       
-      const { data, error } = await supabase
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
+        console.error('❌ [MAIN_APP] Invalid user ID format detected:', user.id);
+        await signOut();
+        return;
+      }
+      
+      console.log('📡 [MAIN_APP] Searching user by internal ID...');
+      let { data: userData, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_id', authId)
+        .eq('id', user.id)
         .maybeSingle();
 
+      console.log('📊 [MAIN_APP] Internal ID search result:', { found: !!userData, error: !!error });
+
+      if (!userData && user.id) {
+        console.log('📡 [MAIN_APP] Searching user by auth_id...');
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: userByAuthId, error: authError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .maybeSingle();
+          
+          console.log('📊 [MAIN_APP] Auth ID search result:', { found: !!userByAuthId, error: !!authError });
+          
+          if (!authError && userByAuthId) {
+            userData = userByAuthId;
+            error = null;
+          }
+        }
+      }
+
       if (error) {
-        console.error("❌ Error loading user profile:", error);
+        console.error('❌ [MAIN_APP] User data loading error:', error);
+        await auditLog(user.id, 'user_data_load_failed', { error: error.message }, false);
+        
+        if (error.code === 'PGRST301' || error.code === 'PGRST116') {
+          console.log('🚪 [MAIN_APP] Critical error, signing out...');
+          await signOut();
+          return;
+        }
+        
+        setIsLoading(false);
         return;
       }
 
-      if (data) {
-        console.log("✅ User profile loaded:", data.username);
-        const mappedUser: User = {
-          id: data.id,
-          username: data.username,
-          coins: data.coins || 0,
-          quiz_lives: data.quiz_lives || 3,
-          quiz_streak: data.quiz_streak || 0,
-          is_admin: data.is_admin || false,
-          language_code: data.language_code || 'ru',
-          premium_until: data.premium_until
-        };
-        setUser(mappedUser);
-      } else {
-        console.log("📝 Creating new user profile...");
-        await createNewUserProfile(authId);
+      if (!userData) {
+        console.error('❌ [MAIN_APP] User data not found in database');
+        toast({
+          title: t('error'),
+          description: t('userDataNotFound'),
+          variant: "destructive",
+        });
+        await signOut();
+        return;
       }
+
+      console.log('🔍 [MAIN_APP] Validating user data integrity...');
+      if (userData.coins < 0 || userData.coins > 10000000) {
+        console.warn('⚠️ [MAIN_APP] Suspicious coin amount detected:', userData.coins);
+        await auditLog(userData.id, 'suspicious_coin_amount', { coins: userData.coins }, false);
+      }
+
+      console.log('👤 [MAIN_APP] Getting auth user avatar...');
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      const userProfile = {
+        id: userData.id,
+        username: userData.username || t('user'),
+        coins: Math.max(0, Math.min(userData.coins || 0, 10000000)),
+        lives: Math.max(0, Math.min(userData.quiz_lives || 5, 10)),
+        streak: Math.max(0, userData.quiz_streak || 0),
+        isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
+        isAdmin: userData.is_admin || false,
+        avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
+        language_code: userData.language_code || 'ru',
+        sound_enabled: userData.sound_enabled,
+        vibration_enabled: userData.vibration_enabled,
+        profile_private: userData.profile_private
+      };
+
+      console.log('✅ [MAIN_APP] User profile created:', {
+        id: userProfile.id,
+        username: userProfile.username,
+        coins: userProfile.coins,
+        isAdmin: userProfile.isAdmin
+      });
+
+      setCurrentUser(userProfile);
+      await auditLog(userData.id, 'user_data_loaded', { username: userData.username });
     } catch (error) {
-      console.error("❌ Error in loadUserProfile:", error);
+      console.error('💥 [MAIN_APP] Unexpected error in loadUserData:', error);
+      console.error('💥 [MAIN_APP] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      await auditLog(user.id, 'user_data_load_error', { error: String(error) }, false);
+      
+      console.log('🚪 [MAIN_APP] Signing out due to unexpected error...');
+      await signOut();
+    } finally {
+      console.log('⏹️ [MAIN_APP] loadUserData completed, setting loading to false');
+      setIsLoading(false);
     }
   };
 
-  const createNewUserProfile = async (authId: string) => {
-    try {
-      const { data: authUser } = await supabase.auth.getUser();
-      if (!authUser.user) return;
+  useEffect(() => {
+    console.log('🔄 [MAIN_APP] User effect triggered:', { hasUser: !!user, authLoading });
+    
+    if (user) {
+      loadUserData();
+    } else if (!authLoading) {
+      console.log('📝 [MAIN_APP] No user and auth not loading, setting loading to false');
+      setIsLoading(false);
+    }
+  }, [user, authLoading]);
 
-      const newUser = {
-        auth_id: authId,
-        username: authUser.user.email?.split('@')[0] || 'User',
-        coins: 1000,
-        quiz_lives: 3,
-        quiz_streak: 0,
-        is_admin: false,
-        language_code: 'ru'
-      };
+  const handleCoinsUpdate = async (newCoins: number) => {
+    console.log('💰 [MAIN_APP] Coins update requested:', { oldCoins: currentUser?.coins, newCoins });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
+      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
+      console.log('✅ [MAIN_APP] Coins updated successfully');
+    }
+  };
 
-      const { data: createdUser, error: createError } = await supabase
-        .from('users')
-        .insert(newUser)
-        .select()
-        .maybeSingle();
+  const handleLivesUpdate = async (newLives: number) => {
+    console.log('❤️ [MAIN_APP] Lives update requested:', { oldLives: currentUser?.lives, newLives });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, lives: newLives } : null);
+      await auditLog(currentUser.id, 'lives_updated', { newLives });
+      console.log('✅ [MAIN_APP] Lives updated successfully');
+    }
+  };
 
-      if (createError) {
-        console.error("❌ Error creating user:", createError);
-      } else if (createdUser) {
-        console.log("✅ New user created:", createdUser.username);
-        setUser({
-          id: createdUser.id,
-          username: createdUser.username,
-          coins: createdUser.coins,
-          quiz_lives: createdUser.quiz_lives,
-          quiz_streak: createdUser.quiz_streak,
-          is_admin: createdUser.is_admin,
-          language_code: createdUser.language_code,
-          premium_until: createdUser.premium_until
-        });
-        
-        toast({
-          title: "Добро пожаловать!",
-          description: "Вы получили 1000 стартовых монет!",
-        });
-      }
-    } catch (error) {
-      console.error("❌ Error creating user profile:", error);
+  const handleStreakUpdate = async (newStreak: number) => {
+    console.log('🔥 [MAIN_APP] Streak update requested:', { oldStreak: currentUser?.streak, newStreak });
+    
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, streak: newStreak } : null);
+      await auditLog(currentUser.id, 'streak_updated', { newStreak });
+      console.log('✅ [MAIN_APP] Streak updated successfully');
     }
   };
 
   const handleSignOut = async () => {
+    console.log('🚪 [MAIN_APP] Sign out requested');
+    
     try {
-      console.log("👋 Signing out...");
+      if (currentUser) {
+        await auditLog(currentUser.id, 'user_signed_out', {});
+      }
       
-      // Очищаем состояние
-      setUser(null);
-      setIsAuthenticated(false);
-      setCurrentScreen("main");
-      setSidebarOpen(false);
+      console.log('🧹 [MAIN_APP] Clearing session data...');
+      sessionStorage.clear();
+      localStorage.removeItem('supabase.auth.token');
       
-      // Очищаем auth состояние
-      cleanupAuthState();
-      
-      // Глобальный выход
-      await supabase.auth.signOut({ scope: 'global' });
-      
-      toast({
-        title: "Выход выполнен",
-        description: "Вы успешно вышли из аккаунта",
-      });
+      console.log('📡 [MAIN_APP] Calling Supabase signOut...');
+      await signOut();
+      setCurrentUser(null);
+      setCurrentScreen('main');
+      console.log('✅ [MAIN_APP] Sign out completed successfully');
     } catch (error) {
-      console.error("❌ Error signing out:", error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось выйти из аккаунта",
-        variant: "destructive",
-      });
+      console.error('💥 [MAIN_APP] Error during sign out:', error);
+      console.log('🔄 [MAIN_APP] Force clearing state and reloading...');
+      setCurrentUser(null);
+      window.location.reload();
     }
   };
 
-  const handleUserLoad = (userData: User) => {
-    console.log("✅ User loaded from WelcomeScreen:", userData.username);
-    setUser(userData);
-    setIsAuthenticated(true);
+  const handleAuthSuccess = () => {
+    console.log('🎉 [MAIN_APP] Auth success, loading user data...');
+    loadUserData();
   };
 
-  const handleCoinsUpdate = (newCoins: number) => {
-    if (user) {
-      setUser({ ...user, coins: newCoins });
-    }
-  };
-
-  const handleLivesUpdate = (newLives: number) => {
-    if (user) {
-      setUser({ ...user, quiz_lives: newLives });
-    }
-  };
-
-  const handleStreakUpdate = (newStreak: number) => {
-    if (user) {
-      setUser({ ...user, quiz_streak: newStreak });
-    }
+  const handleCaseOpen = (caseItem: any) => {
+    console.log('📦 [MAIN_APP] Case open requested:', caseItem);
+    setOpeningCase(caseItem);
   };
 
   const handleScreenChange = (screen: string) => {
+    console.log('📱 [MAIN_APP] Screen change requested:', { from: currentScreen, to: screen });
     setCurrentScreen(screen as Screen);
   };
 
+  console.log('🎨 [MAIN_APP] Rendering component:', { authLoading, isLoading, hasUser: !!user, hasCurrentUser: !!currentUser });
+
+  if (authLoading || isLoading) {
+    console.log('⏳ [MAIN_APP] Showing loading screen');
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !currentUser) {
+    console.log('🔐 [MAIN_APP] Showing auth screen');
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
+
   const renderScreen = () => {
+    console.log('🎯 [MAIN_APP] Rendering screen:', currentScreen);
+    
     switch (currentScreen) {
-      case "main":
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
-      case "skins":
-        return <SkinsScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "quiz":
-        return <QuizScreen 
-          currentUser={user} 
-          onCoinsUpdate={handleCoinsUpdate}
-          onBack={() => setCurrentScreen("main")}
-          onLivesUpdate={handleLivesUpdate}
-          onStreakUpdate={handleStreakUpdate}
-        />;
-      case "tasks":
-        return <TasksScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "profile":
-        return <ProfileScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
-      case "leaderboard":
-        return <LeaderboardScreen />;
-      case "inventory":
-        return <InventoryScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'main':
+        return (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
+      case 'skins':
+        return (
+          <SkinsScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'quiz':
+        return (
+          <QuizScreen 
+            currentUser={{
+              id: currentUser.id,
+              username: currentUser.username,
+              coins: currentUser.coins,
+              quiz_lives: currentUser.lives,
+              quiz_streak: currentUser.streak
+            }}
+            onCoinsUpdate={handleCoinsUpdate}
+            onBack={() => setCurrentScreen('main')}
+            onLivesUpdate={handleLivesUpdate}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        );
+      case 'tasks':
+        return (
+          <TasksScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'inventory':
+        return (
+          <InventoryScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        );
+      case 'settings':
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
+      case 'admin':
+        return currentUser.isAdmin ? <AdminPanel /> : (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
       default:
-        return <MainScreen currentUser={user} onCoinsUpdate={handleCoinsUpdate} onScreenChange={setCurrentScreen} />;
+        return (
+          <MainScreen 
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+            onScreenChange={setCurrentScreen}
+          />
+        );
     }
   };
 
-  if (loading || !authInitialized) {
-    return <LoadingScreen />;
-  }
-
-  if (!isAuthenticated) {
-    return <WelcomeScreen onUserLoad={handleUserLoad} />;
-  }
-
-  if (!user) {
-    return <LoadingScreen />;
-  }
+  console.log('✅ [MAIN_APP] Rendering main application interface');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onScreenChange={setCurrentScreen}
-        currentUser={{
-          username: user.username,
-          coins: user.coins,
-          isPremium: !!user.premium_until,
-          isAdmin: user.is_admin || false,
-          avatar_url: undefined,
-          language_code: user.language_code
-        }}
-        onSignOut={handleSignOut}
-      />
+    <div className="min-h-screen bg-black overflow-hidden">
+      <SecurityMonitor />
+      
+      <div className="flex flex-col h-screen">
+        <Header 
+          currentUser={currentUser}
+          onMenuClick={() => setIsSidebarOpen(true)}
+        />
+        
+        <div className="flex-1 overflow-hidden">
+          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10">
+            <div className="max-w-7xl mx-auto">
+              {renderScreen()}
+            </div>
+          </main>
+        </div>
 
-      <main className="pb-16 sm:pb-20">
-        {renderScreen()}
-      </main>
+        <BottomNavigation 
+          currentScreen={currentScreen}
+          onScreenChange={handleScreenChange}
+          currentLanguage={currentUser?.language_code}
+        />
 
-      <BottomNavigation
-        currentScreen={currentScreen}
-        onScreenChange={handleScreenChange}
-        currentLanguage={user.language_code}
-      />
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentUser={currentUser}
+          onScreenChange={setCurrentScreen}
+          onSignOut={handleSignOut}
+        />
 
-      <SecurityStatus />
+        {openingCase && (
+          <CaseOpeningAnimation
+            caseItem={openingCase}
+            onClose={() => setOpeningCase(null)}
+            currentUser={currentUser}
+            onCoinsUpdate={handleCoinsUpdate}
+          />
+        )}
+      </div>
     </div>
   );
 };
