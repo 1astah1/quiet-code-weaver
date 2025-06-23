@@ -67,10 +67,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           skins: item.skins
         })).filter(item => item.skins);
         
-        console.log('Case skins loaded:', transformedData.length);
+        console.log('✅ [CASE_OPENING] Loaded case skins:', transformedData.length);
         return transformedData;
       } catch (error) {
-        console.error('Case skins query error:', error);
+        console.error('💥 [CASE_OPENING] Case skins query error:', error);
         return [];
       }
     },
@@ -84,10 +84,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   }, [caseItem, currentUser, caseSkins]);
 
   const startCaseOpening = async () => {
-    console.log('Starting case opening animation');
+    console.log('🚀 [CASE_OPENING] Starting case opening animation');
     setAnimationPhase('opening');
 
-    // Opening phase
+    // Начинаем анимацию открытия
     setTimeout(() => {
       setAnimationPhase('revealing');
       simulateCaseResult();
@@ -95,47 +95,72 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   };
 
   const simulateCaseResult = async () => {
-    if (caseSkins.length === 0) return;
+    if (caseSkins.length === 0) {
+      console.error('❌ [CASE_OPENING] No skins available for case');
+      return;
+    }
 
-    // Simple random selection for demo
-    const randomIndex = Math.floor(Math.random() * caseSkins.length);
-    const selectedItem = caseSkins[randomIndex];
+    try {
+      console.log('🎯 [CASE_OPENING] Selecting random skin from', caseSkins.length, 'options');
+      
+      // Выбираем случайный скин на основе вероятностей
+      let totalProbability = caseSkins.reduce((sum, skin) => sum + (skin.probability || 0.01), 0);
+      let random = Math.random() * totalProbability;
+      let selectedSkin = caseSkins[0]; // fallback
+      
+      for (const skin of caseSkins) {
+        random -= (skin.probability || 0.01);
+        if (random <= 0) {
+          selectedSkin = skin;
+          break;
+        }
+      }
 
-    if (selectedItem.skins) {
-      try {
-        // Используем новую безопасную функцию открытия кейса
+      if (selectedSkin.skins) {
+        console.log('🎁 [CASE_OPENING] Selected skin:', selectedSkin.skins.name);
+
+        // Используем безопасную функцию открытия кейса
         const result = await secureCaseOpening.mutateAsync({
           userId: currentUser.id,
           caseId: caseItem.id,
-          skinId: selectedItem.skins.id,
+          skinId: selectedSkin.skins.id,
           isFree: caseItem.is_free || false
         });
 
         if (result.success && result.skin) {
+          console.log('✅ [CASE_OPENING] Case opened successfully');
           setWonSkin(result.skin);
           
-          // Обновляем баланс пользователя (если кейс платный, он уже списан)
-          if (!caseItem.is_free) {
-            const newCoins = currentUser.coins - caseItem.price;
-            onCoinsUpdate(Math.max(0, newCoins));
+          // Обновляем баланс только если кейс платный
+          if (!caseItem.is_free && caseItem.price) {
+            const newCoins = Math.max(0, currentUser.coins - caseItem.price);
+            onCoinsUpdate(newCoins);
+            console.log('💰 [CASE_OPENING] Updated coins:', newCoins);
           }
+        } else {
+          console.error('❌ [CASE_OPENING] Case opening failed');
+          setWonSkin(selectedSkin.skins);
         }
-      } catch (error) {
-        console.error('Error opening case:', error);
-        // В случае ошибки показываем скин без реального открытия
-        setWonSkin(selectedItem.skins);
       }
-
-      setTimeout(() => {
-        setIsComplete(true);
-        setAnimationPhase(null);
-      }, 3000);
+    } catch (error) {
+      console.error('💥 [CASE_OPENING] Error in simulateCaseResult:', error);
+      // В случае ошибки показываем случайный скин без реального открытия
+      const randomIndex = Math.floor(Math.random() * caseSkins.length);
+      const fallbackSkin = caseSkins[randomIndex];
+      if (fallbackSkin?.skins) {
+        setWonSkin(fallbackSkin.skins);
+      }
     }
+
+    setTimeout(() => {
+      setIsComplete(true);
+      setAnimationPhase(null);
+    }, 3000);
   };
 
   const addToInventory = async () => {
     setIsProcessing(true);
-    // Скин уже добавлен в инвентарь через safe_open_case
+    console.log('📦 [CASE_OPENING] Adding to inventory (already done by RPC)');
     setTimeout(() => {
       setIsProcessing(false);
     }, 1000);
@@ -144,6 +169,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const sellDirectly = async () => {
     setIsProcessing(true);
     if (wonSkin) {
+      console.log('💰 [CASE_OPENING] Selling skin directly for', wonSkin.price, 'coins');
       const newCoins = currentUser.coins + wonSkin.price;
       onCoinsUpdate(newCoins);
     }

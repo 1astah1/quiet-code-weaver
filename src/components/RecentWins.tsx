@@ -11,7 +11,7 @@ interface RecentWin {
     rarity: string;
     price: number;
     image_url?: string;
-  };
+  } | null;
   users: {
     username: string;
   } | null;
@@ -50,11 +50,13 @@ const RecentWins = () => {
         return [];
       }
     },
-    refetchInterval: 30000, // Обновляем каждые 30 секунд
+    refetchInterval: 30000,
     staleTime: 15000
   });
 
-  const getRarityColor = (rarity: string) => {
+  const getRarityColor = (rarity?: string) => {
+    if (!rarity) return 'from-gray-500 to-gray-600';
+    
     const colors = {
       'Covert': 'from-orange-500 to-red-500',
       'Classified': 'from-red-500 to-pink-500', 
@@ -129,14 +131,16 @@ const RecentWins = () => {
       </h2>
       
       <div className="space-y-3 max-h-80 overflow-y-auto">
-        {recentWins.map((win) => (
-          <div key={win.id} className="flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
-            <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(win.reward_data?.rarity || '')} p-0.5`}>
-              <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
-                {win.reward_data?.image_url ? (
+        {recentWins.map((win) => {
+          const rewardData = win.reward_data;
+          
+          return (
+            <div key={win.id} className="flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
+              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData?.rarity)} p-0.5`}>
+                <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                   <OptimizedImage
-                    src={win.reward_data.image_url}
-                    alt={win.reward_data?.name || 'Скин'}
+                    src={rewardData?.image_url}
+                    alt={rewardData?.name || 'Скин'}
                     className="w-full h-full object-cover"
                     fallback={
                       <div className="w-full h-full flex items-center justify-center text-slate-400">
@@ -144,36 +148,32 @@ const RecentWins = () => {
                       </div>
                     }
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    🎁
-                  </div>
-                )}
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <span className="text-slate-300 font-medium text-sm truncate">
+                    {win.users?.username || 'Игрок'}
+                  </span>
+                  <span className="text-green-400 text-xs">выиграл</span>
+                </div>
+                <p className="text-white font-medium text-sm truncate">
+                  {rewardData?.name || 'Неизвестный предмет'}
+                </p>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-yellow-400 font-bold text-sm">
+                  {rewardData?.price || 0}₽
+                </div>
+                <div className="text-slate-500 text-xs">
+                  {formatTimeAgo(win.won_at)}
+                </div>
               </div>
             </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
-                <span className="text-slate-300 font-medium text-sm truncate">
-                  {win.users?.username || 'Игрок'}
-                </span>
-                <span className="text-green-400 text-xs">выиграл</span>
-              </div>
-              <p className="text-white font-medium text-sm truncate">
-                {win.reward_data?.name || 'Скин'}
-              </p>
-            </div>
-            
-            <div className="text-right">
-              <div className="text-yellow-400 font-bold text-sm">
-                {win.reward_data?.price || 0}₽
-              </div>
-              <div className="text-slate-500 text-xs">
-                {formatTimeAgo(win.won_at)}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
