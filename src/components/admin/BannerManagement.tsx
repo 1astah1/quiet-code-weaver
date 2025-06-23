@@ -85,6 +85,49 @@ const BannerManagement = () => {
     }
   });
 
+  const ensureBucketExists = async (bucketName: string) => {
+    try {
+      console.log(`🪣 [BUCKET_CHECK] Checking bucket: ${bucketName}`);
+      
+      // Простая попытка загрузки тестового файла для проверки bucket
+      const testFileName = `test_${Date.now()}.txt`;
+      const { error: testError } = await supabase.storage
+        .from(bucketName)
+        .upload(testFileName, new Blob(['test']), { upsert: false });
+      
+      if (testError) {
+        if (testError.message.includes('Bucket not found')) {
+          console.log(`🆕 [BUCKET_CREATE] Creating bucket: ${bucketName}`);
+          const { error: createError } = await supabase.storage.createBucket(bucketName, {
+            public: true,
+            allowedMimeTypes: ['image/*'],
+            fileSizeLimit: 5242880 // 5MB
+          });
+          
+          if (createError && !createError.message.includes('already exists')) {
+            console.error('❌ [BUCKET_CREATE] Error creating bucket:', createError);
+            throw createError;
+          }
+          
+          console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} created successfully`);
+        } else {
+          // Удаляем тестовый файл если bucket существует
+          await supabase.storage.from(bucketName).remove([testFileName]);
+          console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} exists and accessible`);
+        }
+      } else {
+        // Удаляем тестовый файл
+        await supabase.storage.from(bucketName).remove([testFileName]);
+        console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} exists and accessible`);
+      }
+      
+      return true;
+    } catch (error: any) {
+      console.error(`❌ [BUCKET_ERROR] Error with bucket ${bucketName}:`, error);
+      throw new Error(`Ошибка с bucket ${bucketName}: ${error.message}`);
+    }
+  };
+
   const handleImageUpload = async (file: File): Promise<string> => {
     if (!file) throw new Error('Файл не выбран');
     
@@ -105,18 +148,8 @@ const BannerManagement = () => {
         throw new Error('Файл должен быть изображением');
       }
 
-      // Проверяем что bucket banner-images существует
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      if (listError) {
-        console.error('❌ [BANNER_UPLOAD] Error listing buckets:', listError);
-        throw new Error(`Ошибка проверки buckets: ${listError.message}`);
-      }
-
-      const bucketExists = buckets?.some(bucket => bucket.name === 'banner-images');
-      if (!bucketExists) {
-        console.error('❌ [BANNER_UPLOAD] banner-images bucket not found');
-        throw new Error('Storage bucket для баннеров не найден. Обратитесь к администратору.');
-      }
+      // Проверяем/создаем bucket
+      await ensureBucketExists('banner-images');
 
       // Генерируем имя файла
       const fileExt = file.name.split('.').pop();
