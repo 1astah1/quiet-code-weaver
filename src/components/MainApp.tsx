@@ -26,7 +26,7 @@ const MainApp: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
   
-  useImagePreloader();
+  useImagePreloader([]);
 
   useEffect(() => {
     if (isWebView) {
@@ -60,6 +60,17 @@ const MainApp: React.FC = () => {
       onCoinsUpdate: updateUserCoins
     };
 
+    const quizUserProps = {
+      currentUser: {
+        id: user.id,
+        username: user.username,
+        coins: user.coins,
+        quiz_lives: user.quiz_lives,
+        quiz_streak: user.quiz_streak
+      },
+      onCoinsUpdate: updateUserCoins
+    };
+
     switch (currentScreen) {
       case 'inventory':
         return <InventoryScreen />;
@@ -67,7 +78,7 @@ const MainApp: React.FC = () => {
         return <SkinsScreen {...commonProps} />;
       case 'quiz':
         return <QuizScreen 
-          {...commonProps} 
+          {...quizUserProps} 
           onBack={() => setCurrentScreen('main')}
           onLivesUpdate={() => {}}
           onStreakUpdate={() => {}}
