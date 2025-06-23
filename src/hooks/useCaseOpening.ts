@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,7 +68,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           never_drop: item.never_drop,
           reward_type: item.reward_type,
           skins: item.skins || undefined,
-          coin_rewards: (item.coin_rewards && typeof item.coin_rewards === 'object' && !('error' in item.coin_rewards)) 
+          coin_rewards: (item.coin_rewards && 
+                        item.coin_rewards !== null && 
+                        typeof item.coin_rewards === 'object' && 
+                        !('error' in item.coin_rewards)) 
             ? item.coin_rewards 
             : undefined
         })).filter(item => item.skins || item.coin_rewards);
