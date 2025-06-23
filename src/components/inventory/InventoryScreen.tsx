@@ -1,7 +1,6 @@
 
 import { useState } from "react";
-import { useInventoryData } from "@/hooks/useInventoryData";
-import { useSkinSale } from "@/hooks/useSkinSale";
+import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
 import { useSellAllSkins } from "@/hooks/useSellAllSkins";
 import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
@@ -20,8 +19,8 @@ interface InventoryScreenProps {
 }
 
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
-  const { data: inventory, isLoading, error } = useInventoryData(currentUser.id);
-  const sellSkinMutation = useSkinSale();
+  const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
+  const sellSkinMutation = useSellSkin();
   const sellAllMutation = useSellAllSkins();
   const { toast } = useToast();
   
@@ -60,12 +59,12 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       const result = await sellSkinMutation.mutateAsync({
         inventoryId,
         userId: currentUser.id,
-        price: sellPrice
+        sellPrice
       });
       
-      if (result && result.price !== undefined) {
-        console.log('Skin sold, updating coins by:', result.price);
-        onCoinsUpdate(currentUser.coins + result.price);
+      if (result && result.newCoins !== undefined) {
+        console.log('Skin sold, updating coins to:', result.newCoins);
+        onCoinsUpdate(result.newCoins);
       }
     } catch (error) {
       console.error('Error selling skin:', error);
@@ -92,9 +91,9 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         userId: currentUser.id
       });
 
-      if (result && result.total_earned !== undefined) {
-        console.log('All skins sold, updating coins by:', result.total_earned);
-        onCoinsUpdate(currentUser.coins + result.total_earned);
+      if (result && result.totalValue !== undefined) {
+        console.log('All skins sold, updating coins by:', result.totalValue);
+        onCoinsUpdate(currentUser.coins + result.totalValue);
       }
     } catch (error) {
       console.error('Error selling all skins:', error);

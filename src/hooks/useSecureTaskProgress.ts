@@ -1,51 +1,103 @@
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useCallback } from "react";
+import { SecurityRateLimiter, auditLog, validateInput } from "@/utils/security";
+import { isValidUUID } from "@/utils/uuid";
 
 interface TaskProgress {
-  [taskId: string]: 'available' | 'completed' | 'claimed';
-}
-
-interface CompleteTaskParams {
-  taskId: string;
-}
-
-interface ClaimRewardParams {
-  taskId: string;
-  rewardCoins: number;
+  id: string;
+  task_id: string;
+  status: 'available' | 'completed' | 'claimed';
+  completed_at?: string;
+  claimed_at?: string;
 }
 
 export const useSecureTaskProgress = (userId: string) => {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [taskProgress, setTaskProgress] = useState<TaskProgress>({});
+  const queryClient = useQueryClient();
 
-  const getTaskStatus = useCallback((taskId: string): 'available' | 'completed' | 'claimed' => {
-    return taskProgress[taskId] || 'available';
-  }, [taskProgress]);
+  const { data: taskProgress, isLoading } = useQuery({
+    queryKey: ['task-progress', userId],
+    queryFn: async () => {
+      if (!isValidUUID(userId)) {
+        console.error('Invalid user ID format:', userId);
+        return [];
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('user_task_progress')
+          .select('*')
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('Error loading task progress:', error);
+          await auditLog(userId, 'task_progress_load_failed', { error: error.message }, false);
+          return [];
+        }
+
+        await auditLog(userId, 'task_progress_loaded', { count: data?.length || 0 });
+        return (data || []) as TaskProgress[];
+      } catch (error) {
+        console.error('Task progress query error:', error);
+        return [];
+      }
+    },
+    enabled: !!userId && isValidUUID(userId),
+    retry: 2,
+    refetchOnWindowFocus: false,
+    staleTime: 10000
+  });
 
   const completeTask = useMutation({
-    mutationFn: async ({ taskId }: CompleteTaskParams) => {
-      console.log('🎯 Completing task:', { userId, taskId });
-      
-      // Simple task completion logic
-      setTaskProgress(prev => ({ ...prev, [taskId]: 'completed' }));
-      
-      return { success: true };
+    mutationFn: async ({ taskId }: { taskId: string }) => {
+      if (!SecurityRateLimiter.canPerformAction(userId, 'complete_task')) {
+        const remaining = SecurityRateLimiter.getRemainingTime(userId, 'complete_task');
+        throw new Error(`Слишком быстрое выполнение заданий. Попробуйте через ${Math.ceil(remaining / 1000)} секунд`);
+      }
+
+      if (!isValidUUID(userId) || !isValidUUID(taskId)) {
+        await auditLog(userId, 'complete_task_invalid_params', { taskId }, false);
+        throw new Error('Неверные параметры запроса');
+      }
+
+      try {
+        const { error } = await supabase
+          .from('user_task_progress')
+          .upsert({
+            user_id: userId,
+            task_id: taskId,
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,task_id'
+          });
+
+        if (error) {
+          console.error('Error completing task:', error);
+          await auditLog(userId, 'complete_task_failed', { error: error.message, taskId }, false);
+          throw new Error('Не удалось отметить задание как выполненное');
+        }
+
+        await auditLog(userId, 'complete_task_success', { taskId });
+        return { taskId };
+      } catch (error) {
+        console.error('Complete task error:', error);
+        throw error;
+      }
     },
-    onSuccess: (data, variables) => {
-      console.log('✅ Task completed successfully:', variables.taskId);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-progress', userId] });
       toast({
         title: "Задание выполнено!",
-        description: "Теперь вы можете забрать награду",
+        description: "Теперь заберите награду",
       });
     },
     onError: (error: any) => {
-      console.error('❌ Task completion error:', error);
       toast({
-        title: "Ошибка выполнения",
+        title: "Ошибка",
         description: error.message || "Не удалось выполнить задание",
         variant: "destructive",
       });
@@ -53,47 +105,84 @@ export const useSecureTaskProgress = (userId: string) => {
   });
 
   const claimReward = useMutation({
-    mutationFn: async ({ taskId, rewardCoins }: ClaimRewardParams) => {
-      console.log('💰 Claiming reward:', { userId, taskId, rewardCoins });
-      
-      // Update user coins
-      const { error } = await supabase.rpc('safe_update_coins', {
-        p_user_id: userId,
-        p_coin_change: rewardCoins,
-        p_operation_type: 'task_reward'
-      });
-
-      if (error) {
-        throw new Error('Не удалось начислить награду: ' + error.message);
+    mutationFn: async ({ taskId, rewardCoins }: { taskId: string; rewardCoins: number }) => {
+      if (!SecurityRateLimiter.canPerformAction(userId, 'claim_task_reward')) {
+        const remaining = SecurityRateLimiter.getRemainingTime(userId, 'claim_task_reward');
+        throw new Error(`Слишком быстрое получение наград. Попробуйте через ${Math.ceil(remaining / 1000)} секунд`);
       }
 
-      // Mark task as claimed
-      setTaskProgress(prev => ({ ...prev, [taskId]: 'claimed' }));
-      
-      return { rewardCoins };
+      if (!isValidUUID(userId) || !isValidUUID(taskId)) {
+        await auditLog(userId, 'claim_reward_invalid_params', { taskId, rewardCoins }, false);
+        throw new Error('Неверные параметры запроса');
+      }
+
+      if (!validateInput.skinPrice(rewardCoins)) {
+        await auditLog(userId, 'claim_reward_invalid_amount', { rewardCoins }, false);
+        throw new Error('Недопустимая сумма награды');
+      }
+
+      try {
+        // Используем новую безопасную функцию для обновления монет
+        const { error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
+          p_user_id: userId,
+          p_coin_change: rewardCoins,
+          p_operation_type: 'task_reward'
+        });
+
+        if (coinsError) {
+          console.error('Error updating coins:', coinsError);
+          throw new Error('Не удалось начислить монеты');
+        }
+
+        // Обновляем статус задания
+        const { error: taskError } = await supabase
+          .from('user_task_progress')
+          .update({
+            status: 'claimed',
+            claimed_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('task_id', taskId)
+          .eq('status', 'completed');
+
+        if (taskError) {
+          console.error('Error updating task status:', taskError);
+          await auditLog(userId, 'claim_reward_task_update_failed', { error: taskError.message, taskId }, false);
+          throw new Error('Не удалось обновить статус задания');
+        }
+
+        await auditLog(userId, 'claim_reward_success', { taskId, rewardCoins });
+        return { rewardCoins };
+      } catch (error) {
+        console.error('Claim reward error:', error);
+        throw error;
+      }
     },
-    onSuccess: (data, variables) => {
-      console.log('🎉 Reward claimed successfully:', data);
-      
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['task-progress', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-coins', userId] });
       toast({
         title: "Награда получена!",
-        description: `Вы получили ${data.rewardCoins} монет`,
+        description: `Получено ${data.rewardCoins} монет`,
       });
     },
     onError: (error: any) => {
-      console.error('❌ Reward claim error:', error);
       toast({
-        title: "Ошибка получения награды",
+        title: "Ошибка",
         description: error.message || "Не удалось получить награду",
         variant: "destructive",
       });
     }
   });
 
+  const getTaskStatus = (taskId: string): 'available' | 'completed' | 'claimed' => {
+    const progress = taskProgress?.find(p => p.task_id === taskId);
+    return progress?.status || 'available';
+  };
+
   return {
     taskProgress,
+    isLoading,
     completeTask,
     claimReward,
     getTaskStatus
