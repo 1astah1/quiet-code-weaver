@@ -58,8 +58,10 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
     }
   });
 
-  const handleBannerAction = (action: Screen) => {
-    onScreenChange(action);
+  const handleBannerAction = (action: string) => {
+    if (action === 'skins' || action === 'quiz' || action === 'tasks' || action === 'inventory') {
+      onScreenChange(action as Screen);
+    }
   };
 
   const handleTaskClick = async (task: any) => {

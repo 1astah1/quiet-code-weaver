@@ -1,17 +1,33 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCaseOpeningLogger } from './useCaseOpeningLogger';
 import type { CaseSkin } from '@/utils/supabaseTypes';
 
-export const useCaseOpening = (caseId: string | null) => {
-  const [isOpening, setIsOpening] = useState(false);
+interface UseCaseOpeningProps {
+  caseItem: any;
+  currentUser: {
+    id: string;
+    username: string;
+    coins: number;
+  };
+  onCoinsUpdate: (newCoins: number) => void;
+}
+
+export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningProps) => {
+  const [wonSkin, setWonSkin] = useState<any>(null);
+  const [wonCoins, setWonCoins] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const [animationPhase, setAnimationPhase] = useState<'opening' | 'revealing' | 'bonus' | null>('opening');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showBonusRoulette, setShowBonusRoulette] = useState(false);
   const { logCaseOpening } = useCaseOpeningLogger();
 
   const { data: caseSkins = [], isLoading } = useQuery({
-    queryKey: ['case-skins', caseId],
+    queryKey: ['case-skins', caseItem?.id],
     queryFn: async () => {
-      if (!caseId) return [];
+      if (!caseItem?.id) return [];
       
       try {
         const { data, error } = await supabase
@@ -37,7 +53,7 @@ export const useCaseOpening = (caseId: string | null) => {
               image_url
             )
           `)
-          .eq('case_id', caseId)
+          .eq('case_id', caseItem.id)
           .eq('never_drop', false);
         
         if (error) {
@@ -54,7 +70,7 @@ export const useCaseOpening = (caseId: string | null) => {
           reward_type: item.reward_type,
           skins: item.skins || undefined,
           coin_rewards: item.coin_rewards || undefined
-        }));
+        })).filter(item => item.skins || item.coin_rewards);
         
         return transformedData;
       } catch (error) {
@@ -62,195 +78,101 @@ export const useCaseOpening = (caseId: string | null) => {
         return [];
       }
     },
-    enabled: !!caseId
+    enabled: !!caseItem?.id
   });
 
-  const openCase = async (userId: string, isFree: boolean, caseName: string) => {
-    if (!caseId) {
-      console.error('❌ [CASE_OPENING] Case ID is null or undefined.');
-      return { success: false, error: 'Case ID is required' };
+  useEffect(() => {
+    if (caseItem && currentUser && caseSkins.length > 0) {
+      startCaseOpening();
     }
+  }, [caseItem, currentUser, caseSkins]);
 
-    if (isOpening) {
-      console.warn('⚠️ [CASE_OPENING] Case opening already in progress.');
-      return { success: false, error: 'Case opening already in progress' };
-    }
+  const startCaseOpening = async () => {
+    console.log('Starting case opening animation');
+    setAnimationPhase('opening');
 
-    setIsOpening(true);
-    const startTime = Date.now();
-    let rewardType: 'skin' | 'coin_reward' | undefined;
-    let rewardData: any;
-    let errorMessage: string | undefined;
+    // Opening phase
+    setTimeout(() => {
+      setAnimationPhase('revealing');
+      simulateCaseResult();
+    }, 2000);
+  };
 
-    try {
-      logCaseOpening({
-        user_id: userId,
-        case_id: caseId,
-        case_name: caseName,
-        is_free: isFree,
-        phase: 'opening'
-      });
+  const simulateCaseResult = () => {
+    if (caseSkins.length === 0) return;
 
-      // 1. Select a random skin or coin reward based on probabilities
-      const randomNumber = Math.random();
-      let cumulativeProbability = 0;
-      let selectedCaseSkin: CaseSkin | undefined;
+    // Simple random selection for demo
+    const randomIndex = Math.floor(Math.random() * caseSkins.length);
+    const selectedItem = caseSkins[randomIndex];
 
-      for (const caseSkin of caseSkins) {
-        const probability = caseSkin.custom_probability !== null && caseSkin.custom_probability !== undefined
-          ? caseSkin.custom_probability
-          : caseSkin.probability || 0;
-
-        cumulativeProbability += probability;
-        if (randomNumber <= cumulativeProbability) {
-          selectedCaseSkin = caseSkin;
-          break;
-        }
-      }
-
-      if (!selectedCaseSkin) {
-        console.error('❌ [CASE_OPENING] No skin or coin reward selected. Check probabilities.');
-        errorMessage = 'No skin or coin reward selected. Check probabilities.';
-        logCaseOpening({
-          user_id: userId,
-          case_id: caseId,
-          case_name: caseName,
-          is_free: isFree,
-          phase: 'error',
-          error_message: errorMessage
-        });
-        return { success: false, error: errorMessage };
-      }
-
-      // 2. Open the case using the selected skin or coin reward
-      let result;
-      if (selectedCaseSkin.reward_type === 'coin_reward' && selectedCaseSkin.coin_rewards) {
-        rewardType = 'coin_reward';
-        rewardData = selectedCaseSkin.coin_rewards;
-        logCaseOpening({
-          user_id: userId,
-          case_id: caseId,
-          case_name: caseName,
-          is_free: isFree,
-          phase: 'revealing',
-          reward_type: rewardType,
-          reward_data: rewardData
-        });
-
-        const { data, error } = await supabase.rpc('safe_open_case', {
-          p_user_id: userId,
-          p_case_id: caseId,
-          p_skin_id: null,
-          p_coin_reward_id: selectedCaseSkin.coin_rewards.id,
-          p_is_free: isFree
-        });
-
-        if (error) {
-          console.error('❌ [CASE_OPENING] Error opening case with coin reward:', error);
-          errorMessage = `Error opening case with coin reward: ${error.message}`;
-          logCaseOpening({
-            user_id: userId,
-            case_id: caseId,
-            case_name: caseName,
-            is_free: isFree,
-            phase: 'error',
-            reward_type: rewardType,
-            reward_data: rewardData,
-            error_message: errorMessage
-          });
-          return { success: false, error: errorMessage };
-        }
-        result = data;
-      } else {
-        rewardType = 'skin';
-        rewardData = selectedCaseSkin.skins;
-        logCaseOpening({
-          user_id: userId,
-          case_id: caseId,
-          case_name: caseName,
-          is_free: isFree,
-          phase: 'revealing',
-          reward_type: rewardType,
-          reward_data: rewardData
-        });
-
-        const { data, error } = await supabase.rpc('safe_open_case', {
-          p_user_id: userId,
-          p_case_id: caseId,
-          p_skin_id: selectedCaseSkin.skins?.id,
-          p_coin_reward_id: null,
-          p_is_free: isFree
-        });
-
-        if (error) {
-          console.error('❌ [CASE_OPENING] Error opening case with skin:', error);
-          errorMessage = `Error opening case with skin: ${error.message}`;
-          logCaseOpening({
-            user_id: userId,
-            case_id: caseId,
-            case_name: caseName,
-            is_free: isFree,
-            phase: 'error',
-            reward_type: rewardType,
-            reward_data: rewardData,
-            error_message: errorMessage
-          });
-          return { success: false, error: errorMessage };
-        }
-        result = data;
-      }
-
-      if (!result || !result.success) {
-        console.error('❌ [CASE_OPENING] Failed to open case:', result?.error);
-        errorMessage = `Failed to open case: ${result?.error || 'Unknown error'}`;
-        logCaseOpening({
-          user_id: userId,
-          case_id: caseId,
-          case_name: caseName,
-          is_free: isFree,
-          phase: 'error',
-          reward_type: rewardType,
-          reward_data: rewardData,
-          error_message: errorMessage
-        });
-        return { success: false, error: errorMessage };
-      }
-
-      const duration = Date.now() - startTime;
-      logCaseOpening({
-        user_id: userId,
-        case_id: caseId,
-        case_name: caseName,
-        is_free: isFree,
-        phase: 'complete',
-        reward_type: rewardType,
-        reward_data: rewardData,
-        duration_ms: duration
-      });
-
-      console.log(`🎉 [CASE_OPENING] Case opened successfully in ${duration}ms!`, { rewardType, rewardData });
-      return { success: true, reward: result.reward, inventoryId: result.inventory_id };
-    } catch (error) {
-      console.error('💥 [CASE_OPENING] Unexpected error during case opening:', error);
-      errorMessage = `Unexpected error during case opening: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      logCaseOpening({
-        user_id: userId,
-        case_id: caseId,
-        case_name: caseName,
-        is_free: isFree,
-        phase: 'error',
-        error_message: errorMessage
-      });
-      return { success: false, error: errorMessage };
-    } finally {
-      setIsOpening(false);
+    if (selectedItem.reward_type === 'coin_reward' && selectedItem.coin_rewards) {
+      setWonCoins(selectedItem.coin_rewards.amount);
+      setShowBonusRoulette(true);
+      setAnimationPhase('bonus');
+    } else if (selectedItem.skins) {
+      setWonSkin(selectedItem.skins);
+      setTimeout(() => {
+        setIsComplete(true);
+        setAnimationPhase(null);
+      }, 3000);
     }
   };
 
+  const addToInventory = async () => {
+    setIsProcessing(true);
+    // Simulate adding to inventory
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 1000);
+  };
+
+  const sellDirectly = async () => {
+    setIsProcessing(true);
+    if (wonSkin) {
+      const newCoins = currentUser.coins + wonSkin.price;
+      onCoinsUpdate(newCoins);
+    }
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 1000);
+  };
+
+  const handleBonusComplete = (multiplier: number, finalCoins: number) => {
+    const newCoins = currentUser.coins + finalCoins;
+    onCoinsUpdate(newCoins);
+    setIsComplete(true);
+  };
+
+  const handleBonusSkip = () => {
+    const newCoins = currentUser.coins + wonCoins;
+    onCoinsUpdate(newCoins);
+    setIsComplete(true);
+  };
+
+  const handleFreeCaseResult = (result: any) => {
+    if (result.type === 'skin') {
+      setWonSkin(result);
+    } else {
+      setWonCoins(result.amount);
+    }
+    setTimeout(() => {
+      setIsComplete(true);
+      setAnimationPhase(null);
+    }, 2000);
+  };
+
   return {
+    wonSkin,
+    wonCoins,
+    isComplete,
+    animationPhase,
+    isProcessing,
+    showBonusRoulette,
+    addToInventory,
+    sellDirectly,
     caseSkins,
-    isLoading,
-    isOpening,
-    openCase
+    handleBonusComplete,
+    handleBonusSkip,
+    handleFreeCaseResult
   };
 };

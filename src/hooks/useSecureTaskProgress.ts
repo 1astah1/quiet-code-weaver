@@ -1,8 +1,7 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
-// Temporary interface until proper table is created
+// Временный интерфейс пока не создана таблица
 interface TaskProgress {
   id: string;
   user_id: string;

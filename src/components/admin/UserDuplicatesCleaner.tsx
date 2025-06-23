@@ -1,7 +1,8 @@
+
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const UserDuplicatesCleaner = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,27 +10,62 @@ const UserDuplicatesCleaner = () => {
   const { toast } = useToast();
 
   const findDuplicates = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase
+      // Find users with same email or username
+      const { data: users, error } = await supabase
         .from('users')
-        .select('username, email, COUNT(*)')
-        .group('username, email')
-        .having('COUNT(*) > 1');
+        .select('*')
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setDuplicates(data || []);
+
+      // Group by email and username to find duplicates
+      const emailGroups: { [key: string]: any[] } = {};
+      const usernameGroups: { [key: string]: any[] } = {};
+
+      users?.forEach(user => {
+        if (user.email) {
+          if (!emailGroups[user.email]) emailGroups[user.email] = [];
+          emailGroups[user.email].push(user);
+        }
+        if (user.username) {
+          if (!usernameGroups[user.username]) usernameGroups[user.username] = [];
+          usernameGroups[user.username].push(user);
+        }
+      });
+
+      const duplicateUsers: any[] = [];
       
+      // Find email duplicates
+      Object.values(emailGroups).forEach(group => {
+        if (group.length > 1) {
+          duplicateUsers.push(...group.slice(1)); // Keep first, mark others as duplicates
+        }
+      });
+
+      // Find username duplicates (avoid double counting)
+      Object.values(usernameGroups).forEach(group => {
+        if (group.length > 1) {
+          group.slice(1).forEach(user => {
+            if (!duplicateUsers.find(dup => dup.id === user.id)) {
+              duplicateUsers.push(user);
+            }
+          });
+        }
+      });
+
+      setDuplicates(duplicateUsers);
       toast({
         title: "Поиск завершен",
-        description: `Найдено ${data?.length || 0} групп дубликатов`,
+        description: `Найдено ${duplicateUsers.length} дублирующихся пользователей`,
       });
+
     } catch (error) {
       console.error('Error finding duplicates:', error);
       toast({
         title: "Ошибка",
-        description: "Не удалось найти дубликаты пользователей",
+        description: "Не удалось найти дубликаты",
         variant: "destructive",
       });
     } finally {
@@ -38,39 +74,29 @@ const UserDuplicatesCleaner = () => {
   };
 
   const cleanupDuplicates = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Simple cleanup logic - remove duplicates keeping the oldest one
-      for (const duplicate of duplicates) {
-        const { data: users, error } = await supabase
-          .from('users')
-          .select('id, created_at')
-          .eq('username', duplicate.username)
-          .eq('email', duplicate.email)
-          .order('created_at', { ascending: true });
+    if (duplicates.length === 0) return;
 
-        if (error) throw error;
+    setIsLoading(true);
+    try {
+      // Delete duplicate users
+      for (const duplicate of duplicates) {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', duplicate.id);
         
-        // Keep the first (oldest) user, delete the rest
-        const usersToDelete = users?.slice(1) || [];
-        
-        for (const user of usersToDelete) {
-          const { error: deleteError } = await supabase
-            .from('users')
-            .delete()
-            .eq('id', user.id);
-            
-          if (deleteError) throw deleteError;
+        if (error) {
+          console.error(`Error deleting user ${duplicate.id}:`, error);
         }
       }
-      
+
       toast({
         title: "Очистка завершена",
-        description: "Дубликаты пользователей удалены",
+        description: `Удалено ${duplicates.length} дублирующихся пользователей`,
       });
-      
+
       setDuplicates([]);
+
     } catch (error) {
       console.error('Error cleaning duplicates:', error);
       toast({
@@ -84,32 +110,42 @@ const UserDuplicatesCleaner = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+    <div className="bg-slate-800 rounded-lg p-6">
+      <h3 className="text-xl font-bold text-white mb-4">Очистка дублирующихся пользователей</h3>
+      
+      <div className="space-y-4">
         <Button 
           onClick={findDuplicates}
           disabled={isLoading}
-          variant="outline"
+          className="w-full"
         >
           {isLoading ? "Поиск..." : "Найти дубликаты"}
         </Button>
-        
+
         {duplicates.length > 0 && (
-          <Button 
-            onClick={cleanupDuplicates}
-            disabled={isLoading}
-            variant="destructive"
-          >
-            {isLoading ? "Очистка..." : `Удалить ${duplicates.length} дубликатов`}
-          </Button>
+          <>
+            <div className="text-white">
+              <p>Найдено дублирующихся пользователей: {duplicates.length}</p>
+              <div className="max-h-40 overflow-y-auto space-y-1 mt-2">
+                {duplicates.map(user => (
+                  <div key={user.id} className="text-sm text-gray-300 bg-slate-700 p-2 rounded">
+                    {user.username} ({user.email}) - {user.created_at}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              onClick={cleanupDuplicates}
+              disabled={isLoading}
+              variant="destructive"
+              className="w-full"
+            >
+              {isLoading ? "Удаление..." : "Удалить дубликаты"}
+            </Button>
+          </>
         )}
       </div>
-      
-      {duplicates.length > 0 && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <strong>Внимание!</strong> Найдено {duplicates.length} групп дубликатов пользователей.
-        </div>
-      )}
     </div>
   );
 };
