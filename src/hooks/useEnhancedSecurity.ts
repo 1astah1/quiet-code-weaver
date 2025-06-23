@@ -1,150 +1,89 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
-interface SecurityMetrics {
-  rateLimitViolations: number;
-  suspiciousActions: number;
-  lastViolation: Date | null;
+interface SecurityConfig {
+  maxAttempts: number;
+  windowMinutes: number;
+  suspiciousThreshold: number;
 }
 
-interface User {
+interface UserContext {
   id: string;
-  is_admin?: boolean;
+  isAdmin?: boolean;
 }
 
-export const useEnhancedSecurity = (user: User) => {
-  const [metrics, setMetrics] = useState<SecurityMetrics>({
-    rateLimitViolations: 0,
-    suspiciousActions: 0,
-    lastViolation: null
-  });
+export const useEnhancedSecurity = (user: UserContext) => {
   const [isBlocked, setIsBlocked] = useState(false);
+  const [actionCounts, setActionCounts] = useState<Record<string, number>>({});
+  const { toast } = useToast();
 
-  // Проверяем статус администратора
-  const isAdmin = user.is_admin || false;
+  // Более разумные лимиты безопасности
+  const securityConfigs: Record<string, SecurityConfig> = {
+    purchase_skin: { maxAttempts: 10, windowMinutes: 10, suspiciousThreshold: 15 },
+    sell_skin: { maxAttempts: 20, windowMinutes: 10, suspiciousThreshold: 30 },
+    open_case: { maxAttempts: 50, windowMinutes: 10, suspiciousThreshold: 100 },
+    complete_task: { maxAttempts: 5, windowMinutes: 10, suspiciousThreshold: 10 },
+    claim_task_reward: { maxAttempts: 3, windowMinutes: 5, suspiciousThreshold: 5 }
+  };
 
-  // Проверка rate limit через RPC функцию
-  const checkRateLimit = useCallback(async (
-    action: string, 
-    maxAttempts: number = 10, 
-    windowMinutes: number = 60
-  ): Promise<boolean> => {
-    try {
-      // ИСПРАВЛЕНО: Администраторы всегда проходят проверку rate limit
-      if (isAdmin) {
-        console.log(`👑 [SECURITY] Admin user bypassing rate limit for action: ${action}`);
-        return true;
-      }
+  const checkRateLimit = useCallback(async (action: string, customLimit?: number, customWindow?: number): Promise<boolean> => {
+    if (user.isAdmin) return true; // Админы не ограничиваются
 
-      console.log(`🔒 Checking rate limit for action: ${action}`);
-      
-      const { data, error } = await supabase.rpc('check_rate_limit', {
-        p_user_id: user.id,
-        p_action: action,
-        p_max_attempts: maxAttempts,
-        p_window_minutes: windowMinutes
+    const config = securityConfigs[action] || { maxAttempts: 5, windowMinutes: 10, suspiciousThreshold: 10 };
+    const maxAttempts = customLimit || config.maxAttempts;
+    const windowMinutes = customWindow || config.windowMinutes;
+
+    const key = `${action}_${Date.now() - (Date.now() % (windowMinutes * 60000))}`;
+    const currentCount = actionCounts[key] || 0;
+
+    if (currentCount >= maxAttempts) {
+      toast({
+        title: "Превышен лимит действий",
+        description: `Слишком много попыток "${action}". Подождите ${windowMinutes} минут.`,
+        variant: "destructive"
       });
-
-      if (error) {
-        console.error('❌ Rate limit check error:', error);
-        return false; // В случае ошибки блокируем действие
-      }
-
-      const canProceed = data as boolean;
-      
-      if (!canProceed) {
-        console.warn(`🚫 Rate limit exceeded for action: ${action}`);
-        setMetrics(prev => ({
-          ...prev,
-          rateLimitViolations: prev.rateLimitViolations + 1,
-          lastViolation: new Date()
-        }));
-        setIsBlocked(true);
-        
-        // Снимаем блокировку через 5 минут
-        setTimeout(() => {
-          setIsBlocked(false);
-        }, 5 * 60 * 1000);
-      }
-
-      return canProceed;
-    } catch (error) {
-      console.error('💥 Security check failed:', error);
-      return isAdmin; // Администраторы проходят даже при ошибках
+      return false;
     }
-  }, [user.id, isAdmin]);
 
-  // Валидация входных данных
-  const validateInput = useCallback((input: any, type: 'uuid' | 'coins' | 'string'): boolean => {
+    // Проверяем на подозрительную активность
+    if (currentCount > config.suspiciousThreshold * 0.7) {
+      console.warn(`🚨 Suspicious activity detected for user ${user.id}: ${action} - ${currentCount} attempts`);
+    }
+
+    setActionCounts(prev => ({
+      ...prev,
+      [key]: currentCount + 1
+    }));
+
+    return true;
+  }, [user, actionCounts, toast]);
+
+  const validateInput = useCallback((value: any, type: 'uuid' | 'coins' | 'string'): boolean => {
     switch (type) {
       case 'uuid':
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        return uuidRegex.test(input);
-      
+        return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
       case 'coins':
-        return Number.isInteger(input) && input >= 0 && input <= 10000000;
-      
+        return typeof value === 'number' && value > 0 && value <= 100000;
       case 'string':
-        return typeof input === 'string' && input.length <= 1000;
-      
+        return typeof value === 'string' && value.length > 0 && value.length <= 1000;
       default:
         return false;
     }
   }, []);
 
-  // Санитизация строк
-  const sanitizeString = useCallback((input: string): string => {
-    return input
-      .replace(/[<>'"&]/g, (char) => {
-        const entities: Record<string, string> = {
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#x27;',
-          '&': '&amp;'
-        };
-        return entities[char] || char;
-      })
-      .trim()
-      .slice(0, 1000);
+  const sanitizeString = useCallback((str: string): string => {
+    return str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/javascript:/gi, '')
+              .replace(/on\w+\s*=/gi, '')
+              .trim();
   }, []);
 
-  // Логирование подозрительной активности
-  const logSuspiciousActivity = useCallback(async (
-    activity: string,
-    details: Record<string, any>
-  ): Promise<void> => {
-    try {
-      // ИСПРАВЛЕНО: Не логируем активность администраторов как подозрительную
-      if (isAdmin) {
-        console.log(`👑 [SECURITY] Admin activity ignored: ${activity}`, details);
-        return;
-      }
-
-      console.warn(`🚨 Suspicious activity detected: ${activity}`, details);
-      
-      setMetrics(prev => ({
-        ...prev,
-        suspiciousActions: prev.suspiciousActions + 1,
-        lastViolation: new Date()
-      }));
-
-      // В реальном приложении здесь был бы вызов к серверу для логирования
-      // await supabase.from('security_audit_log').insert({...})
-      
-    } catch (error) {
-      console.error('Failed to log suspicious activity:', error);
-    }
-  }, [isAdmin]);
-
   return {
-    metrics,
-    isBlocked: isBlocked && !isAdmin,
     checkRateLimit,
     validateInput,
     sanitizeString,
-    logSuspiciousActivity,
-    isAdmin
+    isBlocked,
+    setIsBlocked
   };
 };

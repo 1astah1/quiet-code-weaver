@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, CheckCircle, Gift } from "lucide-react";
@@ -6,6 +7,7 @@ import DailyRewardsCalendar from "@/components/DailyRewardsCalendar";
 import { useTaskProgress } from "@/hooks/useTaskProgress";
 import { useEnhancedSecurity } from "@/hooks/useEnhancedSecurity";
 import LazyImage from "@/components/ui/LazyImage";
+import SecureButton from "@/components/ui/SecureButton";
 
 interface TasksScreenFixedProps {
   currentUser: {
@@ -234,29 +236,25 @@ const TasksScreenFixed = ({ currentUser, onCoinsUpdate }: TasksScreenFixedProps)
                     </div>
                     
                     {taskStatus === 'available' && (
-                      <button
-                        onClick={() => handleTaskClick(task)}
-                        disabled={completeTask.isPending}
-                        className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm bg-orange-500 hover:bg-orange-600 disabled:bg-orange-700 text-white disabled:cursor-not-allowed"
+                      <SecureButton
+                        onSecureClick={() => handleTaskClick(task)}
+                        className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm bg-orange-500 hover:bg-orange-600"
+                        cooldownMs={2000}
                       >
                         <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden xs:inline">
-                          {completeTask.isPending ? "Выполнение..." : "Выполнить"}
-                        </span>
-                      </button>
+                        <span className="hidden xs:inline">Выполнить</span>
+                      </SecureButton>
                     )}
 
                     {taskStatus === 'completed' && (
-                      <button
-                        onClick={() => handleClaimReward(task)}
-                        disabled={claimReward.isPending}
-                        className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-700 text-white animate-pulse disabled:cursor-not-allowed"
+                      <SecureButton
+                        onSecureClick={() => handleClaimReward(task)}
+                        className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 animate-pulse"
+                        cooldownMs={1500}
                       >
                         <Gift className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden xs:inline">
-                          {claimReward.isPending ? "Получение..." : "Забрать"}
-                        </span>
-                      </button>
+                        <span className="hidden xs:inline">Забрать</span>
+                      </SecureButton>
                     )}
 
                     {taskStatus === 'claimed' && (
