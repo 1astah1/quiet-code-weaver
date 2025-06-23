@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,8 +54,11 @@ const UserManagement = () => {
         throw error;
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Неизвестная ошибка');
+      // Правильная типизация ответа RPC
+      const result = data as { success: boolean; error?: string };
+      
+      if (!result?.success) {
+        throw new Error(result?.error || 'Неизвестная ошибка');
       }
 
       queryClient.invalidateQueries({ queryKey: ['admin_users'] });

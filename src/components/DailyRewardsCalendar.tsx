@@ -35,7 +35,7 @@ const DailyRewardsCalendar = () => {
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('daily_streak, last_daily_login')
+        .select('id, daily_streak, last_daily_login')
         .eq('auth_id', user.id)
         .single();
 
@@ -49,6 +49,7 @@ const DailyRewardsCalendar = () => {
       if (claimedError) throw claimedError;
 
       return {
+        userId: userData.id,
         dailyStreak: userData.daily_streak || 0,
         lastDailyLogin: userData.last_daily_login,
         claimedRewards: claimedRewards || []
@@ -83,33 +84,21 @@ const DailyRewardsCalendar = () => {
   };
 
   const handleClaimReward = async () => {
-    if (!canClaimToday() || isClaimingReward) return;
+    if (!canClaimToday() || isClaimingReward || !userProgress) return;
     
     setIsClaimingReward(true);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const nextDay = getNextClaimableDay();
       const reward = dailyRewards?.find(r => r.day_number === nextDay);
       
       if (!reward) throw new Error('Reward not found');
 
-      // Получаем ID пользователя
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_id', user.id)
-        .single();
-
-      if (userError) throw userError;
-
       // Записываем получение награды
       const { error: claimError } = await supabase
         .from('user_daily_rewards')
         .insert({
-          user_id: userData.id,
+          user_id: userProgress.userId,
           day_number: nextDay,
           reward_coins: reward.reward_coins
         });
@@ -120,11 +109,11 @@ const DailyRewardsCalendar = () => {
       const { error: updateError } = await supabase
         .from('users')
         .update({
-          coins: supabase.sql`coins + ${reward.reward_coins}`,
+          coins: `coins + ${reward.reward_coins}`,
           daily_streak: nextDay,
           last_daily_login: new Date().toISOString().split('T')[0]
         })
-        .eq('id', userData.id);
+        .eq('id', userProgress.userId);
 
       if (updateError) throw updateError;
 

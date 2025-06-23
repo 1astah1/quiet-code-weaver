@@ -65,7 +65,10 @@ const PurchaseSuccessModal = ({
 
       if (error) throw error;
 
-      if (data?.success) {
+      // Правильная типизация ответа RPC
+      const result = data as { success: boolean; error?: string };
+
+      if (result?.success) {
         toast({
           title: "Скин продан!",
           description: `Получено ${sellPrice} монет`,
@@ -73,7 +76,7 @@ const PurchaseSuccessModal = ({
         onInventoryUpdate();
         onClose();
       } else {
-        throw new Error(data?.error || 'Ошибка продажи');
+        throw new Error(result?.error || 'Ошибка продажи');
       }
     } catch (error) {
       console.error('Ошибка продажи:', error);
