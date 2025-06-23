@@ -21,7 +21,7 @@ import { useImagePreloader } from '@/hooks/useImagePreloader';
 export type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
 
 const MainApp: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, updateUserCoins } = useAuth();
   const [currentScreen, setCurrentScreen] = React.useState<Screen>('main');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
@@ -42,25 +42,44 @@ const MainApp: React.FC = () => {
   }
 
   if (!user) {
-    return <AuthScreen />;
+    return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
+  const handleScreenChange = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
   const renderScreen = () => {
+    const commonProps = {
+      currentUser: {
+        id: user.id,
+        username: user.username,
+        coins: user.coins,
+        referralCode: user.referralCode
+      },
+      onCoinsUpdate: updateUserCoins
+    };
+
     switch (currentScreen) {
       case 'inventory':
         return <InventoryScreen />;
       case 'skins':
-        return <SkinsScreen />;
+        return <SkinsScreen {...commonProps} />;
       case 'quiz':
-        return <QuizScreen />;
+        return <QuizScreen 
+          {...commonProps} 
+          onBack={() => setCurrentScreen('main')}
+          onLivesUpdate={() => {}}
+          onStreakUpdate={() => {}}
+        />;
       case 'tasks':
-        return <TasksScreen />;
+        return <TasksScreen {...commonProps} />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen {...commonProps} />;
       case 'admin':
-        return user.isAdmin ? <AdminPanel /> : <MainScreen />;
+        return user.isAdmin ? <AdminPanel /> : <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
       default:
-        return <MainScreen />;
+        return <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
     }
   };
 
@@ -77,7 +96,7 @@ const MainApp: React.FC = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={handleScreenChange}
       />
       
       <main className="pb-20 pt-16">
@@ -86,7 +105,7 @@ const MainApp: React.FC = () => {
       
       <BottomNavigation 
         currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={handleScreenChange}
       />
       
       <Toaster />

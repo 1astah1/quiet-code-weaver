@@ -26,7 +26,7 @@ export const useSellAllSkins = () => {
       }
 
       console.log('✅ All items sold successfully:', sellResult);
-      return sellResult as SellAllResult;
+      return sellResult as unknown as SellAllResult;
     },
     onSuccess: async (data, variables) => {
       console.log('🎉 Mutation success, refreshing data...');

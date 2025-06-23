@@ -9,12 +9,12 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   currentScreen: Screen;
-  onScreenChange: (screen: Screen) => void;
+  onScreenChange: (screen: string) => void;
 }
 
 const Sidebar = ({ isOpen, onClose, currentScreen, onScreenChange }: SidebarProps) => {
   const { user, signOut } = useAuth();
-  const { t } = useTranslation(user?.language_code);
+  const { t } = useTranslation(user?.language_code || 'ru');
   const [showSettings, setShowSettings] = useState(false);
 
   if (!user) return null;

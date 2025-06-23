@@ -15,6 +15,8 @@ interface AuthUser {
   avatar_url?: string;
   quiz_lives: number;
   quiz_streak: number;
+  language_code?: string;
+  steam_trade_url?: string;
 }
 
 export const useAuth = () => {
