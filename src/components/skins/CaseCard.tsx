@@ -38,7 +38,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const handleOpen = async () => {
     if (isOpening) return;
 
-    // Для бесплатных кейсов проверяем таймер
+    // Для бесплатных кейсов проверяем индивидуальный таймер
     if (caseItem.is_free) {
       if (!canOpenFreeCase) {
         toast({
@@ -49,45 +49,21 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
         return;
       }
 
-      // Обновляем время последнего открытия бесплатного кейса
-      try {
-        setIsOpening(true);
-        
-        const { error } = await supabase
-          .from('users')
-          .update({ 
-            last_free_case_notification: new Date().toISOString()
-          })
-          .eq('id', currentUser.id);
+      // Для бесплатных кейсов не обновляем время здесь, 
+      // это будет сделано в handleFreeCaseResult
+      setIsOpening(false);
+      onOpen(caseItem);
+      return;
+    }
 
-        if (error) {
-          console.error('Error updating free case timer:', error);
-          toast({
-            title: "Ошибка",
-            description: "Не удалось обновить таймер",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Сбрасываем возможность открытия
-        setCanOpenFreeCase(false);
-        
-      } catch (error) {
-        console.error('Free case timer error:', error);
-        setIsOpening(false);
-        return;
-      }
-    } else {
-      // Для платных кейсов проверяем монеты
-      if (currentUser.coins < caseItem.price) {
-        toast({
-          title: "Недостаточно монет",
-          description: `Для открытия кейса нужно ${caseItem.price} монет`,
-          variant: "destructive",
-        });
-        return;
-      }
+    // Для платных кейсов проверяем монеты
+    if (currentUser.coins < caseItem.price) {
+      toast({
+        title: "Недостаточно монет",
+        description: `Для открытия кейса нужно ${caseItem.price} монет`,
+        variant: "destructive",
+      });
+      return;
     }
 
     setIsOpening(false);
@@ -163,10 +139,10 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             </div>
           </div>
 
-          {/* Timer for free case */}
+          {/* Индивидуальный таймер для каждого бесплатного кейса */}
           {caseItem.is_free && (
             <FreeCaseTimer
-              lastOpenTime={caseItem.last_free_open || null}
+              lastOpenTime={null} // Не используем это поле больше
               onTimerComplete={handleTimerComplete}
               isDisabled={!canOpenFreeCase}
               userId={currentUser.id}

@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -21,15 +22,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         const { data: winsData, error: winsError } = await supabase
           .from('recent_wins')
           .select(`
-            *,
-            skins!inner(
-              id,
-              name, 
-              weapon_type, 
-              rarity, 
-              image_url,
-              price
-            )
+            *
           `)
           .order('won_at', { ascending: false })
           .limit(10);
@@ -62,6 +55,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
           });
         }
 
+        // Обогащаем данные о победах информацией о пользователях
         const enrichedWins = winsData?.map((win, index) => {
           const user = usersData?.find(user => user.id === win.user_id);
           console.log(`🎯 [RECENT_WINS] Processing win ${index + 1}:`, {
@@ -69,8 +63,8 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
             userId: win.user_id,
             foundUser: !!user,
             username: user?.username,
-            skinName: win.skins?.name,
-            skinImage: win.skins?.image_url
+            rewardType: win.reward_type,
+            rewardData: win.reward_data
           });
           
           return {
@@ -82,8 +76,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         const duration = Date.now() - startTime;
         console.log(`✅ [RECENT_WINS] Query completed in ${duration}ms:`, {
           totalWins: enrichedWins.length,
-          winsWithUsers: enrichedWins.filter(w => w.users).length,
-          winsWithSkins: enrichedWins.filter(w => w.skins).length
+          winsWithUsers: enrichedWins.filter(w => w.users).length
         });
         
         return enrichedWins;
@@ -114,7 +107,9 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
     console.log('🎉 [RECENT_WINS] Query success:', recentWins?.length || 0, 'wins loaded');
   }
 
-  const getRarityColor = (rarity: string) => {
+  const getRarityColor = (rarity?: string) => {
+    if (!rarity) return 'text-gray-400';
+    
     const color = (() => {
       switch (rarity) {
         case 'Consumer': return 'text-gray-400';
@@ -129,6 +124,31 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
     
     console.log('🎨 [RECENT_WINS] Rarity color for', rarity, ':', color);
     return color;
+  };
+
+  const getWinDisplayData = (win: any) => {
+    if (win.reward_type === 'coins') {
+      return {
+        name: `${win.reward_data?.amount || 0} монет`,
+        image: null,
+        rarity: 'coin',
+        weapon_type: 'Монеты'
+      };
+    } else if (win.reward_type === 'skin' && win.reward_data) {
+      return {
+        name: win.reward_data.name || 'Неизвестный скин',
+        image: win.reward_data.image_url,
+        rarity: win.reward_data.rarity,
+        weapon_type: win.reward_data.weapon_type || 'Предмет'
+      };
+    } else {
+      return {
+        name: 'Неизвестная награда',
+        image: null,
+        rarity: 'unknown',
+        weapon_type: 'Предмет'
+      };
+    }
   };
 
   if (isLoading) {
@@ -167,12 +187,14 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         {recentWins && recentWins.length > 0 ? (
           <div className="space-y-2">
             {recentWins.map((win, index) => {
+              const displayData = getWinDisplayData(win);
+              
               console.log(`🏆 [RECENT_WINS] Rendering win ${index + 1}:`, {
                 id: win.id,
                 username: win.users?.username,
-                skinName: win.skins?.name,
-                hasImage: !!win.skins?.image_url,
-                imageUrl: win.skins?.image_url
+                rewardType: win.reward_type,
+                displayName: displayData.name,
+                hasImage: !!displayData.image
               });
               
               return (
@@ -192,37 +214,41 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 flex-shrink-0">
-                      {win.skins?.image_url ? (
+                      {displayData.image ? (
                         <LazyImage
-                          src={win.skins.image_url}
-                          alt={win.skins.name || t('unknownItem')}
+                          src={displayData.image}
+                          alt={displayData.name}
                           className="w-full h-full object-cover rounded-lg border border-gray-600"
                           timeout={3000}
                           priority={index < 3}
                           fallback={
                             <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
-                              <span className="text-lg">🎯</span>
+                              <span className="text-lg">
+                                {win.reward_type === 'coins' ? '🪙' : '🎯'}
+                              </span>
                             </div>
                           }
                           onError={() => {
                             console.log('🖼️ [RECENT_WINS] Image load failed:', {
-                              imageUrl: win.skins?.image_url,
-                              skinName: win.skins?.name,
+                              imageUrl: displayData.image,
+                              rewardName: displayData.name,
                               winId: win.id
                             });
                           }}
                         />
                       ) : (
                         <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
-                          <span className="text-lg">🎯</span>
+                          <span className="text-lg">
+                            {win.reward_type === 'coins' ? '🪙' : '🎯'}
+                          </span>
                         </div>
                       )}
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${getRarityColor(win.skins?.rarity || '')}`}>
-                        {win.skins?.name || t('unknownItem')}
+                      <p className={`text-sm font-semibold ${win.reward_type === 'coins' ? 'text-yellow-400' : getRarityColor(displayData.rarity)}`}>
+                        {displayData.name}
                       </p>
-                      <p className="text-gray-400 text-xs">{win.skins?.weapon_type || t('item')}</p>
+                      <p className="text-gray-400 text-xs">{displayData.weapon_type}</p>
                     </div>
                   </div>
                 </div>
