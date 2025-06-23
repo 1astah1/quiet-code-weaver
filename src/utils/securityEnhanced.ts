@@ -1,4 +1,3 @@
-
 // Enhanced Security Validation and Monitoring
 export const enhancedValidation = {
   uuid: (value: string): boolean => {
@@ -21,6 +20,13 @@ export const enhancedValidation = {
            Number.isInteger(value) && 
            value >= 0 && 
            value <= 10000000;
+  },
+
+  coins: (value: number): boolean => {
+    return typeof value === 'number' && 
+           Number.isInteger(value) && 
+           value >= 0 && 
+           value <= 100000000;
   },
 
   quantity: (value: number): boolean => {
@@ -68,8 +74,9 @@ export const enhancedValidation = {
 
 // Security Monitoring System
 export class SecurityMonitor {
-  private static rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+  private static rateLimitMap = new Map<string, { count: number; lastReset: number; actions: Map<string, { count: number; lastReset: number }> }>();
   private static readonly RATE_LIMIT_WINDOW = 60000; // 1 minute
+  private static activityLog = new Map<string, Array<{ action: string; timestamp: number; data: any }>>();
 
   static checkClientRateLimit(userId: string, action: string, maxAttempts: number): boolean {
     const key = `${userId}:${action}`;
@@ -77,7 +84,7 @@ export class SecurityMonitor {
     const current = this.rateLimitMap.get(key);
     
     if (!current || now - current.lastReset > this.RATE_LIMIT_WINDOW) {
-      this.rateLimitMap.set(key, { count: 1, lastReset: now });
+      this.rateLimitMap.set(key, { count: 1, lastReset: now, actions: new Map() });
       return true;
     }
     
@@ -88,6 +95,39 @@ export class SecurityMonitor {
     
     current.count++;
     return true;
+  }
+
+  static async checkRateLimit(userId: string, action: string, maxAttempts: number = 10): Promise<boolean> {
+    return this.checkClientRateLimit(userId, action, maxAttempts);
+  }
+
+  static detectAnomalousActivity(userId: string, action: string, value?: number): boolean {
+    const now = Date.now();
+    const userActivity = this.activityLog.get(userId) || [];
+    
+    // Add current activity
+    userActivity.push({ action, timestamp: now, data: { value } });
+    
+    // Keep only last 10 minutes of activity
+    const recentActivity = userActivity.filter(activity => now - activity.timestamp < 10 * 60 * 1000);
+    this.activityLog.set(userId, recentActivity);
+    
+    // Check for suspicious patterns
+    const actionCount = recentActivity.filter(activity => activity.action === action).length;
+    
+    // Too many actions in short time
+    if (actionCount > 20) {
+      console.warn(`🚨 [SECURITY] Anomalous activity detected for ${userId}:${action} (${actionCount} times)`);
+      return true;
+    }
+    
+    // Suspicious high-value transactions
+    if (value && value > 50000) {
+      console.warn(`🚨 [SECURITY] High value transaction detected for ${userId}:${action} (${value})`);
+      return true;
+    }
+    
+    return false;
   }
 
   static async logSuspiciousActivity(
@@ -110,5 +150,43 @@ export class SecurityMonitor {
     } catch (error) {
       console.error('Failed to log suspicious activity:', error);
     }
+  }
+}
+
+// Secure Operation Wrapper
+export async function secureOperation<T>(
+  operation: () => Promise<T>,
+  userId: string,
+  actionType: string,
+  metadata?: Record<string, any>
+): Promise<T> {
+  try {
+    console.log(`🔒 [SECURE_OP] Starting ${actionType} for user ${userId}`);
+    
+    // Log the operation attempt
+    await SecurityMonitor.logSuspiciousActivity(
+      userId,
+      `${actionType}_attempt`,
+      { metadata },
+      'low'
+    );
+    
+    const result = await operation();
+    
+    console.log(`✅ [SECURE_OP] ${actionType} completed successfully for user ${userId}`);
+    return result;
+    
+  } catch (error) {
+    console.error(`❌ [SECURE_OP] ${actionType} failed for user ${userId}:`, error);
+    
+    // Log the operation failure
+    await SecurityMonitor.logSuspiciousActivity(
+      userId,
+      `${actionType}_failure`,
+      { error: error instanceof Error ? error.message : 'Unknown error', metadata },
+      'medium'
+    );
+    
+    throw error;
   }
 }
