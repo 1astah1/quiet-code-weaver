@@ -33,6 +33,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const [showPreview, setShowPreview] = useState(false);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { toast } = useToast();
 
   const handleOpen = async () => {
@@ -49,8 +50,6 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
         return;
       }
 
-      // Для бесплатных кейсов не обновляем время здесь, 
-      // это будет сделано в handleFreeCaseResult
       setIsOpening(false);
       onOpen(caseItem);
       return;
@@ -78,6 +77,11 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setCanOpenFreeCase(true);
   };
 
+  const handleImageError = () => {
+    console.log('Image failed to load for case:', caseItem.name);
+    setImageError(true);
+  };
+
   // Используем cover_image_url если есть, иначе image_url
   const imageUrl = caseItem.cover_image_url || caseItem.image_url;
 
@@ -85,29 +89,31 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
                      (caseItem.is_free && !canOpenFreeCase) || 
                      isOpening;
 
+  const CaseImageFallback = () => (
+    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-700 to-slate-800 text-slate-400">
+      <Package className="w-8 h-8 sm:w-12 sm:h-12 mb-2" />
+      <span className="text-xs font-medium text-center px-2">
+        {caseItem.name}
+      </span>
+    </div>
+  );
+
   return (
     <>
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-600/50 overflow-hidden hover:border-orange-500/50 transition-all duration-300 group">
         {/* Case Image */}
         <div className="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-800 overflow-hidden">
-          {imageUrl ? (
+          {imageUrl && !imageError ? (
             <OptimizedImage
               src={imageUrl}
               alt={caseItem.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              fallback={
-                <div className="flex items-center justify-center h-full">
-                  <Package className="w-12 h-12 sm:w-16 sm:h-16 text-slate-500" />
-                </div>
-              }
-              onError={() => {
-                console.error('Error loading case image:', imageUrl);
-              }}
+              fallback={<CaseImageFallback />}
+              onError={handleImageError}
+              timeout={5000}
             />
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <Package className="w-12 h-12 sm:w-16 sm:h-16 text-slate-500" />
-            </div>
+            <CaseImageFallback />
           )}
           
           {/* Free badge */}
@@ -135,14 +141,14 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
             
             {/* Stats */}
             <div className="flex items-center space-x-2 text-slate-400 text-xs">
-              <span>❤️ {caseItem.likes_count}</span>
+              <span>❤️ {caseItem.likes_count || 0}</span>
             </div>
           </div>
 
           {/* Индивидуальный таймер для каждого бесплатного кейса */}
           {caseItem.is_free && (
             <FreeCaseTimer
-              lastOpenTime={null} // Не используем это поле больше
+              lastOpenTime={null}
               onTimerComplete={handleTimerComplete}
               isDisabled={!canOpenFreeCase}
               userId={currentUser.id}

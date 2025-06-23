@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import OptimizedImage from "@/components/ui/OptimizedImage";
-import type { CaseSkin } from "@/utils/supabaseTypes";
 
 interface CasePreviewModalProps {
   caseItem: {
@@ -29,7 +28,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
             probability,
             custom_probability,
             never_drop,
-            skins!inner (
+            skins (
               id,
               name,
               weapon_type,
@@ -76,6 +75,13 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
         return 'border-gray-400 bg-gray-900/50';
     }
   };
+
+  const SkinImageFallback = ({ skinName }: { skinName: string }) => (
+    <div className="w-full h-full bg-gray-700 flex flex-col items-center justify-center p-2">
+      <span className="text-2xl mb-1">🔫</span>
+      <span className="text-xs text-gray-300 text-center line-clamp-2">{skinName}</span>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -125,16 +131,11 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                           src={skin.image_url}
                           alt={skin.name}
                           className="w-full h-full object-contain"
-                          fallback={
-                            <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                              <span className="text-2xl">🔫</span>
-                            </div>
-                          }
+                          fallback={<SkinImageFallback skinName={skin.name} />}
+                          timeout={3000}
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                          <span className="text-2xl">🔫</span>
-                        </div>
+                        <SkinImageFallback skinName={skin.name} />
                       )}
                     </div>
                     
@@ -148,7 +149,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                     
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-orange-400 font-bold">
-                        {skin.price} ₽
+                        {skin.price || 0} ₽
                       </span>
                       <span className="text-blue-400">
                         {percentage}%

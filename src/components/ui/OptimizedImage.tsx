@@ -10,7 +10,7 @@ interface OptimizedImageProps {
   priority?: boolean;
   placeholder?: string;
   sizes?: string;
-  timeout?: number; // Добавляем таймаут
+  timeout?: number;
 }
 
 const OptimizedImage = ({ 
@@ -22,7 +22,7 @@ const OptimizedImage = ({
   priority = false,
   placeholder,
   sizes = "100vw",
-  timeout = 10000 // 10 секунд таймаут по умолчанию
+  timeout = 5000 // Уменьшаем таймаут до 5 секунд
 }: OptimizedImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
@@ -33,14 +33,34 @@ const OptimizedImage = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const imgElementRef = useRef<HTMLImageElement | null>(null);
 
+  // Проверяем, является ли URL валидным
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
+    }
+  };
+
   // Создаем адаптивные URL для разных размеров
   const createResponsiveUrl = (originalSrc: string, width: number, quality: number = 80) => {
+    if (!isValidUrl(originalSrc)) {
+      console.warn('Invalid image URL:', originalSrc);
+      return originalSrc;
+    }
+
     if (originalSrc.includes('supabase') && originalSrc.includes('storage')) {
-      const url = new URL(originalSrc);
-      url.searchParams.set('width', width.toString());
-      url.searchParams.set('quality', quality.toString());
-      url.searchParams.set('format', 'webp');
-      return url.toString();
+      try {
+        const url = new URL(originalSrc);
+        url.searchParams.set('width', width.toString());
+        url.searchParams.set('quality', quality.toString());
+        url.searchParams.set('format', 'webp');
+        return url.toString();
+      } catch (error) {
+        console.warn('Failed to create responsive URL:', error);
+        return originalSrc;
+      }
     }
     return originalSrc;
   };
@@ -72,7 +92,14 @@ const OptimizedImage = ({
 
   // Загрузка изображения с таймаутом
   useEffect(() => {
-    if (!isInView || isLoaded || hasError) return;
+    if (!isInView || isLoaded || hasError || !src) return;
+
+    if (!isValidUrl(src)) {
+      console.error('Invalid image URL:', src);
+      setHasError(true);
+      onError?.();
+      return;
+    }
 
     console.log('🚀 [OPTIMIZED_IMAGE] Starting image load:', src);
     setIsLoading(true);
@@ -99,8 +126,8 @@ const OptimizedImage = ({
       setIsLoading(false);
     };
     
-    img.onerror = () => {
-      console.error('❌ [OPTIMIZED_IMAGE] Image failed to load:', src);
+    img.onerror = (error) => {
+      console.error('❌ [OPTIMIZED_IMAGE] Image failed to load:', src, error);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -157,7 +184,7 @@ const OptimizedImage = ({
       )}
       
       {/* Main image */}
-      {isInView && !hasError && (
+      {isInView && !hasError && src && isValidUrl(src) && (
         <img
           src={createResponsiveUrl(src, 800)}
           srcSet={`
@@ -176,7 +203,8 @@ const OptimizedImage = ({
             setIsLoaded(true);
             setIsLoading(false);
           }}
-          onError={() => {
+          onError={(error) => {
+            console.error('❌ [OPTIMIZED_IMAGE] Image error in JSX:', src, error);
             setHasError(true);
             setIsLoading(false);
             onError?.();
