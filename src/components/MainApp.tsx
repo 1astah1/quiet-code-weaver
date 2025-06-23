@@ -20,7 +20,7 @@ import { useWebViewDetection } from '@/hooks/useWebViewDetection';
 export type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
 
 const MainApp: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, signOut } = useAuth();
   const [currentScreen, setCurrentScreen] = React.useState<Screen>('main');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
@@ -52,7 +52,9 @@ const MainApp: React.FC = () => {
     coins: user.coins || 0,
     isPremium: user.isPremium || false,
     avatar_url: user.avatar_url,
-    language_code: user.language_code || 'ru'
+    language_code: user.language_code || 'ru',
+    quiz_lives: user.quiz_lives || 3,
+    quiz_streak: user.quiz_streak || 0
   };
 
   const renderScreen = () => {
@@ -106,7 +108,9 @@ const MainApp: React.FC = () => {
       <Sidebar 
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        currentUser={currentUser}
         onScreenChange={(screen: string) => setCurrentScreen(screen as Screen)}
+        onSignOut={signOut}
       />
       
       <main className="pb-20 pt-16">

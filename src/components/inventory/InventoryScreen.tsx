@@ -19,8 +19,8 @@ interface InventoryScreenProps {
 }
 
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
-  const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
-  const sellSkinMutation = useSellSkin();
+  const { data: inventory, isLoading, error } = useInventoryData(currentUser.id);
+  const sellSkinMutation = useSkinSale();
   const sellAllMutation = useSellAllSkins();
   const { toast } = useToast();
   
@@ -59,12 +59,12 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       const result = await sellSkinMutation.mutateAsync({
         inventoryId,
         userId: currentUser.id,
-        sellPrice
+        price: sellPrice
       });
       
-      if (result && result.newCoins !== undefined) {
-        console.log('Skin sold, updating coins to:', result.newCoins);
-        onCoinsUpdate(result.newCoins);
+      if (result && result.price !== undefined) {
+        console.log('Skin sold, updating coins by:', result.price);
+        onCoinsUpdate(currentUser.coins + result.price);
       }
     } catch (error) {
       console.error('Error selling skin:', error);
