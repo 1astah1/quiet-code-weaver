@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const DailyRewardsCalendar = () => {
+interface DailyRewardsCalendarProps {
+  currentUser?: {
+    id: string;
+    username: string;
+    coins: number;
+  };
+  onCoinsUpdate?: (newCoins: number) => void;
+}
+
+const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalendarProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isClaimingReward, setIsClaimingReward] = useState(false);
@@ -106,14 +114,16 @@ const DailyRewardsCalendar = () => {
       if (claimError) throw claimError;
 
       // Обновляем баланс пользователя и стрик
-      const { error: updateError } = await supabase
+      const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
-          coins: `coins + ${reward.reward_coins}`,
+          coins: userProgress.dailyStreak + reward.reward_coins,
           daily_streak: nextDay,
           last_daily_login: new Date().toISOString().split('T')[0]
         })
-        .eq('id', userProgress.userId);
+        .eq('id', userProgress.userId)
+        .select('coins')
+        .single();
 
       if (updateError) throw updateError;
 
@@ -121,6 +131,11 @@ const DailyRewardsCalendar = () => {
         title: "Награда получена!",
         description: `Вы получили ${reward.reward_coins} монет за ${nextDay} день`,
       });
+
+      // Обновляем баланс в родительском компоненте
+      if (onCoinsUpdate && updatedUser) {
+        onCoinsUpdate(updatedUser.coins);
+      }
 
       // Обновляем данные
       queryClient.invalidateQueries({ queryKey: ['daily_progress'] });
