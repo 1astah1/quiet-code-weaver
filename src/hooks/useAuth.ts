@@ -38,37 +38,33 @@ export const useAuth = () => {
         
         if (error.code === 'PGRST116') {
           console.log('📝 User not found, creating...');
-          // Даем время триггеру создать пользователя
-          setTimeout(async () => {
-            const { data: retryData, error: retryError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('auth_id', authUser.id)
-              .single();
-            
-            if (!retryError && retryData) {
-              const userData: User = {
-                id: retryData.id,
-                username: retryData.username || 'User',
-                email: retryData.email,
-                coins: retryData.coins || 0,
-                isAdmin: retryData.is_admin || false,
-                quiz_lives: retryData.quiz_lives || 3,
-                quiz_streak: retryData.quiz_streak || 0,
-                referralCode: retryData.referral_code,
-                language_code: retryData.language_code || 'ru',
-                avatar_url: null,
-                isPremium: retryData.premium_until ? new Date(retryData.premium_until) > new Date() : false,
-                steam_trade_url: retryData.steam_trade_url
-              };
-              setUser(userData);
-            }
-            setIsLoading(false);
-          }, 2000);
-          return;
+          // Ждем создания пользователя через триггер
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', authUser.id)
+            .single();
+          
+          if (!retryError && retryData) {
+            const userData: User = {
+              id: retryData.id,
+              username: retryData.username || 'User',
+              email: retryData.email,
+              coins: retryData.coins || 0,
+              isAdmin: retryData.is_admin || false,
+              quiz_lives: retryData.quiz_lives || 3,
+              quiz_streak: retryData.quiz_streak || 0,
+              referralCode: retryData.referral_code,
+              language_code: retryData.language_code || 'ru',
+              avatar_url: null,
+              isPremium: retryData.premium_until ? new Date(retryData.premium_until) > new Date() : false,
+              steam_trade_url: retryData.steam_trade_url
+            };
+            setUser(userData);
+          }
         }
-        
-        setIsLoading(false);
         return;
       }
 
@@ -90,10 +86,8 @@ export const useAuth = () => {
         };
         setUser(userData);
       }
-      setIsLoading(false);
     } catch (error) {
       console.error('🚨 Error in fetchUserData:', error);
-      setIsLoading(false);
     }
   };
 
@@ -128,11 +122,11 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
     
-    // Принудительный таймаут для завершения загрузки
-    const forceFinishLoading = setTimeout(() => {
-      console.log('⏰ Force finishing loading');
+    // Завершаем загрузку через 3 секунды максимум
+    const loadingTimeout = setTimeout(() => {
+      console.log('⏰ Loading timeout reached');
       setIsLoading(false);
-    }, 8000);
+    }, 3000);
     
     const initAuth = async () => {
       try {
@@ -144,11 +138,12 @@ export const useAuth = () => {
           await fetchUserData(session.user);
         } else {
           console.log('❌ No existing session');
-          setIsLoading(false);
         }
       } catch (error) {
         console.error('🚨 Error getting session:', error);
+      } finally {
         setIsLoading(false);
+        clearTimeout(loadingTimeout);
       }
     };
 
@@ -156,7 +151,6 @@ export const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event);
-        clearTimeout(forceFinishLoading);
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
@@ -164,8 +158,10 @@ export const useAuth = () => {
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
-          setIsLoading(false);
         }
+        
+        setIsLoading(false);
+        clearTimeout(loadingTimeout);
       }
     );
 
@@ -173,7 +169,7 @@ export const useAuth = () => {
 
     return () => {
       subscription.unsubscribe();
-      clearTimeout(forceFinishLoading);
+      clearTimeout(loadingTimeout);
     };
   }, []);
 

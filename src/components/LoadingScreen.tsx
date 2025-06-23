@@ -6,38 +6,25 @@ interface LoadingScreenProps {
   onTimeout?: () => void;
 }
 
-const LoadingScreen = ({ timeout = 8000, onTimeout }: LoadingScreenProps) => {
+const LoadingScreen = ({ timeout = 3000, onTimeout }: LoadingScreenProps) => {
   const [progress, setProgress] = useState(0);
-  const [showTimeout, setShowTimeout] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 95) {
+        if (prev >= 100) {
           clearInterval(interval);
-          return 95; // Останавливаемся на 95%, чтобы не создавать впечатление зависания
+          if (onTimeout) {
+            onTimeout();
+          }
+          return 100;
         }
-        return prev + 3;
+        return prev + 10;
       });
-    }, 150);
+    }, 200);
 
-    // Показываем кнопку обновления после таймаута
-    const timeoutTimer = setTimeout(() => {
-      setShowTimeout(true);
-      if (onTimeout) {
-        onTimeout();
-      }
-    }, timeout);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeoutTimer);
-    };
-  }, [timeout, onTimeout]);
-
-  const handleReload = () => {
-    window.location.reload();
-  };
+    return () => clearInterval(interval);
+  }, [onTimeout]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-black to-orange-900 flex items-center justify-center z-50">
@@ -61,31 +48,17 @@ const LoadingScreen = ({ timeout = 8000, onTimeout }: LoadingScreenProps) => {
           <div className="bg-gray-800 rounded-full h-3 overflow-hidden border border-orange-500/30">
             <div 
               className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300 ease-out relative"
-              style={{ width: `${Math.min(progress, 100)}%` }}
+              style={{ width: `${progress}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
             </div>
           </div>
-          <p className="text-orange-300 text-sm mt-2">{Math.min(progress, 100)}%</p>
+          <p className="text-orange-300 text-sm mt-2">{progress}%</p>
         </div>
 
         <div className="text-gray-300 text-lg animate-pulse mb-6">
-          {progress < 95 ? 'Загружаем приложение...' : 'Завершаем загрузку...'}
+          Загружаем приложение...
         </div>
-
-        {(showTimeout || progress >= 95) && (
-          <div className="mb-6">
-            <button
-              onClick={handleReload}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-            >
-              Продолжить
-            </button>
-            <p className="text-gray-400 text-sm mt-2">
-              Нажмите для продолжения
-            </p>
-          </div>
-        )}
 
         <div className="mt-8 flex justify-center space-x-4">
           <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping delay-0"></div>
