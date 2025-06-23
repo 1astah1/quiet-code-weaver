@@ -211,14 +211,8 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
-        {!isSpinning && rouletteItems[winnerPosition] && (
-          <div className="mt-2 text-white text-sm">
-            Выигрыш: {rouletteItems[winnerPosition].type === 'coin_reward' 
-              ? `${rouletteItems[winnerPosition].amount} монет`
-              : rouletteItems[winnerPosition].name
-            }
-          </div>
-        )}
+        {/* REMOVED: Misleading winner display that caused the mismatch */}
+        {/* The actual winner will be shown in CaseCompletePhase with correct server data */}
       </div>
     </div>
   );

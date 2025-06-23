@@ -11,6 +11,17 @@ interface CaseCompletePhaseProps {
 }
 
 const CaseCompletePhase = ({ wonSkin, isProcessing, onAddToInventory, onSellDirectly }: CaseCompletePhaseProps) => {
+  // Enhanced logging to debug the reward display
+  console.log('🎊 [COMPLETE_PHASE] Rendering with reward:', {
+    wonSkin,
+    skinType: wonSkin?.type,
+    skinName: wonSkin?.name,
+    skinPrice: wonSkin?.price,
+    skinRarity: wonSkin?.rarity,
+    skinWeaponType: wonSkin?.weapon_type,
+    skinImageUrl: wonSkin?.image_url
+  });
+
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in px-4 sm:px-6">
       <div className="text-center">
