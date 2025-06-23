@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, Plus, Upload, X } from "lucide-react";
+import CaseSkinManagement from "./CaseSkinManagement";
 
 interface CaseManagementProps {
   tableData: any[];
@@ -569,7 +570,7 @@ const CaseManagement = ({
                       }`}
                     >
                       <Plus className="w-3 h-3 mr-1" />
-                      {selectedCase === caseItem.id ? "Скрыть скины" : "Скины"}
+                      {selectedCase === caseItem.id ? "Скрыть скины" : "Управление скинами"}
                     </Button>
                   </div>
                   
@@ -587,221 +588,11 @@ const CaseManagement = ({
       </div>
 
       {selectedCase && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-white font-medium">
-              Содержимое кейса {tableData?.find(c => c.id === selectedCase)?.name}
-            </h4>
-            <Button
-              onClick={() => setShowAddSkinForm(!showAddSkinForm)}
-              className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Добавить награду
-            </Button>
-          </div>
-
-          {showAddSkinForm && (
-            <div className="bg-gray-700 rounded-lg p-4 mb-4">
-              <h5 className="text-white font-medium mb-3">Добавить награду в кейс</h5>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-gray-300 text-sm mb-2">Тип награды:</label>
-                  <select
-                    value={newSkinData.reward_type}
-                    onChange={(e) => setNewSkinData({ 
-                      ...newSkinData, 
-                      reward_type: e.target.value,
-                      skin_id: '',
-                      coin_reward_id: ''
-                    })}
-                    className="bg-gray-600 text-white px-3 py-2 rounded w-full"
-                  >
-                    <option value="skin">Скин</option>
-                    <option value="coin_reward">Монеты</option>
-                  </select>
-                </div>
-
-                {newSkinData.reward_type === 'skin' ? (
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Выберите скин:</label>
-                    <select
-                      value={newSkinData.skin_id}
-                      onChange={(e) => setNewSkinData({ ...newSkinData, skin_id: e.target.value })}
-                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
-                    >
-                      <option value="">Выберите скин</option>
-                      {allSkins?.map((skin) => (
-                        <option key={skin.id} value={skin.id}>
-                          {skin.name} ({skin.weapon_type}) - {skin.price} монет
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Выберите монетную награду:</label>
-                    <select
-                      value={newSkinData.coin_reward_id}
-                      onChange={(e) => setNewSkinData({ ...newSkinData, coin_reward_id: e.target.value })}
-                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
-                    >
-                      <option value="">Выберите количество монет</option>
-                      {coinRewards?.map((reward) => (
-                        <option key={reward.id} value={reward.id}>
-                          {reward.name} ({reward.amount} монет)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Вероятность (0-9.9999%):</label>
-                    <input
-                      type="number"
-                      placeholder="Вероятность (0-9.9999%)"
-                      value={newSkinData.probability}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        if (value <= 9.9999) {
-                          setNewSkinData({ ...newSkinData, probability: value });
-                        }
-                      }}
-                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
-                      min="0"
-                      max="9.9999"
-                      step="0.0001"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Кастомная вероятность (опционально):</label>
-                    <input
-                      type="number"
-                      placeholder="Кастомная вероятность (0-9.9999%)"
-                      value={newSkinData.custom_probability || ''}
-                      onChange={(e) => {
-                        const value = e.target.value ? parseFloat(e.target.value) : null;
-                        if (value === null || value <= 9.9999) {
-                          setNewSkinData({ ...newSkinData, custom_probability: value });
-                        }
-                      }}
-                      className="bg-gray-600 text-white px-3 py-2 rounded w-full"
-                      min="0"
-                      max="9.9999"
-                      step="0.0001"
-                    />
-                  </div>
-                </div>
-
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={newSkinData.never_drop}
-                    onChange={(e) => setNewSkinData({ ...newSkinData, never_drop: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span className="text-gray-300">Никогда не выпадает</span>
-                </label>
-              </div>
-              <div className="flex space-x-2 mt-3">
-                <Button
-                  onClick={handleAddSkinToCase}
-                  disabled={
-                    (newSkinData.reward_type === 'skin' && !newSkinData.skin_id) ||
-                    (newSkinData.reward_type === 'coin_reward' && !newSkinData.coin_reward_id)
-                  }
-                  className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm"
-                >
-                  Добавить
-                </Button>
-                <Button 
-                  onClick={() => setShowAddSkinForm(false)} 
-                  variant="outline"
-                  className="px-3 py-1 text-sm"
-                >
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {caseSkins && caseSkins.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {caseSkins.map((item: any) => (
-                <div key={item.id} className="bg-gray-700 rounded p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-3">
-                      {item.reward_type === 'skin' ? (
-                        <>
-                          {item.skins?.image_url && (
-                            <img 
-                              src={item.skins.image_url} 
-                              alt={item.skins.name}
-                              className="w-10 h-10 object-cover rounded"
-                            />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{item.skins?.name}</p>
-                            <p className="text-gray-400 text-xs">
-                              {item.custom_probability || item.probability}%
-                              {item.never_drop && " (не выпадает)"}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-10 h-10 bg-yellow-500 rounded flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">🪙</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{item.coin_rewards?.name}</p>
-                            <p className="text-gray-400 text-xs">
-                              {item.custom_probability || item.probability}%
-                              {item.never_drop && " (не выпадает)"}
-                            </p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    <Button
-                      onClick={() => handleRemoveSkinFromCase(item.id)}
-                      className="bg-red-600 hover:bg-red-700 p-1"
-                      size="sm"
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                  {item.reward_type === 'skin' && (
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) onSkinImageUpload(file, item.skins.id);
-                      }}
-                      className="mt-2 text-xs text-gray-400"
-                      disabled={uploadingImage}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-center py-4">
-              В этом кейсе пока нет наград
-            </p>
-          )}
-          
-          <Button
-            onClick={() => setSelectedCase(null)}
-            variant="outline"
-            className="mt-4"
-          >
-            Закрыть
-          </Button>
-        </div>
+        <CaseSkinManagement
+          caseId={selectedCase}
+          caseName={tableData?.find(c => c.id === selectedCase)?.name || 'Неизвестный кейс'}
+          onClose={() => setSelectedCase(null)}
+        />
       )}
     </div>
   );

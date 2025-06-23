@@ -73,7 +73,7 @@ export const useCaseOpeningWithAd = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        const result = data as CaseOpeningWithAdResult;
+        const result = data as unknown as CaseOpeningWithAdResult;
         console.log('✅ [CASE_OPENING_AD] Case opened successfully:', result);
         
         return result;
