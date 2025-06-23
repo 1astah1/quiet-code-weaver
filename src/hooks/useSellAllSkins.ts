@@ -63,8 +63,8 @@ export const useSellAllSkins = () => {
           }
         }
 
-        // Обновляем баланс пользователя
-        const { error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
+        // Обновляем баланс пользователя с помощью правильной функции
+        const { data: updateResult, error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
           p_user_id: userId,
           p_coin_change: totalValue,
           p_operation_type: 'sell_all_skins'
