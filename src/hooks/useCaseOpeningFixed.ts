@@ -167,7 +167,7 @@ export const useCaseOpeningFixed = ({
         throw new Error(error.message || 'Не удалось продать скин');
       }
 
-      const result = data as SafeSellCaseRewardResponse;
+      const result = data as unknown as SafeSellCaseRewardResponse;
       console.log('✅ [CASE_OPENING_FIXED] Sell result:', result);
       
       if (result.success && result.new_balance !== undefined) {
