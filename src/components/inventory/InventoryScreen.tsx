@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Coins, Package, Sparkles } from "lucide-react";
@@ -52,9 +51,9 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     sellAllMutation.mutate(
       { userId: currentUser.id },
       {
-        onSuccess: (totalEarned) => {
-          // totalEarned is now the number returned from the mutation's onSuccess
-          onCoinsUpdate(currentUser.coins + totalEarned);
+        onSuccess: (data) => {
+          // data contains { totalValue: number; itemCount: number }
+          onCoinsUpdate(currentUser.coins + data.totalValue);
         }
       }
     );
