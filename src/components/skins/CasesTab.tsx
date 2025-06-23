@@ -45,40 +45,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retryDelay: 1000
   });
 
-  // Отдельный запрос для содержимого кейса при предварительном просмотре
-  const { data: previewCaseSkins = [] } = useQuery({
-    queryKey: ['case-skins-preview', selectedCaseForPreview?.id],
-    queryFn: async () => {
-      if (!selectedCaseForPreview?.id) return [];
-      
-      try {
-        console.log('Loading case skins for preview:', selectedCaseForPreview.name);
-        const { data, error } = await supabase
-          .from('case_skins')
-          .select(`
-            probability,
-            never_drop,
-            custom_probability,
-            skins (*)
-          `)
-          .eq('case_id', selectedCaseForPreview.id);
-        
-        if (error) {
-          console.error('Case skins fetch error:', error);
-          throw error;
-        }
-        
-        console.log('Case skins loaded for preview:', data?.length || 0);
-        return data || [];
-      } catch (error) {
-        console.error('Error in case skins query:', error);
-        return [];
-      }
-    },
-    enabled: !!selectedCaseForPreview?.id,
-    retry: 2
-  });
-
   const handleCaseOpen = (caseData: any) => {
     if (!caseData || !currentUser) {
       console.error('Invalid case data or user for opening');
@@ -168,7 +134,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       {selectedCaseForPreview && (
         <CasePreviewModal
           caseItem={selectedCaseForPreview}
-          caseSkins={previewCaseSkins}
           onClose={() => setSelectedCaseForPreview(null)}
         />
       )}

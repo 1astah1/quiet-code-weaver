@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,51 +38,35 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
             custom_probability,
             never_drop,
             reward_type,
-            skins (
+            skins!inner (
               id,
               name,
               weapon_type,
               rarity,
               price,
               image_url
-            ),
-            coin_rewards (
-              id,
-              name,
-              amount,
-              image_url
             )
           `)
           .eq('case_id', caseItem.id)
-          .eq('never_drop', false);
+          .eq('never_drop', false)
+          .not('skins', 'is', null);
         
         if (error) {
           console.error('Error loading case skins:', error);
-          throw error;
+          return [];
         }
         
-        // Transform the data to match our CaseSkin interface, handling potential errors
-        const transformedData: CaseSkin[] = (data || []).map(item => {
-          // Safe coin_rewards handling
-          const coinRewards = item.coin_rewards && 
-                             item.coin_rewards !== null && 
-                             typeof item.coin_rewards === 'object' && 
-                             !Array.isArray(item.coin_rewards) &&
-                             !('error' in (item.coin_rewards as any))
-            ? (item.coin_rewards as { id: string; name: string; amount: number; image_url?: string })
-            : undefined;
-
-          return {
-            id: item.id,
-            probability: item.probability,
-            custom_probability: item.custom_probability,
-            never_drop: item.never_drop,
-            reward_type: item.reward_type,
-            skins: item.skins || undefined,
-            coin_rewards: coinRewards
-          };
-        }).filter(item => item.skins || item.coin_rewards);
+        // Простое преобразование данных без сложной логики
+        const transformedData: CaseSkin[] = (data || []).map(item => ({
+          id: item.id,
+          probability: item.probability || 0.01,
+          custom_probability: item.custom_probability,
+          never_drop: item.never_drop || false,
+          reward_type: item.reward_type || 'skin',
+          skins: item.skins
+        })).filter(item => item.skins);
         
+        console.log('Case skins loaded:', transformedData.length);
         return transformedData;
       } catch (error) {
         console.error('Case skins query error:', error);
@@ -115,11 +100,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     const randomIndex = Math.floor(Math.random() * caseSkins.length);
     const selectedItem = caseSkins[randomIndex];
 
-    if (selectedItem.reward_type === 'coin_reward' && selectedItem.coin_rewards) {
-      setWonCoins(selectedItem.coin_rewards.amount);
-      setShowBonusRoulette(true);
-      setAnimationPhase('bonus');
-    } else if (selectedItem.skins) {
+    if (selectedItem.skins) {
       setWonSkin(selectedItem.skins);
       setTimeout(() => {
         setIsComplete(true);

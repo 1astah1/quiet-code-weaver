@@ -20,7 +20,7 @@ interface CasePreviewModalProps {
 
 const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
   const { data: caseSkins = [], isLoading } = useQuery({
-    queryKey: ['case-skins', caseItem.id],
+    queryKey: ['case-skins-preview', caseItem.id],
     queryFn: async () => {
       try {
         const { data, error } = await supabase
@@ -29,7 +29,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
             probability,
             custom_probability,
             never_drop,
-            skins (
+            skins!inner (
               id,
               name,
               weapon_type,
@@ -39,14 +39,15 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
             )
           `)
           .eq('case_id', caseItem.id)
-          .eq('never_drop', false);
+          .eq('never_drop', false)
+          .not('skins', 'is', null);
         
         if (error) {
           console.error('Error loading case skins:', error);
-          throw error;
+          return [];
         }
         
-        return (data as CaseSkin[]) || [];
+        return data || [];
       } catch (error) {
         console.error('Case skins query error:', error);
         return [];
