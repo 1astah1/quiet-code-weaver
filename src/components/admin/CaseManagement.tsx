@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Plus, Upload, X } from "lucide-react";
+import { Edit, Trash2, Plus, Upload, X, Shuffle } from "lucide-react";
 import CaseSkinManagement from "./CaseSkinManagement";
 
 interface CaseManagementProps {
@@ -41,6 +41,7 @@ const CaseManagement = ({
     custom_probability: null as number | null
   });
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
+  const [isAutoSelectingSkns, setIsAutoSelectingSkins] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -110,6 +111,94 @@ const CaseManagement = ({
     },
     enabled: !!selectedCase
   });
+
+  // Функция автоподбора скинов
+  const handleAutoSelectSkins = async () => {
+    if (!selectedCase) {
+      toast({ 
+        title: "Ошибка", 
+        description: "Выберите кейс для автоподбора скинов",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsAutoSelectingSkins(true);
+    try {
+      // Получаем случайные скины, которые еще не добавлены в кейс
+      const { data: availableSkins, error: skinsError } = await supabase
+        .from('skins')
+        .select('id, name, rarity, price')
+        .not('id', 'in', `(SELECT skin_id FROM case_skins WHERE case_id = '${selectedCase}' AND skin_id IS NOT NULL)`)
+        .order('random()')
+        .limit(10);
+
+      if (skinsError) {
+        throw skinsError;
+      }
+
+      if (!availableSkins || availableSkins.length === 0) {
+        toast({ 
+          title: "Нет доступных скинов", 
+          description: "Все скины уже добавлены в кейс или нет скинов в базе",
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      // Добавляем каждый скин в кейс с случайной вероятностью
+      const rarityProbabilities: { [key: string]: number } = {
+        'Consumer Grade': 8.5,
+        'Industrial Grade': 6.0,
+        'Mil-Spec': 4.5,
+        'Restricted': 2.5,
+        'Classified': 1.5,
+        'Covert': 0.8,
+        'Contraband': 0.3
+      };
+
+      const insertPromises = availableSkins.map(async (skin) => {
+        const probability = rarityProbabilities[skin.rarity] || 5.0;
+        
+        return supabase
+          .from('case_skins')
+          .insert({
+            case_id: selectedCase,
+            skin_id: skin.id,
+            reward_type: 'skin',
+            probability: probability,
+            never_drop: false,
+            custom_probability: null
+          });
+      });
+
+      const results = await Promise.all(insertPromises);
+      
+      // Проверяем на ошибки
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        console.error('Errors during auto-select:', errors);
+        throw new Error(`Не удалось добавить ${errors.length} скинов`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      
+      toast({ 
+        title: "Автоподбор завершен!", 
+        description: `Добавлено ${availableSkins.length} скинов в кейс` 
+      });
+
+    } catch (error: any) {
+      console.error('Auto-select error:', error);
+      toast({ 
+        title: "Ошибка автоподбора", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      setIsAutoSelectingSkins(false);
+    }
+  };
 
   const handleImageUpload = async (file: File, fieldName: string) => {
     if (!file) return;
@@ -586,6 +675,36 @@ const CaseManagement = ({
           </div>
         ))}
       </div>
+
+      {selectedCase && (
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-white font-medium">
+              Автоподбор скинов для: {tableData?.find(c => c.id === selectedCase)?.name}
+            </h4>
+            <Button
+              onClick={handleAutoSelectSkins}
+              disabled={isAutoSelectingSkins}
+              className="bg-purple-600 hover:bg-purple-700 px-3 py-2 text-sm"
+            >
+              {isAutoSelectingSkins ? (
+                <>
+                  <Upload className="w-4 h-4 mr-2 animate-spin" />
+                  Подбираем...
+                </>
+              ) : (
+                <>
+                  <Shuffle className="w-4 h-4 mr-2" />
+                  Автоподбор скинов (до 10)
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-gray-400 text-sm mb-4">
+            Автоматически добавит до 10 случайных скинов в кейс с вероятностями в зависимости от редкости.
+          </p>
+        </div>
+      )}
 
       {selectedCase && (
         <CaseSkinManagement

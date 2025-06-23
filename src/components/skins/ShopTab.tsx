@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
 import { purchaseLimiter } from "@/utils/rateLimiter";
+import { SafePurchaseSkinResponse } from "@/types/rpc";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
@@ -95,19 +96,21 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(error.message || 'Не удалось совершить покупку');
         }
 
-        if (!data || !data.success) {
-          throw new Error(data?.error || 'Покупка не удалась');
+        const response = data as SafePurchaseSkinResponse;
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Покупка не удалась');
         }
 
         console.log('✅ [SHOP] Purchase successful:', {
-          newBalance: data.new_balance,
-          inventoryId: data.inventory_id
+          newBalance: response.new_balance,
+          inventoryId: response.inventory_id
         });
 
         return { 
-          newCoins: data.new_balance, 
+          newCoins: response.new_balance!, 
           purchasedSkin: skin,
-          inventoryId: data.inventory_id
+          inventoryId: response.inventory_id!
         };
       } catch (error) {
         console.error('💥 [SHOP] Purchase error:', error);

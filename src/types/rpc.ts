@@ -39,3 +39,12 @@ export interface SafeUpdateCoinsResponse {
   success: boolean;
   new_balance?: number;
 }
+
+export interface SafePurchaseSkinResponse {
+  success: boolean;
+  new_balance?: number;
+  inventory_id?: string;
+  error?: string;
+  required?: number;
+  current?: number;
+}
