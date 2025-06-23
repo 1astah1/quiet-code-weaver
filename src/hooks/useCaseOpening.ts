@@ -125,7 +125,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
   const handleRouletteComplete = async (selectedReward: any) => {
     try {
-      console.log('🎰 [CASE_OPENING] Roulette completed, processing reward:', selectedReward);
+      console.log('🎰 [CASE_OPENING] Roulette completed with pre-selected reward:', selectedReward);
 
       if (!selectedReward) {
         throw new Error('Не удалось выбрать награду');

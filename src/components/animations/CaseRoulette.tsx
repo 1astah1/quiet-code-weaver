@@ -12,6 +12,7 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
   const [isSpinning, setIsSpinning] = useState(false);
   const [rouletteItems, setRouletteItems] = useState<any[]>([]);
   const [finalTransform, setFinalTransform] = useState(0);
+  const [selectedWinnerItem, setSelectedWinnerItem] = useState<any>(null);
 
   console.log('CaseRoulette: Rendering with', caseSkins.length, 'items');
 
@@ -26,9 +27,14 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
     console.log('🎰 Starting roulette');
     setIsSpinning(true);
     
-    // Создаем расширенный список для рулетки (больше элементов для длинной прокрутки)
+    // СНАЧАЛА выбираем победителя с помощью алгоритма вероятности
+    const winnerItem = selectRandomReward(caseSkins);
+    setSelectedWinnerItem(winnerItem);
+    console.log('🎯 Pre-selected winner:', winnerItem);
+    
+    // Создаем расширенный список для рулетки
     const expandedItems = [];
-    const itemsToShow = 100; // Увеличиваем количество элементов
+    const itemsToShow = 100;
     
     // Заполняем рулетку случайными элементами из доступных
     for (let i = 0; i < itemsToShow; i++) {
@@ -40,36 +46,39 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
       });
     }
     
-    setRouletteItems(expandedItems);
-    
-    // Рассчитываем финальную позицию для остановки под стрелочкой
-    const itemWidth = 96; // ширина одного элемента (w-24 = 96px)
-    const containerWidth = 1024; // примерная ширина контейнера
-    const centerPosition = containerWidth / 2; // центр контейнера (где стрелочка)
-    
-    // Случайная позиция остановки в диапазоне последних 20 элементов
+    // Находим позицию для размещения победителя (в последних 20 элементах)
     const minStopIndex = itemsToShow - 25;
     const maxStopIndex = itemsToShow - 5;
     const stopIndex = Math.floor(Math.random() * (maxStopIndex - minStopIndex) + minStopIndex);
     
-    // Рассчитываем трансформацию чтобы нужный элемент оказался под стрелочкой
+    // ЗАМЕНЯЕМ элемент на позиции остановки на нашего выбранного победителя
+    expandedItems[stopIndex] = {
+      ...winnerItem,
+      id: `winner-${stopIndex}`,
+      displayData: winnerItem.reward_type === 'coin_reward' ? winnerItem.coin_rewards : winnerItem.skins
+    };
+    
+    setRouletteItems(expandedItems);
+    
+    // Рассчитываем финальную позицию для остановки под стрелочкой
+    const itemWidth = 96;
+    const containerWidth = 1024;
+    const centerPosition = containerWidth / 2;
+    
+    // Рассчитываем трансформацию чтобы победитель оказался под стрелочкой
     const targetTransform = -(stopIndex * itemWidth - centerPosition + itemWidth / 2);
     setFinalTransform(targetTransform);
     
-    // Анимация длится 6 секунд для более плавного эффекта
+    // Анимация длится 6 секунд
     setTimeout(() => {
       setIsSpinning(false);
       
-      // После остановки определяем какой элемент под стрелочкой
+      // После остановки передаем заранее выбранного победителя
       setTimeout(() => {
-        // Находим элемент который под стрелочкой
-        const winnerItem = expandedItems[stopIndex];
-        console.log('🎯 Winner item at index:', stopIndex, winnerItem);
-        
-        // Передаем именно тот элемент который под стрелочкой
+        console.log('🎯 Final winner (pre-selected):', winnerItem);
         onComplete(winnerItem);
-      }, 1500); // Пауза для показа результата
-    }, 6000); // Увеличена длительность анимации
+      }, 1500);
+    }, 6000);
   };
 
   const getRarityColor = (rarity: string) => {
