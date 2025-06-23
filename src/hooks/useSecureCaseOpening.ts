@@ -69,17 +69,20 @@ export const useSecureCaseOpening = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
-        const result = data as unknown as CaseOpeningResult;
         console.log('✅ [SECURE_CASE_OPENING] Case opened successfully:', {
-          success: result.success,
-          skinName: result.skin?.name,
-          skinRarity: result.skin?.rarity,
-          inventoryId: result.inventory_id
+          success: data?.success,
+          skinName: data?.skin?.name,
+          skinRarity: data?.skin?.rarity,
+          inventoryId: data?.inventory_id
         });
         
-        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: result.skin });
+        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: data?.skin });
         
-        return result;
+        return {
+          success: data?.success || false,
+          skin: data?.skin,
+          inventory_id: data?.inventory_id
+        } as CaseOpeningResult;
       } catch (error) {
         console.error('💥 [SECURE_CASE_OPENING] Unexpected error:', error);
         throw error;
@@ -93,7 +96,7 @@ export const useSecureCaseOpening = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] }),
         queryClient.invalidateQueries({ queryKey: ['recent-wins'] }),
-        queryClient.invalidateQueries({ queryKey: ['user-coins', variables.userId] })
+        queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] })
       ]);
 
       const duration = Date.now() - startTime;

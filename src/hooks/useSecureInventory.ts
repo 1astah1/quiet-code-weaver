@@ -11,34 +11,27 @@ export const useSecureInventory = () => {
       setIsLoading(true);
       setError(null);
 
-      // Update inventory item as sold
-      const { error: updateError } = await supabase
-        .from('user_inventory')
-        .update({
-          is_sold: true,
-          sold_at: new Date().toISOString(),
-          sold_price: skinPrice
-        })
-        .eq('id', inventoryItemId)
-        .eq('user_id', userId);
+      console.log('💰 [SECURE_INVENTORY] Selling skin:', { inventoryItemId, skinPrice, userId });
 
-      if (updateError) throw updateError;
-
-      // Add coins to user using the existing safe_update_coins function
-      const { data, error: coinsError } = await supabase.rpc('safe_update_coins', {
+      // Используем новую безопасную функцию продажи
+      const { data, error: sellError } = await supabase.rpc('safe_sell_skin', {
         p_user_id: userId,
-        p_coin_change: skinPrice,
-        p_operation_type: 'skin_sale'
+        p_inventory_id: inventoryItemId,
+        p_sell_price: skinPrice
       });
 
-      if (coinsError) throw coinsError;
-      if (!data) throw new Error('Failed to update coins');
+      if (sellError) {
+        console.error('❌ [SECURE_INVENTORY] Sell error:', sellError);
+        throw new Error(sellError.message || 'Не удалось продать скин');
+      }
 
-      return { success: true };
+      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', data);
+      return { success: true, newBalance: data?.new_balance };
     } catch (err) {
-      console.error('Error selling skin:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+      console.error('💥 [SECURE_INVENTORY] Error selling skin:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }

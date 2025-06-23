@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCaseOpeningLogger } from './useCaseOpeningLogger';
+import { useSecureCaseOpening } from './useSecureCaseOpening';
 import type { CaseSkin } from '@/utils/supabaseTypes';
 
 interface UseCaseOpeningProps {
@@ -23,6 +24,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBonusRoulette, setShowBonusRoulette] = useState(false);
   const { logCaseOpening } = useCaseOpeningLogger();
+  const secureCaseOpening = useSecureCaseOpening();
 
   const { data: caseSkins = [], isLoading } = useQuery({
     queryKey: ['case-skins', caseItem?.id],
@@ -56,7 +58,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           return [];
         }
         
-        // Простое преобразование данных без сложной логики
         const transformedData: CaseSkin[] = (data || []).map(item => ({
           id: item.id,
           probability: item.probability || 0.01,
@@ -93,7 +94,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     }, 2000);
   };
 
-  const simulateCaseResult = () => {
+  const simulateCaseResult = async () => {
     if (caseSkins.length === 0) return;
 
     // Simple random selection for demo
@@ -101,7 +102,30 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     const selectedItem = caseSkins[randomIndex];
 
     if (selectedItem.skins) {
-      setWonSkin(selectedItem.skins);
+      try {
+        // Используем новую безопасную функцию открытия кейса
+        const result = await secureCaseOpening.mutateAsync({
+          userId: currentUser.id,
+          caseId: caseItem.id,
+          skinId: selectedItem.skins.id,
+          isFree: caseItem.is_free || false
+        });
+
+        if (result.success && result.skin) {
+          setWonSkin(result.skin);
+          
+          // Обновляем баланс пользователя (если кейс платный, он уже списан)
+          if (!caseItem.is_free) {
+            const newCoins = currentUser.coins - caseItem.price;
+            onCoinsUpdate(Math.max(0, newCoins));
+          }
+        }
+      } catch (error) {
+        console.error('Error opening case:', error);
+        // В случае ошибки показываем скин без реального открытия
+        setWonSkin(selectedItem.skins);
+      }
+
       setTimeout(() => {
         setIsComplete(true);
         setAnimationPhase(null);
@@ -111,7 +135,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
   const addToInventory = async () => {
     setIsProcessing(true);
-    // Simulate adding to inventory
+    // Скин уже добавлен в инвентарь через safe_open_case
     setTimeout(() => {
       setIsProcessing(false);
     }, 1000);

@@ -1,271 +1,179 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useTranslation } from "@/hooks/useTranslation";
-import LazyImage from "@/components/ui/LazyImage";
-import type { RecentWin } from "@/utils/supabaseTypes";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 
-interface RecentWinsProps {
-  currentLanguage?: string;
+interface RecentWin {
+  id: string;
+  won_at: string;
+  reward_data: {
+    name: string;
+    rarity: string;
+    price: number;
+    image_url?: string;
+  };
+  users: {
+    username: string;
+  } | null;
 }
 
-const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
-  const { t } = useTranslation(currentLanguage);
-
-  const { data: recentWins, isLoading, error } = useQuery({
+const RecentWins = () => {
+  const { data: recentWins = [], isLoading } = useQuery({
     queryKey: ['recent-wins'],
     queryFn: async () => {
+      console.log('🏆 [RECENT_WINS] Loading recent wins...');
+      
       try {
-        console.log('🏆 [RECENT_WINS] Starting recent wins query...');
-        const startTime = Date.now();
-        
-        console.log('📡 [RECENT_WINS] Fetching wins data...');
-        const { data: winsData, error: winsError } = await supabase
+        const { data, error } = await supabase
           .from('recent_wins')
           .select(`
             id,
-            user_id,
-            case_id,
-            skin_id,
             won_at,
-            reward_type,
-            reward_data
+            reward_data,
+            users!inner (
+              username
+            )
           `)
+          .not('reward_data', 'is', null)
           .order('won_at', { ascending: false })
           .limit(10);
-        
-        if (winsError) {
-          console.error('❌ [RECENT_WINS] Error loading wins:', winsError);
-          throw winsError;
+
+        if (error) {
+          console.error('❌ [RECENT_WINS] Error loading recent wins:', error);
+          return [];
         }
 
-        console.log('📊 [RECENT_WINS] Wins data loaded:', {
-          count: winsData?.length || 0,
-          firstWin: winsData?.[0] || null
-        });
-
-        const userIds = winsData?.map(win => win.user_id).filter(Boolean) || [];
-        console.log('👥 [RECENT_WINS] User IDs to fetch:', userIds.length);
-        
-        console.log('📡 [RECENT_WINS] Fetching users data...');
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, username')
-          .in('id', userIds);
-
-        if (usersError) {
-          console.error('❌ [RECENT_WINS] Error loading users:', usersError);
-        } else {
-          console.log('📊 [RECENT_WINS] Users data loaded:', {
-            count: usersData?.length || 0,
-            users: usersData?.map(u => ({ id: u.id, username: u.username })) || []
-          });
-        }
-
-        // Обогащаем данные о победах информацией о пользователях
-        const enrichedWins: RecentWin[] = winsData?.map((win, index) => {
-          const user = usersData?.find(user => user.id === win.user_id);
-          console.log(`🎯 [RECENT_WINS] Processing win ${index + 1}:`, {
-            winId: win.id,
-            userId: win.user_id,
-            foundUser: !!user,
-            username: user?.username,
-            rewardType: win.reward_type || 'skin',
-            rewardData: win.reward_data
-          });
-          
-          return {
-            ...win,
-            reward_type: win.reward_type || 'skin',
-            reward_data: win.reward_data || {},
-            users: user || null
-          };
-        }) || [];
-        
-        const duration = Date.now() - startTime;
-        console.log(`✅ [RECENT_WINS] Query completed in ${duration}ms:`, {
-          totalWins: enrichedWins.length,
-          winsWithUsers: enrichedWins.filter(w => w.users).length
-        });
-        
-        return enrichedWins;
+        console.log('✅ [RECENT_WINS] Loaded wins:', data?.length || 0);
+        return data as RecentWin[];
       } catch (error) {
         console.error('💥 [RECENT_WINS] Unexpected error:', error);
-        console.error('💥 [RECENT_WINS] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-        throw error;
+        return [];
       }
     },
-    retry: (failureCount, error) => {
-      console.log(`🔄 [RECENT_WINS] Retry attempt ${failureCount}:`, error);
-      return failureCount < 3;
-    },
-    retryDelay: (attemptIndex) => {
-      const delay = Math.min(1000 * 2 ** attemptIndex, 30000);
-      console.log(`⏰ [RECENT_WINS] Retry delay: ${delay}ms`);
-      return delay;
-    }
+    refetchInterval: 30000, // Обновляем каждые 30 секунд
+    staleTime: 15000
   });
 
-  // Обрабатываем ошибки отдельно
-  if (error) {
-    console.error('🚨 [RECENT_WINS] Query error:', error);
-  }
-
-  // Обрабатываем успешные запросы отдельно
-  if (recentWins) {
-    console.log('🎉 [RECENT_WINS] Query success:', recentWins?.length || 0, 'wins loaded');
-  }
-
-  const getRarityColor = (rarity?: string) => {
-    if (!rarity) return 'text-gray-400';
-    
-    const color = (() => {
-      switch (rarity) {
-        case 'Consumer': return 'text-gray-400';
-        case 'Industrial': return 'text-blue-400';
-        case 'Restricted': return 'text-purple-400';
-        case 'Classified': return 'text-pink-400';
-        case 'Covert': return 'text-red-400';
-        case 'Contraband': return 'text-yellow-400';
-        default: return 'text-gray-400';
-      }
-    })();
-    
-    console.log('🎨 [RECENT_WINS] Rarity color for', rarity, ':', color);
-    return color;
+  const getRarityColor = (rarity: string) => {
+    const colors = {
+      'Covert': 'from-orange-500 to-red-500',
+      'Classified': 'from-red-500 to-pink-500', 
+      'Restricted': 'from-purple-500 to-pink-500',
+      'Mil-Spec': 'from-blue-500 to-purple-500',
+      'Industrial Grade': 'from-blue-400 to-blue-600',
+      'Consumer Grade': 'from-gray-500 to-gray-600',
+    };
+    return colors[rarity as keyof typeof colors] || 'from-gray-500 to-gray-600';
   };
 
-  const getWinDisplayData = (win: RecentWin) => {
-    if (win.reward_type === 'coins') {
-      return {
-        name: `${win.reward_data?.amount || 0} монет`,
-        image: null,
-        rarity: 'coin',
-        weapon_type: 'Монеты'
-      };
-    } else if (win.reward_type === 'skin' && win.reward_data) {
-      return {
-        name: win.reward_data.name || 'Неизвестный скин',
-        image: win.reward_data.image_url,
-        rarity: win.reward_data.rarity,
-        weapon_type: win.reward_data.weapon_type || 'Предмет'
-      };
-    } else {
-      return {
-        name: 'Неизвестная награда',
-        image: null,
-        rarity: 'unknown',
-        weapon_type: 'Предмет'
-      };
-    }
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} д назад`;
   };
 
   if (isLoading) {
-    console.log('⏳ [RECENT_WINS] Rendering loading state');
     return (
-      <div className="mb-6">
-        <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
-        <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20">
-          <p className="text-gray-400 text-center py-4">{t('loading')}</p>
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
+          <span className="mr-2">🏆</span>
+          Последние выигрыши
+        </h2>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-3 animate-pulse">
+              <div className="w-12 h-12 bg-slate-700 rounded-lg"></div>
+              <div className="flex-1">
+                <div className="w-32 h-4 bg-slate-700 rounded mb-1"></div>
+                <div className="w-24 h-3 bg-slate-700 rounded"></div>
+              </div>
+              <div className="w-16 h-4 bg-slate-700 rounded"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
-  if (error) {
-    console.error('💥 [RECENT_WINS] Rendering error state:', error);
+  if (recentWins.length === 0) {
     return (
-      <div className="mb-6">
-        <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
-        <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20">
-          <p className="text-red-400 text-center py-4">{t('errorLoadingWins')}</p>
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
+          <span className="mr-2">🏆</span>
+          Последние выигрыши
+        </h2>
+        <div className="text-center py-6">
+          <div className="text-4xl mb-2">🎯</div>
+          <p className="text-slate-400">Пока нет выигрышей</p>
+          <p className="text-slate-500 text-sm mt-1">Открывайте кейсы и станьте первым!</p>
         </div>
       </div>
     );
   }
-
-  console.log('🎨 [RECENT_WINS] Rendering wins list:', {
-    hasWins: !!(recentWins && recentWins.length > 0),
-    winsCount: recentWins?.length || 0
-  });
 
   return (
-    <div className="mb-6">
-      <h3 className="text-xl font-bold text-white mb-4">{t('recentWins')}</h3>
-      <div className="bg-gray-800/30 rounded-lg p-4 border border-orange-500/20 max-h-60 overflow-y-auto">
-        {recentWins && recentWins.length > 0 ? (
-          <div className="space-y-2">
-            {recentWins.map((win, index) => {
-              const displayData = getWinDisplayData(win);
-              
-              console.log(`🏆 [RECENT_WINS] Rendering win ${index + 1}:`, {
-                id: win.id,
-                username: win.users?.username,
-                rewardType: win.reward_type,
-                displayName: displayData.name,
-                hasImage: !!displayData.image
-              });
-              
-              return (
-                <div key={win.id} className="flex items-center justify-between py-2 border-b border-gray-700/50 last:border-b-0">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {win.users?.username?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-medium">
-                        {win.users?.username || t('player')}
-                      </p>
-                      <p className="text-gray-400 text-xs">{t('won')}</p>
-                    </div>
+    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
+        <span className="mr-2">🏆</span>
+        Последние выигрыши
+      </h2>
+      
+      <div className="space-y-3 max-h-80 overflow-y-auto">
+        {recentWins.map((win) => (
+          <div key={win.id} className="flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
+            <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(win.reward_data?.rarity || '')} p-0.5`}>
+              <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
+                {win.reward_data?.image_url ? (
+                  <OptimizedImage
+                    src={win.reward_data.image_url}
+                    alt={win.reward_data?.name || 'Скин'}
+                    className="w-full h-full object-cover"
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">
+                        🎁
+                      </div>
+                    }
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400">
+                    🎁
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 flex-shrink-0">
-                      {displayData.image ? (
-                        <LazyImage
-                          src={displayData.image}
-                          alt={displayData.name}
-                          className="w-full h-full object-cover rounded-lg border border-gray-600"
-                          timeout={3000}
-                          priority={index < 3}
-                          fallback={
-                            <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
-                              <span className="text-lg">
-                                {win.reward_type === 'coins' ? '🪙' : '🎯'}
-                              </span>
-                            </div>
-                          }
-                          onError={() => {
-                            console.log('🖼️ [RECENT_WINS] Image load failed:', {
-                              imageUrl: displayData.image,
-                              rewardName: displayData.name,
-                              winId: win.id
-                            });
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-600">
-                          <span className="text-lg">
-                            {win.reward_type === 'coins' ? '🪙' : '🎯'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${win.reward_type === 'coins' ? 'text-yellow-400' : getRarityColor(displayData.rarity)}`}>
-                        {displayData.name}
-                      </p>
-                      <p className="text-gray-400 text-xs">{displayData.weapon_type}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <span className="text-slate-300 font-medium text-sm truncate">
+                  {win.users?.username || 'Игрок'}
+                </span>
+                <span className="text-green-400 text-xs">выиграл</span>
+              </div>
+              <p className="text-white font-medium text-sm truncate">
+                {win.reward_data?.name || 'Скин'}
+              </p>
+            </div>
+            
+            <div className="text-right">
+              <div className="text-yellow-400 font-bold text-sm">
+                {win.reward_data?.price || 0}₽
+              </div>
+              <div className="text-slate-500 text-xs">
+                {formatTimeAgo(win.won_at)}
+              </div>
+            </div>
           </div>
-        ) : (
-          <p className="text-gray-400 text-center py-4">{t('noWinsYet')}</p>
-        )}
+        ))}
       </div>
     </div>
   );

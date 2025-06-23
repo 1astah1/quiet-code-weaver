@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -62,12 +63,6 @@ export const useUserInventory = (userId: string) => {
         
         if (error) {
           console.error('❌ [INVENTORY] Supabase error:', error);
-          console.error('❌ [INVENTORY] Error details:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-          });
           throw error;
         }
         
@@ -77,7 +72,6 @@ export const useUserInventory = (userId: string) => {
           firstItem: data?.[0] || null
         });
         
-        // Проверяем и логируем каждый элемент инвентаря
         const inventoryItems = (data || []).map((item, index) => {
           console.log(`📦 [INVENTORY] Processing item ${index + 1}:`, {
             id: item.id,
@@ -100,7 +94,6 @@ export const useUserInventory = (userId: string) => {
         return inventoryItems as InventoryItem[];
       } catch (error) {
         console.error('💥 [INVENTORY] Unexpected error:', error);
-        console.error('💥 [INVENTORY] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         return [];
       }
     },
@@ -110,10 +103,7 @@ export const useUserInventory = (userId: string) => {
       return failureCount < 2;
     },
     refetchOnWindowFocus: true,
-    refetchInterval: () => {
-      console.log('⏰ [INVENTORY] Interval refetch triggered');
-      return 10000;
-    },
+    refetchInterval: 10000,
     staleTime: 2000
   });
 };
@@ -141,101 +131,28 @@ export const useSellSkin = () => {
           throw new Error('Ошибка идентификации. Пожалуйста, перезагрузите страницу.');
         }
 
-        console.log('👤 [SELL] Checking user existence...');
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, coins')
-          .eq('id', userId)
-          .single();
-
-        if (userError) {
-          console.error('❌ [SELL] User check error:', userError);
-          if (userError.code === 'PGRST116') {
-            throw new Error('Пользователь не найден');
-          }
-          throw new Error('Не удалось получить данные пользователя');
-        }
-
-        console.log('✅ [SELL] User found:', { id: userData.id, coins: userData.coins });
-
-        console.log('📦 [SELL] Checking inventory item...');
-        const { data: inventoryItem, error: inventoryCheckError } = await supabase
-          .from('user_inventory')
-          .select('*')
-          .eq('id', inventoryId)
-          .eq('user_id', userId)
-          .eq('is_sold', false)
-          .single();
-
-        if (inventoryCheckError) {
-          console.error('❌ [SELL] Inventory check error:', inventoryCheckError);
-          if (inventoryCheckError.code === 'PGRST116') {
-            throw new Error('Предмет не найден в инвентаре или уже продан');
-          }
-          throw new Error('Ошибка проверки инвентаря');
-        }
-
-        console.log('✅ [SELL] Inventory item found:', inventoryItem);
-
-        const currentCoins = userData.coins || 0;
-        const newCoins = currentCoins + sellPrice;
-        
-        console.log('💰 [SELL] Coin calculation:', { 
-          current: currentCoins, 
-          adding: sellPrice, 
-          newTotal: newCoins 
+        console.log('📡 [SELL] Calling safe_sell_skin RPC...');
+        const { data, error } = await supabase.rpc('safe_sell_skin', {
+          p_user_id: userId,
+          p_inventory_id: inventoryId,
+          p_sell_price: sellPrice
         });
 
-        console.log('🔄 [SELL] Marking item as sold...');
-        const { error: sellError } = await supabase
-          .from('user_inventory')
-          .update({
-            is_sold: true,
-            sold_at: new Date().toISOString(),
-            sold_price: sellPrice
-          })
-          .eq('id', inventoryId)
-          .eq('user_id', userId)
-          .eq('is_sold', false);
-
-        if (sellError) {
-          console.error('❌ [SELL] Mark as sold error:', sellError);
-          throw new Error('Не удалось продать скин');
-        }
-
-        console.log('✅ [SELL] Item marked as sold');
-
-        console.log('💰 [SELL] Updating user balance...');
-        const { error: coinsError } = await supabase
-          .from('users')
-          .update({ coins: newCoins })
-          .eq('id', userId);
-
-        if (coinsError) {
-          console.error('❌ [SELL] Coins update error:', coinsError);
-          console.log('🔄 [SELL] Rolling back item sale...');
-          await supabase
-            .from('user_inventory')
-            .update({
-              is_sold: false,
-              sold_at: null,
-              sold_price: null
-            })
-            .eq('id', inventoryId);
-          throw new Error('Не удалось обновить баланс');
+        if (error) {
+          console.error('❌ [SELL] RPC error:', error);
+          throw new Error(error.message || 'Не удалось продать скин');
         }
 
         const duration = Date.now() - startTime;
         console.log(`🎉 [SELL] Sale completed successfully in ${duration}ms:`, {
           inventoryId,
           sellPrice,
-          newBalance: newCoins
+          newBalance: data?.new_balance
         });
         
-        return { newCoins };
+        return { newCoins: data?.new_balance || 0 };
       } catch (error) {
         console.error('💥 [SELL] Sell operation failed:', error);
-        console.error('💥 [SELL] Error details:', error instanceof Error ? error.stack : 'No stack trace');
         throw error;
       }
     },
@@ -243,8 +160,10 @@ export const useSellSkin = () => {
       console.log('🎉 [SELL] Mutation success, invalidating queries...');
       const startTime = Date.now();
       
-      await queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] });
-      await queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user-inventory', variables.userId] }),
+        queryClient.refetchQueries({ queryKey: ['user-inventory', variables.userId] })
+      ]);
       
       const duration = Date.now() - startTime;
       console.log(`✅ [SELL] Queries invalidated in ${duration}ms`);
