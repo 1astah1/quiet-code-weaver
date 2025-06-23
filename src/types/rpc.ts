@@ -1,4 +1,3 @@
-
 // Типы для ответов от RPC функций
 export interface SafeOpenCaseResponse {
   success: boolean;
@@ -47,4 +46,10 @@ export interface SafePurchaseSkinResponse {
   error?: string;
   required?: number;
   current?: number;
+}
+
+export interface SafeSellCaseRewardResponse {
+  success: boolean;
+  new_balance?: number;
+  error?: string;
 }

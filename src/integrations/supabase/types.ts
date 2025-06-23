@@ -953,6 +953,10 @@ export type Database = {
         Args: { p_user_id: string; p_skin_id: string; p_skin_price: number }
         Returns: Json
       }
+      safe_sell_case_reward: {
+        Args: { p_user_id: string; p_skin_id: string; p_sell_price: number }
+        Returns: Json
+      }
       safe_sell_skin: {
         Args: {
           p_user_id: string

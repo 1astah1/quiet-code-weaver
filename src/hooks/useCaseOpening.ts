@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -357,23 +358,47 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     setIsProcessing(true);
     try {
       if (wonSkin) {
-        console.log('💰 [CASE_OPENING] WARNING: Direct sell bypasses server validation!');
-        console.log('💰 [CASE_OPENING] This should use a proper RPC function instead');
+        console.log('💰 [CASE_OPENING] Starting direct sell with secure RPC function');
+        console.log('💰 [CASE_OPENING] Selling skin:', {
+          skinId: wonSkin.id,
+          skinName: wonSkin.name,
+          price: wonSkin.price,
+          userId: currentUser.id
+        });
         
-        // ВНИМАНИЕ: Это небезопасно! Нужно создать RPC функцию для продажи
-        // Временно отключаем прямую продажу
-        throw new Error('Прямая продажа временно недоступна. Добавьте скин в инвентарь.');
-        
-        /*
-        const newCoins = currentUser.coins + wonSkin.price;
-        onCoinsUpdate(newCoins);
-        console.log('✅ [CASE_OPENING] Direct sale completed, new balance:', newCoins);
+        // Используем новую безопасную RPC функцию для прямой продажи
+        const { data, error: sellError } = await supabase.rpc('safe_sell_case_reward', {
+          p_user_id: currentUser.id,
+          p_skin_id: wonSkin.id,
+          p_sell_price: wonSkin.price
+        });
+
+        if (sellError) {
+          console.error('❌ [CASE_OPENING] RPC error:', sellError);
+          throw new Error(sellError.message || 'Не удалось продать скин');
+        }
+
+        if (!data) {
+          throw new Error('Сервер не вернул результат операции');
+        }
+
+        // Типизируем ответ от RPC функции
+        const result = data as unknown as { success: boolean; new_balance?: number; error?: string };
+
+        if (!result.success) {
+          throw new Error(result.error || 'Операция продажи не была выполнена');
+        }
+
+        // Обновляем баланс пользователя
+        if (result.new_balance !== undefined) {
+          onCoinsUpdate(result.new_balance);
+          console.log('✅ [CASE_OPENING] Direct sale completed, new balance:', result.new_balance);
+        }
         
         toast({
           title: "Скин продан!",
           description: `Получено ${wonSkin.price} монет`,
         });
-        */
       }
     } catch (error) {
       console.error('❌ [CASE_OPENING] Error in sellDirectly:', error);
