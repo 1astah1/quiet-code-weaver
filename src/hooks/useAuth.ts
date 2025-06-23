@@ -106,8 +106,6 @@ export const useAuth = () => {
       console.log('🔄 Processing user sign in for:', authUser.id);
       setIsLoading(true);
       
-      // Благодаря новым уникальным ограничениям и триггерам, 
-      // можем безопасно создавать или обновлять пользователя
       const displayName = authUser.user_metadata?.full_name || 
                          authUser.user_metadata?.name || 
                          authUser.user_metadata?.display_name ||
@@ -136,13 +134,12 @@ export const useAuth = () => {
           email: authUser.email || '',
           coins: 1000,
           is_admin: false,
-          referral_code: null,
           quiz_lives: 3,
           quiz_streak: 0,
           created_at: new Date().toISOString()
         };
 
-        // Благодаря триггеру prevent_user_duplicates, дубликаты будут автоматически предотвращены
+        // Новый пользователь автоматически получит реферальный код через триггер
         const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUserData)
@@ -153,7 +150,6 @@ export const useAuth = () => {
           console.error('❌ Error creating user:', createError);
           
           // Если произошла ошибка, попробуем найти пользователя снова
-          // (возможно, триггер уже обновил существующую запись)
           const { data: retriedUser, error: retryError } = await supabase
             .from('users')
             .select('*')
@@ -169,7 +165,7 @@ export const useAuth = () => {
           existingUser = createdUser;
           toast({
             title: "Добро пожаловать!",
-            description: "Вы получили 1000 стартовых монет!",
+            description: `Вы получили 1000 стартовых монет! Ваш реферальный код: ${createdUser.referral_code}`,
           });
         }
 
@@ -178,6 +174,28 @@ export const useAuth = () => {
         }
       } else {
         console.log('👤 Using existing user profile');
+        
+        // Проверяем, есть ли у существующего пользователя реферальный код
+        if (!existingUser.referral_code) {
+          console.log('🔧 Generating referral code for existing user');
+          
+          const referralCode = 'FM' + existingUser.id.substring(0, 8).toUpperCase();
+          
+          const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ referral_code: referralCode })
+            .eq('id', existingUser.id)
+            .select()
+            .single();
+            
+          if (!updateError && updatedUser) {
+            existingUser = updatedUser;
+            toast({
+              title: "Реферальный код создан!",
+              description: `Ваш реферальный код: ${referralCode}`,
+            });
+          }
+        }
       }
 
       userData = {
@@ -193,7 +211,7 @@ export const useAuth = () => {
         quiz_streak: existingUser.quiz_streak || 0
       };
 
-      console.log('✅ Setting user data:', userData.username);
+      console.log('✅ Setting user data:', userData.username, 'Referral code:', userData.referralCode);
       setUser(userData);
       setIsAuthenticated(true);
       setIsLoading(false);

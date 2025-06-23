@@ -1,4 +1,6 @@
+
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 
@@ -19,6 +21,8 @@ interface RecentWin {
 }
 
 const RecentWins = () => {
+  const [realtimeWins, setRealtimeWins] = useState<RecentWin[]>([]);
+
   // Type guard function to safely check if data is RewardData
   const isValidRewardData = (data: any): data is RewardData => {
     return (
@@ -30,10 +34,10 @@ const RecentWins = () => {
     );
   };
 
-  const { data: recentWins = [], isLoading, error } = useQuery({
-    queryKey: ['recent-wins'],
+  const { data: initialWins = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['recent-wins-public'],
     queryFn: async () => {
-      console.log('🏆 [RECENT_WINS] Loading recent wins...');
+      console.log('🏆 [RECENT_WINS] Loading public recent wins...');
       
       try {
         const { data, error } = await supabase
@@ -48,7 +52,7 @@ const RecentWins = () => {
           `)
           .not('reward_data', 'is', null)
           .order('won_at', { ascending: false })
-          .limit(10);
+          .limit(20);
 
         if (error) {
           console.error('❌ [RECENT_WINS] Error loading recent wins:', error);
@@ -75,10 +79,84 @@ const RecentWins = () => {
         throw error;
       }
     },
-    refetchInterval: 30000,
     staleTime: 15000,
     retry: 2
   });
+
+  // Настраиваем realtime подписку
+  useEffect(() => {
+    console.log('🔔 [RECENT_WINS] Setting up realtime subscription...');
+    
+    const channel = supabase
+      .channel('recent-wins-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'recent_wins'
+        },
+        async (payload) => {
+          console.log('🔔 [RECENT_WINS] New win received:', payload);
+          
+          try {
+            // Получаем полные данные о новом выигрыше
+            const { data: newWinData, error } = await supabase
+              .from('recent_wins')
+              .select(`
+                id,
+                won_at,
+                reward_data,
+                users!inner (
+                  username
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single();
+
+            if (error) {
+              console.error('❌ [RECENT_WINS] Error fetching new win data:', error);
+              return;
+            }
+
+            if (newWinData && newWinData.reward_data && newWinData.users?.username) {
+              if (isValidRewardData(newWinData.reward_data)) {
+                const newWin = {
+                  ...newWinData,
+                  reward_data: newWinData.reward_data as unknown as RewardData
+                } as RecentWin;
+
+                console.log('✅ [RECENT_WINS] Adding new win to realtime list:', newWin);
+                
+                setRealtimeWins(prev => {
+                  // Добавляем новый выигрыш в начало списка и ограничиваем до 20 элементов
+                  const updated = [newWin, ...prev.filter(w => w.id !== newWin.id)].slice(0, 20);
+                  return updated;
+                });
+              }
+            }
+          } catch (error) {
+            console.error('💥 [RECENT_WINS] Error processing realtime update:', error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔌 [RECENT_WINS] Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Сбрасываем realtime данные при обновлении начальных данных
+  useEffect(() => {
+    if (initialWins.length > 0) {
+      setRealtimeWins([]);
+    }
+  }, [initialWins]);
+
+  // Объединяем начальные данные с realtime обновлениями
+  const allWins = [...realtimeWins, ...initialWins].slice(0, 20);
 
   const getRarityColor = (rarity?: string) => {
     if (!rarity) return 'from-gray-500 to-gray-600';
@@ -137,6 +215,7 @@ const RecentWins = () => {
         <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
           <span className="mr-2">🏆</span>
           Последние выигрыши
+          <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
         </h2>
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
@@ -154,12 +233,13 @@ const RecentWins = () => {
     );
   }
 
-  if (recentWins.length === 0) {
+  if (allWins.length === 0) {
     return (
       <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 sm:p-6">
         <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
           <span className="mr-2">🏆</span>
           Последние выигрыши
+          <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
         </h2>
         <div className="text-center py-6">
           <div className="text-4xl mb-2">🎯</div>
@@ -175,10 +255,11 @@ const RecentWins = () => {
       <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center">
         <span className="mr-2">🏆</span>
         Последние выигрыши
+        <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Live обновления"></div>
       </h2>
       
       <div className="space-y-3 max-h-80 overflow-y-auto">
-        {recentWins.map((win) => {
+        {allWins.map((win, index) => {
           const rewardData = win.reward_data;
           
           if (!rewardData) {
@@ -187,7 +268,12 @@ const RecentWins = () => {
           }
           
           return (
-            <div key={win.id} className="flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
+            <div 
+              key={win.id} 
+              className={`flex items-center space-x-3 p-3 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors ${
+                index < realtimeWins.length ? 'ring-2 ring-green-500/30 animate-pulse' : ''
+              }`}
+            >
               <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData.rarity)} p-0.5 flex-shrink-0`}>
                 <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                   <OptimizedImage
@@ -210,6 +296,9 @@ const RecentWins = () => {
                     {win.users?.username || 'Игрок'}
                   </span>
                   <span className="text-green-400 text-xs">выиграл</span>
+                  {index < realtimeWins.length && (
+                    <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">NEW</span>
+                  )}
                 </div>
                 <p className="text-white font-medium text-sm truncate">
                   {rewardData.name}
