@@ -1,17 +1,18 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 
+interface RewardData {
+  name: string;
+  rarity: string;
+  price: number;
+  image_url?: string;
+}
+
 interface RecentWin {
   id: string;
   won_at: string;
-  reward_data: {
-    name: string;
-    rarity: string;
-    price: number;
-    image_url?: string;
-  } | null;
+  reward_data: RewardData | null;
   users: {
     username: string;
   } | null;
@@ -46,12 +47,19 @@ const RecentWins = () => {
         console.log('✅ [RECENT_WINS] Loaded wins:', data?.length || 0);
         
         // Фильтруем записи с корректными данными
-        const validWins = (data || []).filter(win => 
-          win.reward_data && 
-          typeof win.reward_data === 'object' && 
-          win.reward_data.name &&
-          win.users?.username
-        );
+        const validWins = (data || []).filter(win => {
+          if (!win.reward_data || !win.users?.username) return false;
+          
+          // Проверяем, что reward_data является объектом с нужными свойствами
+          const rewardData = win.reward_data as any;
+          return rewardData && 
+                 typeof rewardData === 'object' && 
+                 rewardData.name && 
+                 typeof rewardData.name === 'string';
+        }).map(win => ({
+          ...win,
+          reward_data: win.reward_data as RewardData
+        }));
 
         console.log('✅ [RECENT_WINS] Valid wins after filtering:', validWins.length);
         return validWins as RecentWin[];

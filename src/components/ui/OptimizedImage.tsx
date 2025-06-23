@@ -8,6 +8,7 @@ interface OptimizedImageProps {
   fallback?: React.ReactNode;
   onLoad?: () => void;
   onError?: () => void;
+  timeout?: number;
 }
 
 const OptimizedImage: React.FC<OptimizedImageProps> = ({
@@ -16,7 +17,8 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   className = '',
   fallback,
   onLoad,
-  onError
+  onError,
+  timeout = 10000
 }) => {
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -63,21 +65,21 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     img.onerror = handleError;
 
     // Добавляем таймаут для очень медленных изображений
-    const timeout = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       if (imageState === 'loading') {
         console.warn('⏰ [OPTIMIZED_IMAGE] Image loading timeout:', src);
         handleError();
       }
-    }, 10000); // 10 секунд таймаут
+    }, timeout);
 
     img.src = src;
 
     return () => {
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
       img.onload = null;
       img.onerror = null;
     };
-  }, [src, onLoad, onError, imageState]);
+  }, [src, onLoad, onError, timeout, imageState]);
 
   if (imageState === 'error' || !src) {
     return (
