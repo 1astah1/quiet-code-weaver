@@ -16,6 +16,20 @@ interface UseCaseOpeningProps {
   onCoinsUpdate: (newCoins: number) => void;
 }
 
+// Type for RPC response
+interface SafeOpenCaseResponse {
+  success: boolean;
+  skin: {
+    id: string;
+    name: string;
+    weapon_type: string;
+    rarity: string;
+    price: number;
+    image_url: string;
+  };
+  inventory_id: string;
+}
+
 export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningProps) => {
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [wonCoins, setWonCoins] = useState(0);
@@ -161,14 +175,17 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error(error.message || 'Не удалось открыть кейс');
       }
 
-      if (!data || !data.success) {
+      // Type assertion with proper checking
+      const response = data as SafeOpenCaseResponse;
+      
+      if (!response || !response.success) {
         throw new Error('Сервер не вернул успешный результат');
       }
 
-      console.log('✅ [CASE_OPENING] Case opened successfully:', data);
+      console.log('✅ [CASE_OPENING] Case opened successfully:', response);
       
       // Устанавливаем выигранный скин
-      setWonSkin(data.skin);
+      setWonSkin(response.skin);
       
       // Обновляем баланс если кейс платный
       if (!caseItem.is_free && caseItem.price) {
@@ -185,7 +202,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         is_free: caseItem.is_free || false,
         phase: 'complete',
         reward_type: 'skin',
-        reward_data: data.skin
+        reward_data: response.skin
       });
 
       // Завершаем анимацию через 3 секунды
