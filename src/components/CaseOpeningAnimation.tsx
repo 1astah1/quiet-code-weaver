@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -182,14 +183,24 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error(error.message || 'Ошибка при открытии кейса');
       }
 
-      // Type assertion for the result
-      const result = rawResult as CaseOpeningResult;
-      
-      if (!result || !result.success) {
+      // Proper type checking and conversion
+      if (!rawResult || typeof rawResult !== 'object') {
         throw new Error('Неверный ответ сервера');
       }
 
-      console.log('✅ Case opened successfully:', result);
+      // Type-safe conversion with validation
+      const result = rawResult as unknown;
+      if (!result || typeof result !== 'object' || !('success' in result)) {
+        throw new Error('Неверный формат ответа сервера');
+      }
+
+      const typedResult = result as CaseOpeningResult;
+      
+      if (!typedResult.success) {
+        throw new Error('Операция не выполнена');
+      }
+
+      console.log('✅ Case opened successfully:', typedResult);
       
       setOpeningPhase('revealing');
       
@@ -199,13 +210,13 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         case_name: caseItem.name,
         is_free: caseItem.is_free,
         phase: 'revealing',
-        reward_type: result.reward.type,
-        reward_data: result.reward
+        reward_type: typedResult.reward.type,
+        reward_data: typedResult.reward
       });
 
       // Update user coins based on reward type
-      if (result.reward.type === 'coin_reward') {
-        onCoinsUpdate(currentUser.coins + (result.reward.amount || 0));
+      if (typedResult.reward.type === 'coin_reward') {
+        onCoinsUpdate(currentUser.coins + (typedResult.reward.amount || 0));
       } else {
         // For skin rewards, coins were already deducted by the function
         if (!caseItem.is_free) {
@@ -213,7 +224,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         }
       }
 
-      setSelectedWinner(result.reward);
+      setSelectedWinner(typedResult.reward);
       setOpeningPhase('complete');
       
       await logCaseOpening({
@@ -222,8 +233,8 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         case_name: caseItem.name,
         is_free: caseItem.is_free,
         phase: 'complete',
-        reward_type: result.reward.type,
-        reward_data: result.reward,
+        reward_type: typedResult.reward.type,
+        reward_data: typedResult.reward,
         duration_ms: Date.now() - startTime
       });
 
