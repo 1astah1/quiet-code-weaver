@@ -70,7 +70,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
       if (!reward) throw new Error('Награда не найдена');
 
       // Проверяем, можем ли мы получить награду
-      const canClaim = await checkCanClaimReward(dayNumber);
+      const canClaim = checkCanClaimReward(dayNumber);
       if (!canClaim) throw new Error('Награду нельзя получить');
 
       // Добавляем запись о получении награды
@@ -121,19 +121,18 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     }
   });
 
-  const checkCanClaimReward = async (dayNumber: number): Promise<boolean> => {
+  const checkCanClaimReward = (dayNumber: number): boolean => {
     const today = new Date().toISOString().split('T')[0];
     
     // Проверяем, получал ли уже награду за этот день
     const alreadyClaimed = userRewards?.some(r => r.day_number === dayNumber);
     if (alreadyClaimed) return false;
 
-    // Проверяем последовательность дней
     const lastLogin = userData?.last_daily_login;
     const currentDailyStreak = userData?.daily_streak || 0;
 
     if (!lastLogin) {
-      // Первый день - можем получить только день 1
+      // Первый вход - можно получить только день 1
       return dayNumber === 1;
     }
 
@@ -142,29 +141,54 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     const diffDays = Math.floor((todayDate.getTime() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      // Уже заходил сегодня - нельзя получить награду
-      return false;
+      // Уже заходил сегодня - можно получить только следующий день в последовательности
+      return dayNumber === currentDailyStreak + 1;
     } else if (diffDays === 1) {
-      // Заходил вчера - можем получить следующий день
+      // Заходил вчера - можно получить следующий день
       return dayNumber === currentDailyStreak + 1;
     } else {
-      // Пропустил дни - сбрасываем на день 1
+      // Пропустил дни - сброс серии, можно получить только день 1
       return dayNumber === 1;
     }
   };
 
-  useEffect(() => {
-    if (userData) {
-      setCurrentStreak(userData.daily_streak || 0);
+  const getActualStreak = (): number => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastLogin = userData?.last_daily_login;
+    const currentDailyStreak = userData?.daily_streak || 0;
+
+    if (!lastLogin) return 0;
+
+    const lastLoginDate = new Date(lastLogin);
+    const todayDate = new Date(today);
+    const diffDays = Math.floor((todayDate.getTime() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Если пропустил больше одного дня - сброс серии
+    if (diffDays > 1) {
+      return 0;
     }
-  }, [userData]);
+
+    return currentDailyStreak;
+  };
+
+  useEffect(() => {
+    const actualStreak = getActualStreak();
+    setCurrentStreak(actualStreak);
+    
+    // Если серия сброшена, обновляем в базе данных
+    if (userData && actualStreak !== userData.daily_streak) {
+      supabase
+        .from('users')
+        .update({ daily_streak: actualStreak })
+        .eq('id', currentUser.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['user-streak', currentUser.id] });
+        });
+    }
+  }, [userData, currentUser.id, queryClient]);
 
   const isRewardClaimed = (dayNumber: number) => {
     return userRewards?.some(r => r.day_number === dayNumber) || false;
-  };
-
-  const canClaimReward = async (dayNumber: number) => {
-    return await checkCanClaimReward(dayNumber);
   };
 
   if (!isOpen) {
@@ -202,8 +226,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
           <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 sm:gap-3">
             {dailyRewards?.map((reward) => {
               const isClaimed = isRewardClaimed(reward.day_number);
+              const canClaim = checkCanClaimReward(reward.day_number);
               const isNextReward = reward.day_number === currentStreak + 1;
-              const isPastReward = reward.day_number <= currentStreak;
 
               return (
                 <div
@@ -212,11 +236,9 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                     relative p-2 sm:p-3 md:p-4 rounded-lg border-2 transition-all
                     ${isClaimed 
                       ? 'bg-green-900/50 border-green-500 text-green-400' 
-                      : isNextReward 
+                      : canClaim && isNextReward
                         ? 'bg-orange-900/50 border-orange-500 text-orange-400 animate-pulse' 
-                        : isPastReward
-                          ? 'bg-gray-900/50 border-gray-600 text-gray-500'
-                          : 'bg-slate-800/50 border-slate-600 text-slate-400'
+                        : 'bg-slate-800/50 border-slate-600 text-slate-400'
                     }
                   `}
                 >
@@ -234,7 +256,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                       </div>
                     )}
                     
-                    {isNextReward && !isClaimed && (
+                    {canClaim && isNextReward && !isClaimed && (
                       <Button
                         onClick={() => claimRewardMutation.mutate(reward.day_number)}
                         disabled={claimRewardMutation.isPending}
