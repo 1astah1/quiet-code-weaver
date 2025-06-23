@@ -1,9 +1,8 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Coins } from "lucide-react";
-import { InstantImage } from "@/components/ui/InstantImage";
+import InstantImage from "@/components/ui/InstantImage";
 
 interface Skin {
   id: string;

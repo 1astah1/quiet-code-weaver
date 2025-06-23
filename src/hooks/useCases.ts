@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -278,9 +279,6 @@ export const useOpenCase = () => {
           throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
         }
 
-        // ИСПРАВЛЕНО: Убрана клиентская проверка баланса и списание
-        // Все финансовые операции теперь происходят только на сервере через RPC
-        
         // Проверяем/создаем пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
@@ -309,7 +307,7 @@ export const useOpenCase = () => {
           }
         }
 
-        // ИСПРАВЛЕНО: Используем RPC функцию для безопасного открытия кейса
+        // Используем RPC функцию для безопасного открытия кейса
         console.log('📡 [CASE_OPENING] Calling safe_open_case RPC');
         const { data: rpcData, error: rpcError } = await supabase.rpc('safe_open_case', {
           p_user_id: userId,
@@ -325,12 +323,15 @@ export const useOpenCase = () => {
           throw new Error(`Ошибка сервера: ${rpcError.message}`);
         }
 
-        if (!rpcData || !rpcData.success) {
-          console.error('❌ [CASE_OPENING] RPC returned failure:', rpcData);
-          const errorMsg = rpcData?.error || 'Не удалось открыть кейс';
+        // Приводим к типу с проверкой
+        const typedResponse = rpcData as any;
+        
+        if (!typedResponse || !typedResponse.success) {
+          console.error('❌ [CASE_OPENING] RPC returned failure:', typedResponse);
+          const errorMsg = typedResponse?.error || 'Не удалось открыть кейс';
           
           if (errorMsg.includes('Insufficient funds')) {
-            throw new Error(`Недостаточно монет. Нужно: ${rpcData.required}, у вас: ${rpcData.current}`);
+            throw new Error(`Недостаточно монет. Нужно: ${typedResponse.required}, у вас: ${typedResponse.current}`);
           }
           
           throw new Error(errorMsg);
@@ -340,10 +341,10 @@ export const useOpenCase = () => {
         
         // Возвращаем результат с сервера
         return { 
-          selectedSkin: rpcData.reward,
-          newCoins: rpcData.new_balance,
-          rouletteItems: rpcData.roulette_items,
-          winnerPosition: rpcData.winner_position
+          selectedSkin: typedResponse.reward,
+          newCoins: typedResponse.new_balance,
+          rouletteItems: typedResponse.roulette_items,
+          winnerPosition: typedResponse.winner_position
         };
         
       } catch (error) {

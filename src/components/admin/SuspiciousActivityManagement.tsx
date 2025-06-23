@@ -2,22 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Shield, User, Calendar, CheckCircle, Database } from 'lucide-react';
-
-interface SuspiciousActivity {
-  id: string;
-  user_id: string;
-  username: string;
-  activity_type: string;
-  details: Record<string, any>;
-  risk_level: 'low' | 'medium' | 'high';
-  created_at: string;
-  resolved: boolean;
-  resolved_by?: string;
-  resolved_at?: string;
-}
 
 const SuspiciousActivityManagement = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -45,26 +31,10 @@ const SuspiciousActivityManagement = () => {
     getCurrentUser();
   }, []);
 
-  // Проверяем готовность таблицы
+  // Таблица suspicious_activities пока не создана, поэтому всегда показываем что не готова
   useEffect(() => {
-    const checkTableReady = async () => {
-      try {
-        // Проверяем существование таблицы путем попытки выполнить простой запрос
-        const { error } = await (await import('@/integrations/supabase/client')).supabase
-          .from('suspicious_activities')
-          .select('count', { count: 'exact', head: true });
-        
-        if (!error) {
-          setIsTableReady(true);
-        }
-      } catch (error) {
-        console.log('Table not ready yet:', error);
-        setIsTableReady(false);
-      }
-    };
-
     if (currentUser?.is_admin) {
-      checkTableReady();
+      setIsTableReady(false); // Таблица еще не создана
     }
   }, [currentUser]);
 

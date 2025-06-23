@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,7 +21,7 @@ export const useEnhancedSecurity = (user: User) => {
   });
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // ИСПРАВЛЕНО: Проверяем статус администратора
+  // Проверяем статус администратора
   const isAdmin = user.is_admin || false;
 
   // Проверка rate limit через RPC функцию
@@ -139,7 +140,7 @@ export const useEnhancedSecurity = (user: User) => {
 
   return {
     metrics,
-    isBlocked: isBlocked && !isAdmin, // ИСПРАВЛЕНО: Администраторы никогда не блокируются
+    isBlocked: isBlocked && !isAdmin,
     checkRateLimit,
     validateInput,
     sanitizeString,
