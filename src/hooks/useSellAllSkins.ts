@@ -44,10 +44,11 @@ export const useSellAllSkins = () => {
         const totalValue = inventoryItems.reduce((sum, item) => sum + (item.skins?.price || 0), 0);
         console.log('💰 [SELL_ALL] Total value:', totalValue);
 
-        // Используем транзакцию через RPC функцию
-        const { data: sellResult, error: sellError } = await supabase.rpc('sell_all_user_skins', {
-          p_user_id: userId
-        });
+        // Используем функцию продажи всех скинов
+        const { data: sellResult, error: sellError } = await supabase
+          .rpc('sell_all_user_skins', {
+            p_user_id: userId
+          });
 
         if (sellError) {
           console.error('❌ [SELL_ALL] RPC error:', sellError);
@@ -55,9 +56,13 @@ export const useSellAllSkins = () => {
         }
 
         console.log('✅ [SELL_ALL] All items sold successfully:', sellResult);
+        
+        // Правильно извлекаем данные из результата
+        const result = sellResult as { total_earned: number; items_sold: number };
+        
         return { 
-          totalValue: sellResult.total_earned || totalValue, 
-          itemCount: sellResult.items_sold || inventoryItems.length 
+          totalValue: result.total_earned || totalValue, 
+          itemCount: result.items_sold || inventoryItems.length 
         };
       } catch (error) {
         console.error('💥 [SELL_ALL] Sell all operation failed:', error);

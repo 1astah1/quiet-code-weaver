@@ -1,271 +1,175 @@
 
 import { useState } from "react";
-import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
-import { useSellAllSkins } from "@/hooks/useSellAllSkins";
-import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
-import OptimizedImage from "@/components/ui/OptimizedImage";
-import { inventoryLimiter } from "@/utils/rateLimiter";
+import { Button } from "@/components/ui/button";
+import { Coins, Package, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import WithdrawSkinModal from "./WithdrawSkinModal";
+import { useInventoryData } from "@/hooks/useInventoryData";
+import { useSkinSale } from "@/hooks/useSkinSale";
+import { useSellAllSkins } from "@/hooks/useSellAllSkins";
+import InventoryItem from "./InventoryItem";
 
 interface InventoryScreenProps {
   currentUser: {
     id: string;
     username: string;
     coins: number;
-    steam_trade_url?: string;
   };
   onCoinsUpdate: (newCoins: number) => void;
 }
 
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
-  const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
-  const sellSkinMutation = useSellSkin();
-  const sellAllMutation = useSellAllSkins();
+  const [filter, setFilter] = useState<"all" | "available" | "sold">("all");
   const { toast } = useToast();
   
-  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const { data: inventoryItems = [], isLoading, error } = useInventoryData(currentUser.id);
+  const skinSaleMutation = useSkinSale();
+  const sellAllMutation = useSellAllSkins();
 
-  const getRarityColor = (rarity: string) => {
-    const colors = {
-      'Covert': 'border-orange-500 bg-orange-500/10',
-      'Classified': 'border-red-500 bg-red-500/10',
-      'Restricted': 'border-purple-500 bg-purple-500/10',
-      'Mil-Spec': 'border-blue-500 bg-blue-500/10',
-      'Industrial Grade': 'border-blue-400 bg-blue-400/10',
-      'Consumer Grade': 'border-gray-500 bg-gray-500/10',
-    };
-    return colors[rarity as keyof typeof colors] || 'border-gray-500 bg-gray-500/10';
+  const handleSellSkin = (inventoryId: string, price: number) => {
+    skinSaleMutation.mutate({
+      inventoryId,
+      userId: currentUser.id,
+      price
+    }, {
+      onSuccess: (data) => {
+        onCoinsUpdate(currentUser.coins + data.price);
+      }
+    });
   };
 
-  const handleSellSkin = async (inventoryId: string, sellPrice: number) => {
-    try {
-      if (!inventoryLimiter.isAllowed(currentUser.id)) {
-        toast({
-          title: "Слишком много операций",
-          description: "Подождите немного перед следующей продажей",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Selling skin from inventory:', inventoryId, 'for', sellPrice);
-      if (sellSkinMutation.isPending) {
-        console.log('Sell already in progress');
-        return;
-      }
-      
-      const result = await sellSkinMutation.mutateAsync({
-        inventoryId,
-        userId: currentUser.id,
-        sellPrice
+  const handleSellAll = () => {
+    const availableItems = inventoryItems.filter(item => !item.is_sold);
+    
+    if (availableItems.length === 0) {
+      toast({
+        title: "Нет предметов для продажи",
+        description: "В вашем инвентаре нет предметов, которые можно продать",
+        variant: "destructive",
       });
-      
-      if (result && result.newCoins !== undefined) {
-        console.log('Skin sold, updating coins to:', result.newCoins);
-        onCoinsUpdate(result.newCoins);
-      }
-    } catch (error) {
-      console.error('Error selling skin:', error);
+      return;
     }
-  };
 
-  const handleSellAll = async () => {
-    try {
-      if (!inventory || inventory.length === 0) {
-        toast({
-          title: "Нет предметов",
-          description: "В инвентаре нет предметов для продажи",
-          variant: "destructive",
-        });
-        return;
+    sellAllMutation.mutate(
+      { userId: currentUser.id },
+      {
+        onSuccess: (totalValue) => {
+          onCoinsUpdate(currentUser.coins + totalValue);
+        }
       }
-
-      if (sellAllMutation.isPending) {
-        console.log('Sell all already in progress');
-        return;
-      }
-
-      const result = await sellAllMutation.mutateAsync({
-        userId: currentUser.id
-      });
-
-      if (result && result.totalValue !== undefined) {
-        console.log('All skins sold, updating coins by:', result.totalValue);
-        onCoinsUpdate(currentUser.coins + result.totalValue);
-      }
-    } catch (error) {
-      console.error('Error selling all skins:', error);
-    }
-  };
-
-  const handleWithdrawSkin = (item: any) => {
-    setSelectedItem(item);
-    setWithdrawModalOpen(true);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-orange-500 mx-auto mb-4" />
-            <p className="text-slate-400 text-sm">Загрузка инвентаря...</p>
-          </div>
-        </div>
-      </div>
     );
-  }
+  };
 
   if (error) {
     return (
-      <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
-            <p className="text-red-400 text-base sm:text-lg">Ошибка загрузки инвентаря</p>
-            <p className="text-slate-500 text-xs sm:text-sm">Попробуйте перезагрузить страницу</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Package className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">Ошибка загрузки</h3>
+          <p className="text-slate-400">Не удалось загрузить инвентарь</p>
         </div>
       </div>
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-slate-400">Загрузка инвентаря...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const filteredItems = inventoryItems.filter(item => {
+    if (filter === "available") return !item.is_sold;
+    if (filter === "sold") return item.is_sold;
+    return true;
+  });
+
+  const availableItems = inventoryItems.filter(item => !item.is_sold);
+  const totalValue = availableItems.reduce((sum, item) => sum + (item.skins?.price || 0), 0);
+
   return (
-    <div className="min-h-screen pb-16 sm:pb-20 px-3 sm:px-4 pt-4">
-      <div className="mb-4 sm:mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">Мои выигрыши</h1>
-            <p className="text-slate-400 text-xs sm:text-sm md:text-base">Управляйте своими скинами</p>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header с статистикой */}
+      <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4 border border-slate-700/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white">Мой инвентарь</h2>
+              <p className="text-xs sm:text-sm text-slate-400">
+                {availableItems.length} предметов на {totalValue} монет
+              </p>
+            </div>
           </div>
           
-          {inventory && inventory.length > 0 && (
-            <button
+          {availableItems.length > 0 && (
+            <Button
               onClick={handleSellAll}
               disabled={sellAllMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-2 sm:px-4 sm:py-2 rounded text-xs sm:text-sm font-medium transition-all flex items-center space-x-1 sm:space-x-2"
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 text-sm sm:text-base px-3 sm:px-4 py-2"
             >
-              {sellAllMutation.isPending ? (
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-              ) : (
-                <Coins className="w-3 h-3 sm:w-4 sm:h-4" />
-              )}
-              <span>Продать все</span>
-            </button>
+              <Coins className="h-4 w-4 mr-2" />
+              {sellAllMutation.isPending ? "Продажа..." : "Продать всё"}
+            </Button>
           )}
         </div>
       </div>
 
-      {!inventory || inventory.length === 0 ? (
-        <div className="text-center py-12">
-          <Package className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-400 mx-auto mb-4" />
-          <p className="text-slate-400 text-sm sm:text-base md:text-lg">Ваш инвентарь пуст</p>
-          <p className="text-slate-500 text-xs sm:text-sm">Откройте кейсы, чтобы получить скины</p>
+      {/* Фильтры */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {[
+          { key: "all", label: "Все", count: inventoryItems.length },
+          { key: "available", label: "Доступные", count: availableItems.length },
+          { key: "sold", label: "Проданные", count: inventoryItems.length - availableItems.length }
+        ].map(({ key, label, count }) => (
+          <Button
+            key={key}
+            variant={filter === key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter(key as typeof filter)}
+            className={`whitespace-nowrap ${
+              filter === key
+                ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                : "bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 border-slate-600"
+            }`}
+          >
+            {label} ({count})
+          </Button>
+        ))}
+      </div>
+
+      {/* Инвентарь */}
+      {filteredItems.length === 0 ? (
+        <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
+          <div className="text-center">
+            <Sparkles className="h-12 w-12 sm:h-16 sm:w-16 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg sm:text-xl font-medium text-white mb-2">
+              {filter === "all" ? "Инвентарь пуст" : 
+               filter === "available" ? "Нет доступных предметов" : 
+               "Нет проданных предметов"}
+            </h3>
+            <p className="text-slate-400 text-sm sm:text-base">
+              {filter === "all" ? "Откройте кейсы, чтобы получить скины!" :
+               filter === "available" ? "Все предметы уже проданы" :
+               "Вы ещё ничего не продавали"}
+            </p>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
-          {inventory.map((item) => {
-            console.log('Rendering inventory item:', item.id, 'skin data:', item.skins);
-            return (
-              <div
-                key={item.id}
-                className={`bg-slate-800/50 rounded-lg border ${getRarityColor(item.skins.rarity)} p-2 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl`}
-              >
-                {/* Rarity Badge */}
-                <div className="bg-black/60 px-1 py-0.5 rounded text-[10px] sm:text-xs text-white mb-1.5 text-center truncate">
-                  {item.skins.rarity.split(' ')[0]}
-                </div>
-
-                <div className="bg-black/30 rounded-lg aspect-square mb-1.5 flex items-center justify-center overflow-hidden">
-                  {item.skins.image_url ? (
-                    <OptimizedImage
-                      src={item.skins.image_url}
-                      alt={item.skins.name || 'Скин'}
-                      className="w-full h-full object-contain"
-                      fallback={
-                        <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
-                          <Package className="w-4 h-4 sm:w-6 sm:h-6 text-white/50" />
-                        </div>
-                      }
-                      onError={() => console.log('Failed to load inventory skin image:', item.skins.image_url, 'for skin:', item.skins.name)}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
-                      <Package className="w-4 h-4 sm:w-6 sm:h-6 text-white/50" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div>
-                    <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins.name}>
-                      {item.skins.name}
-                    </h3>
-                    <p className="text-white/70 text-[9px] sm:text-[10px] truncate">{item.skins.weapon_type}</p>
-                  </div>
-                  
-                  <div className="flex items-center justify-center">
-                    <div className="flex items-center space-x-0.5 sm:space-x-1">
-                      <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-[8px] sm:text-xs font-bold">₽</span>
-                      </div>
-                      <span className="text-orange-400 font-bold text-[10px] sm:text-xs">{item.skins.price}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => handleSellSkin(item.id, item.skins.price)}
-                      disabled={sellSkinMutation.isPending}
-                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
-                    >
-                      {sellSkinMutation.isPending ? (
-                        <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Coins className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                          <span className="hidden xs:inline">Продать</span>
-                          <span className="xs:hidden">₽</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <button 
-                      onClick={() => handleWithdrawSkin(item)}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
-                    >
-                      <Download className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      <span className="hidden xs:inline">Вывести</span>
-                      <span className="xs:hidden">↓</span>
-                    </button>
-                    
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1">
-                      <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      <span className="hidden xs:inline">Steam</span>
-                      <span className="xs:hidden">↗</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {filteredItems.map((item) => (
+            <InventoryItem
+              key={item.id}
+              item={item}
+              onSell={handleSellSkin}
+              isLoading={skinSaleMutation.isPending}
+            />
+          ))}
         </div>
-      )}
-
-      {selectedItem && (
-        <WithdrawSkinModal
-          isOpen={withdrawModalOpen}
-          onClose={() => {
-            setWithdrawModalOpen(false);
-            setSelectedItem(null);
-          }}
-          inventoryItemId={selectedItem.id}
-          skinName={selectedItem.skins.name}
-          skinImage={selectedItem.skins.image_url}
-          currentTradeUrl={currentUser.steam_trade_url}
-        />
       )}
     </div>
   );
