@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Coins, Package, Sparkles } from "lucide-react";
@@ -52,6 +53,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       { userId: currentUser.id },
       {
         onSuccess: (result) => {
+          // result is the total value earned from selling all skins
           onCoinsUpdate(currentUser.coins + result);
         }
       }

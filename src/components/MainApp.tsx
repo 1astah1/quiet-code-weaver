@@ -148,6 +148,10 @@ const MainApp = () => {
     }
   };
 
+  const handleScreenChange = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -206,7 +210,7 @@ const MainApp = () => {
 
       <BottomNavigation
         currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={handleScreenChange}
         currentLanguage={user.language_code}
       />
 
@@ -216,4 +220,3 @@ const MainApp = () => {
 };
 
 export default MainApp;
-export type { Screen };
