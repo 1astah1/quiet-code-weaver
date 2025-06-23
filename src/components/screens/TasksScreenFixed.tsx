@@ -29,7 +29,7 @@ interface Task {
 const TasksScreenFixed = ({ currentUser, onCoinsUpdate }: TasksScreenFixedProps) => {
   const { toast } = useToast();
   const { taskProgress, completeTask, claimReward, getTaskStatus } = useTaskProgress(currentUser.id);
-  const { checkRateLimit, validateInput, sanitizeString } = useEnhancedSecurity(currentUser.id);
+  const { checkRateLimit, validateInput, sanitizeString } = useEnhancedSecurity(currentUser);
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks'],

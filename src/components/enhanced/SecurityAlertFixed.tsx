@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, X, Clock } from 'lucide-react';
@@ -18,7 +17,8 @@ interface SecurityAlert {
 
 const SecurityAlertFixed: React.FC<SecurityAlertFixedProps> = ({ userId }) => {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
-  const { metrics, isBlocked, checkRateLimit } = useEnhancedSecurity(userId);
+  // Fix: Pass user object instead of just userId string
+  const { metrics, isBlocked, checkRateLimit } = useEnhancedSecurity({ id: userId });
 
   useEffect(() => {
     console.log('🛡️ [SECURITY_ALERT] Monitoring user:', userId);
