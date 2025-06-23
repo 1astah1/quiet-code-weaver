@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import LoadingScreen from "@/components/LoadingScreen";
-import WelcomeScreen from "@/components/WelcomeScreen";
+import AuthScreen from "@/components/auth/AuthScreen";
 import Sidebar from "@/components/Sidebar";
 import BottomNavigation from "@/components/BottomNavigation";
 import SkinsScreen from "@/components/screens/SkinsScreen";
@@ -14,7 +14,6 @@ import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
 import MainScreen from "@/components/screens/MainScreen";
 import InventoryScreen from "@/components/inventory/InventoryScreen";
 import SecurityStatus from "@/components/security/SecurityStatus";
-import { createTestUser } from "@/utils/uuid";
 
 export type Screen = "main" | "skins" | "quiz" | "tasks" | "profile" | "leaderboard" | "inventory" | "settings" | "admin";
 
@@ -34,6 +33,7 @@ const MainApp = () => {
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,34 +44,40 @@ const MainApp = () => {
     try {
       console.log("🚀 Initializing app...");
       
-      // Получаем текущего пользователя из Supabase Auth
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Set up auth state listener
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log("Auth state changed:", event, session?.user?.id);
+          
+          if (event === 'SIGNED_IN' && session?.user) {
+            setIsAuthenticated(true);
+            await loadUserProfile(session.user.id);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        }
+      );
+
+      // Check for existing session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (authUser) {
-        console.log("👤 Auth user found:", authUser.id);
-        await loadUserProfile(authUser.id);
+      if (session?.user) {
+        console.log("👤 Found existing session:", session.user.id);
+        setIsAuthenticated(true);
+        await loadUserProfile(session.user.id);
       } else {
-        console.log("👤 No auth user found, using test user");
-        const testUser = createTestUser();
-        setUser({
-          ...testUser,
-          quiz_lives: 3,
-          quiz_streak: 0,
-          is_admin: false,
-          language_code: 'ru'
-        });
+        console.log("👤 No existing session found");
+        setIsAuthenticated(false);
       }
+
+      // Cleanup function for subscription
+      return () => {
+        subscription.unsubscribe();
+      };
     } catch (error) {
       console.error("❌ Error initializing app:", error);
-      // Fallback to test user on error
-      const testUser = createTestUser();
-      setUser({
-        ...testUser,
-        quiz_lives: 3,
-        quiz_streak: 0,
-        is_admin: false,
-        language_code: 'ru'
-      });
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -85,7 +91,7 @@ const MainApp = () => {
         .eq('auth_id', authId)
         .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error("❌ Error loading user profile:", error);
         throw error;
       }
@@ -103,10 +109,45 @@ const MainApp = () => {
           premium_until: data.premium_until
         };
         setUser(mappedUser);
+      } else {
+        // User doesn't exist in our database, create one
+        console.log("Creating new user profile...");
+        const { data: authUser } = await supabase.auth.getUser();
+        if (authUser.user) {
+          const newUser = {
+            auth_id: authUser.user.id,
+            username: authUser.user.email?.split('@')[0] || 'User',
+            coins: 1000,
+            quiz_lives: 3,
+            quiz_streak: 0,
+            is_admin: false,
+            language_code: 'ru'
+          };
+
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert(newUser)
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("❌ Error creating user:", createError);
+          } else if (createdUser) {
+            setUser({
+              id: createdUser.id,
+              username: createdUser.username,
+              coins: createdUser.coins,
+              quiz_lives: createdUser.quiz_lives,
+              quiz_streak: createdUser.quiz_streak,
+              is_admin: createdUser.is_admin,
+              language_code: createdUser.language_code,
+              premium_until: createdUser.premium_until
+            });
+          }
+        }
       }
     } catch (error) {
       console.error("❌ Error loading user profile:", error);
-      throw error;
     }
   };
 
@@ -132,6 +173,7 @@ const MainApp = () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
+      setIsAuthenticated(false);
       setCurrentScreen("main");
       setSidebarOpen(false);
       toast({
@@ -156,8 +198,12 @@ const MainApp = () => {
     return <LoadingScreen />;
   }
 
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthSuccess={() => setIsAuthenticated(true)} />;
+  }
+
   if (!user) {
-    return <WelcomeScreen onUserLoad={setUser} />;
+    return <LoadingScreen />;
   }
 
   const renderScreen = () => {

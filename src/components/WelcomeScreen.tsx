@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { createTestUser } from "@/utils/uuid";
 
 interface User {
   id: string;
@@ -22,26 +21,18 @@ interface WelcomeScreenProps {
 }
 
 const WelcomeScreen = ({ onUserLoad }: WelcomeScreenProps) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleTestLogin = () => {
-    const testUser = createTestUser();
-    onUserLoad({
-      ...testUser,
-      quiz_lives: 3,
-      quiz_streak: 0,
-      is_admin: false,
-      language_code: 'ru'
-    });
-  };
-
-  const handleRegister = async () => {
-    if (!username.trim()) {
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
       toast({
         title: "Ошибка",
-        description: "Введите имя пользователя",
+        description: "Введите email и пароль",
         variant: "destructive",
       });
       return;
@@ -49,23 +40,43 @@ const WelcomeScreen = ({ onUserLoad }: WelcomeScreenProps) => {
 
     setLoading(true);
     try {
-      // Создаем тестового пользователя с введенным именем
-      const user = {
-        id: crypto.randomUUID(),
-        username: username.trim(),
-        coins: 1000,
-        quiz_lives: 3,
-        quiz_streak: 0,
-        is_admin: false,
-        language_code: 'ru'
-      };
+      let result;
       
-      onUserLoad(user);
-    } catch (error) {
-      console.error("Registration error:", error);
+      if (isSignUp) {
+        result = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
+      } else {
+        result = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (isSignUp && !result.data.session) {
+        toast({
+          title: "Подтвердите регистрацию",
+          description: "Проверьте почту и подтвердите регистрацию",
+        });
+      } else {
+        toast({
+          title: "Успешно!",
+          description: isSignUp ? "Аккаунт создан" : "Добро пожаловать!",
+        });
+      }
+    } catch (error: any) {
+      console.error("Auth error:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось создать аккаунт",
+        description: error.message || "Не удалось выполнить операцию",
         variant: "destructive",
       });
     } finally {
@@ -81,32 +92,45 @@ const WelcomeScreen = ({ onUserLoad }: WelcomeScreenProps) => {
           <p className="text-slate-400">Добро пожаловать в мир кейсов CS2!</p>
         </div>
         
-        <div className="space-y-4">
+        <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <Input
-              type="text"
-              placeholder="Введите имя пользователя"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="bg-slate-700/50 border-slate-600 text-white"
+              required
+            />
+          </div>
+          
+          <div>
+            <Input
+              type="password"
+              placeholder="Пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-slate-700/50 border-slate-600 text-white"
+              required
             />
           </div>
           
           <Button
-            onClick={handleRegister}
+            type="submit"
             disabled={loading}
             className="w-full bg-orange-500 hover:bg-orange-600"
           >
-            {loading ? "Создание..." : "Создать аккаунт"}
+            {loading ? "Загрузка..." : (isSignUp ? "Создать аккаунт" : "Войти")}
           </Button>
-          
-          <Button
-            onClick={handleTestLogin}
-            variant="outline"
-            className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+        </form>
+        
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-slate-400 hover:text-white text-sm"
           >
-            Войти как тестовый пользователь
-          </Button>
+            {isSignUp ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Создать"}
+          </button>
         </div>
       </div>
     </div>
