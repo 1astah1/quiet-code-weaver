@@ -24,8 +24,7 @@ const AdminPanel = () => {
   const { data: tableData, isLoading } = useQuery({
     queryKey: [activeTable],
     queryFn: async () => {
-      // Skip fetching for special tables that don't exist in the database yet
-      if (activeTable === 'users' || activeTable === 'suspicious_activities') {
+      if (activeTable === 'users'|| activeTable === 'suspicious_activities') {
         return [];
       }
       
@@ -38,7 +37,6 @@ const AdminPanel = () => {
     enabled: activeTable !== 'users' && activeTable !== 'suspicious_activities'
   });
 
-  // Универсальная функция для определения bucket и папки
   const getBucketAndFolder = (table: string, fieldName: string) => {
     console.log('🗂️ [GET_BUCKET] Determining bucket for:', { table, fieldName });
     
@@ -46,7 +44,6 @@ const AdminPanel = () => {
       return { bucketName: 'banner-images', folder: 'banners' };
     }
     
-    // Все остальные используют case-images bucket
     let folder = 'misc';
     
     if (table === 'cases') {
@@ -68,7 +65,6 @@ const AdminPanel = () => {
     try {
       console.log(`🪣 [BUCKET_CHECK] Checking bucket: ${bucketName}`);
       
-      // Проверяем bucket через попытку листинга файлов
       const { data, error } = await supabase.storage
         .from(bucketName)
         .list('', { limit: 1 });
@@ -80,17 +76,14 @@ const AdminPanel = () => {
       
       console.warn(`⚠️ [BUCKET_CHECK] Bucket access issue:`, error);
       
-      // Если bucket не найден, он не существует
       if (error.message.includes('not found') || error.message.includes('does not exist')) {
         throw new Error(`Bucket ${bucketName} не существует. Обратитесь к администратору.`);
       }
       
-      // Если это RLS ошибка, bucket существует, но нет прав
       if (error.message.includes('RLS') || error.message.includes('policy')) {
         throw new Error(`Нет прав доступа к bucket ${bucketName}. Убедитесь, что у вас есть админские права.`);
       }
       
-      // Для других ошибок выбрасываем как есть
       throw error;
       
     } catch (error: any) {
@@ -99,34 +92,49 @@ const AdminPanel = () => {
     }
   };
 
-  // Улучшенная функция инвалидации кэша
   const invalidateRelatedQueries = async (table: string, itemId?: string) => {
-    console.log('🔄 [CACHE_INVALIDATION] Invalidating queries for:', { table, itemId });
+    console.log('🔄 [CACHE_INVALIDATION] Starting for:', { table, itemId });
+    
+    const invalidationPromises = [];
     
     // Основная таблица
-    await queryClient.invalidateQueries({ queryKey: [table] });
+    invalidationPromises.push(queryClient.invalidateQueries({ queryKey: [table] }));
     
-    // Специфичные инвалидации для разных таблиц
+    // Специфичные инвалидации
     if (table === 'skins') {
-      await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+      invalidationPromises.push(
+        queryClient.invalidateQueries({ queryKey: ['all_skins'] }),
+        queryClient.invalidateQueries({ queryKey: ['case_skins'] }),
+        queryClient.invalidateQueries({ queryKey: ['cases'] })
+      );
+      
       if (selectedCase) {
-        await queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+        invalidationPromises.push(
+          queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] })
+        );
       }
-      // Инвалидируем все связанные с кейсами запросы
-      await queryClient.invalidateQueries({ queryKey: ['cases'] });
     }
     
     if (table === 'banners') {
-      await queryClient.invalidateQueries({ queryKey: ['banners'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      invalidationPromises.push(
+        queryClient.invalidateQueries({ queryKey: ['banners'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-banners'] })
+      );
     }
     
     if (table === 'cases') {
-      await queryClient.invalidateQueries({ queryKey: ['cases'] });
-      await queryClient.invalidateQueries({ queryKey: ['case_skins'] });
+      invalidationPromises.push(
+        queryClient.invalidateQueries({ queryKey: ['cases'] }),
+        queryClient.invalidateQueries({ queryKey: ['case_skins'] })
+      );
     }
     
-    console.log('✅ [CACHE_INVALIDATION] Queries invalidated successfully');
+    try {
+      await Promise.all(invalidationPromises);
+      console.log('✅ [CACHE_INVALIDATION] All queries invalidated successfully');
+    } catch (error) {
+      console.error('❌ [CACHE_INVALIDATION] Error during invalidation:', error);
+    }
   };
 
   const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
@@ -148,7 +156,6 @@ const AdminPanel = () => {
         itemId
       });
 
-      // Валидация файла
       if (file.size > 5 * 1024 * 1024) {
         throw new Error('Файл слишком большой. Максимальный размер: 5MB');
       }
@@ -157,13 +164,9 @@ const AdminPanel = () => {
         throw new Error('Файл должен быть изображением');
       }
 
-      // Определяем bucket и папку
       const { bucketName, folder } = getBucketAndFolder(activeTable, fieldName);
-      
-      // Проверяем bucket
       await ensureBucketExists(bucketName);
 
-      // Генерируем уникальное имя файла
       const fileExt = file.name.split('.').pop();
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(7);
@@ -172,7 +175,6 @@ const AdminPanel = () => {
 
       console.log('📁 [IMAGE_UPLOAD] Upload details:', { bucketName, filePath, folder });
 
-      // Загружаем файл
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file, {
@@ -185,7 +187,6 @@ const AdminPanel = () => {
         
         let errorMessage = uploadError.message;
         
-        // Обработка специфичных ошибок
         if (uploadError.message.includes('RLS') || uploadError.message.includes('policy')) {
           errorMessage = 'Нет прав для загрузки файлов. Убедитесь, что у вас есть админские права.';
         }
@@ -193,14 +194,12 @@ const AdminPanel = () => {
         throw new Error(`Ошибка загрузки: ${errorMessage}`);
       }
 
-      // Получаем публичный URL
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(filePath);
 
       console.log('✅ [IMAGE_UPLOAD] Upload successful:', publicUrl);
 
-      // Обновляем данные
       if (isEdit && itemId) {
         console.log('🔄 [IMAGE_UPLOAD] Updating database:', { itemId, fieldName, publicUrl });
         
@@ -216,13 +215,17 @@ const AdminPanel = () => {
         
         console.log('✅ [IMAGE_UPLOAD] Database updated successfully');
         
-        // Принудительно инвалидируем кэш
+        // Принудительное обновление кэша
         await invalidateRelatedQueries(activeTable, itemId);
         
-        // Добавляем небольшую задержку для обновления UI
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: [activeTable] });
-        }, 500);
+        // Принудительное обновление данных с небольшой задержкой
+        setTimeout(async () => {
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: [activeTable] }),
+            queryClient.refetchQueries({ queryKey: ['all_skins'] }),
+            queryClient.refetchQueries({ queryKey: ['case_skins'] })
+          ]);
+        }, 1000);
         
       } else {
         setNewItem({ ...newItem, [fieldName]: publicUrl });
@@ -291,17 +294,19 @@ const AdminPanel = () => {
 
       console.log('✅ [SKIN_UPLOAD] Database updated successfully');
 
-      // Принудительно инвалидируем все связанные кэши
       await invalidateRelatedQueries('skins', skinId);
       
-      // Дополнительно обновляем данные с задержкой
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ['skins'] });
-        queryClient.refetchQueries({ queryKey: ['all_skins'] });
+      setTimeout(async () => {
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['skins'] }),
+          queryClient.refetchQueries({ queryKey: ['all_skins'] }),
+          queryClient.refetchQueries({ queryKey: ['case_skins'] })
+        ]);
+        
         if (selectedCase) {
-          queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] });
+          await queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] });
         }
-      }, 500);
+      }, 1000);
       
       console.log('✅ [SKIN_UPLOAD] Skin image updated successfully');
       toast({ title: "Изображение скина обновлено" });

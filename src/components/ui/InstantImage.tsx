@@ -17,45 +17,45 @@ const InstantImage: React.FC<InstantImageProps> = ({
   onError
 }) => {
   const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(!!src);
 
-  // Reset error state and loading when src changes
+  console.log('🖼️ [INSTANT_IMAGE] Rendering:', { 
+    src, 
+    alt, 
+    hasError, 
+    isLoading 
+  });
+
+  // Reset states when src changes
   useEffect(() => {
-    console.log('🖼️ [INSTANT_IMAGE] Source changed:', { 
-      oldSrc: currentSrc, 
-      newSrc: src, 
-      alt 
-    });
+    console.log('🔄 [INSTANT_IMAGE] Source changed:', { src, alt });
     
-    if (src && src !== currentSrc) {
+    if (src) {
       setHasError(false);
       setIsLoading(true);
-      setCurrentSrc(src);
-    } else if (!src) {
+    } else {
       setHasError(false);
       setIsLoading(false);
-      setCurrentSrc(null);
     }
-  }, [src, currentSrc, alt]);
+  }, [src, alt]);
 
   const handleError = () => {
-    console.log('❌ [INSTANT_IMAGE] Image failed to load:', { src: currentSrc, alt });
+    console.log('❌ [INSTANT_IMAGE] Image failed to load:', { src, alt });
     setHasError(true);
     setIsLoading(false);
     onError?.();
   };
 
   const handleLoad = () => {
-    console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', { src: currentSrc, alt });
+    console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', { src, alt });
     setIsLoading(false);
     setHasError(false);
   };
 
-  // Show fallback immediately if no src or if error occurred
-  if (!currentSrc || hasError) {
-    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', { 
-      src: currentSrc, 
+  // Show fallback if no src, error, or loading failed
+  if (!src || hasError) {
+    console.log('🔄 [INSTANT_IMAGE] Showing fallback:', { 
+      src, 
       hasError, 
       alt 
     });
@@ -86,13 +86,13 @@ const InstantImage: React.FC<InstantImageProps> = ({
   // Show image
   return (
     <img
-      src={currentSrc}
+      src={src}
       alt={alt}
       className={className}
       onError={handleError}
       onLoad={handleLoad}
       loading="eager"
-      decoding="sync"
+      decoding="async"
     />
   );
 };

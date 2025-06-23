@@ -26,13 +26,12 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     custom_probability: null as number | null
   });
   const [cloneFromCase, setCloneFromCase] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Загружаем скины в кейсе
   const { data: caseSkins, isLoading, refetch: refetchCaseSkins } = useQuery({
-    queryKey: ['case_skins', caseId, refreshKey],
+    queryKey: ['case_skins', caseId],
     queryFn: async () => {
       console.log('🔍 [CASE_SKINS] Fetching case skins for:', caseId);
       const { data, error } = await supabase
@@ -60,7 +59,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
   // Загружаем все доступные скины
   const { data: allSkins } = useQuery({
-    queryKey: ['all_skins', refreshKey],
+    queryKey: ['all_skins'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('skins')
@@ -100,18 +99,31 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
   // Принудительное обновление данных
   const handleForceRefresh = async () => {
-    console.log('🔄 [FORCE_REFRESH] Refreshing all data...');
-    setRefreshKey(prev => prev + 1);
+    console.log('🔄 [FORCE_REFRESH] Starting comprehensive refresh...');
     
-    // Инвалидируем все связанные кэши
-    await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
-    await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
-    await queryClient.invalidateQueries({ queryKey: ['skins'] });
-    
-    // Принудительно перезагружаем данные
-    await refetchCaseSkins();
-    
-    toast({ title: "Данные обновлены" });
+    try {
+      // Инвалидируем все связанные кэши
+      await queryClient.invalidateQueries({ queryKey: ['case_skins'] });
+      await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+      await queryClient.invalidateQueries({ queryKey: ['skins'] });
+      
+      // Принудительно перезагружаем основные данные
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['case_skins', caseId] }),
+        queryClient.refetchQueries({ queryKey: ['all_skins'] }),
+        queryClient.refetchQueries({ queryKey: ['skins'] })
+      ]);
+      
+      console.log('✅ [FORCE_REFRESH] All data refreshed successfully');
+      toast({ title: "Данные обновлены" });
+    } catch (error) {
+      console.error('❌ [FORCE_REFRESH] Error during refresh:', error);
+      toast({ 
+        title: "Ошибка обновления", 
+        description: "Не удалось обновить данные",
+        variant: "destructive" 
+      });
+    }
   };
 
   const totalProbability = caseSkins?.reduce((sum, item) => {
@@ -143,7 +155,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       
       setEditingItemId(null);
       
-      // Принудительно обновляем данные
+      // Обновляем данные
       await handleForceRefresh();
       
       toast({ title: "Параметры скина обновлены" });
@@ -248,7 +260,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     try {
       console.log('📋 [CLONE_CASE] Cloning case:', { from: cloneFromCase, to: caseId });
       
-      // Получаем скины из исходного кейса
       const { data: sourceSkns, error: fetchError } = await supabase
         .from('case_skins')
         .select('*')
@@ -261,7 +272,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         return;
       }
 
-      // Копируем скины в текущий кейс
       const itemsToInsert = sourceSkns.map(item => ({
         case_id: caseId,
         skin_id: item.skin_id,
@@ -502,121 +512,129 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
       {/* Список скинов с улучшенным отображением изображений */}
       <div className="space-y-3">
-        {caseSkins?.map((item: any) => (
-          <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                {item.reward_type === 'skin' ? (
-                  <>
-                    <div className="w-16 h-16 rounded overflow-hidden bg-gray-600">
-                      <InstantImage 
-                        src={item.skins?.image_url} 
-                        alt={item.skins?.name || 'Скин'}
-                        className="w-full h-full object-cover"
-                        fallback={
-                          <div className="w-full h-full flex items-center justify-center bg-gray-600 text-gray-400">
-                            <span className="text-2xl">🎯</span>
-                          </div>
-                        }
-                      />
-                    </div>
-                    <div>
-                      <h6 className="text-white font-medium">{item.skins?.name}</h6>
-                      <p className="text-gray-400 text-sm">
-                        {item.skins?.weapon_type} • {item.skins?.price} монет
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        ID: {item.skins?.id}
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 bg-yellow-500 rounded flex items-center justify-center">
-                      <span className="text-white text-2xl">🪙</span>
-                    </div>
-                    <div>
-                      <h6 className="text-white font-medium">{item.coin_rewards?.name}</h6>
-                      <p className="text-gray-400 text-sm">{item.coin_rewards?.amount} монет</p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {editingItemId === item.id ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="text-right">
-                      <Input
-                        type="number"
-                        value={editData.probability || ''}
-                        onChange={(e) => setEditData({ ...editData, probability: parseFloat(e.target.value) || 0 })}
-                        placeholder="Вероятность"
-                        className="w-20 bg-gray-600 text-white border-gray-500 text-sm"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                      />
-                      <Input
-                        type="number"
-                        value={editData.custom_probability || ''}
-                        onChange={(e) => setEditData({ 
-                          ...editData, 
-                          custom_probability: e.target.value ? parseFloat(e.target.value) : null 
-                        })}
-                        placeholder="Кастом"
-                        className="w-20 bg-gray-600 text-white border-gray-500 text-sm mt-1"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                      />
-                    </div>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={editData.never_drop || false}
-                        onChange={(e) => setEditData({ ...editData, never_drop: e.target.checked })}
-                        className="rounded"
-                      />
-                      <span className="text-gray-300 text-sm ml-1">Не выпадает</span>
-                    </label>
-                    <Button onClick={handleSaveItem} size="sm" className="bg-green-600 hover:bg-green-700">
-                      <Save className="w-3 h-3" />
-                    </Button>
-                    <Button onClick={() => setEditingItemId(null)} size="sm" variant="outline">
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="text-white font-medium">
-                        {item.custom_probability || item.probability}%
+        {caseSkins?.map((item: any) => {
+          console.log('🎯 [SKIN_ITEM] Rendering item:', { 
+            id: item.id, 
+            skinImage: item.skins?.image_url,
+            skinName: item.skins?.name 
+          });
+          
+          return (
+            <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {item.reward_type === 'skin' ? (
+                    <>
+                      <div className="w-16 h-16 rounded overflow-hidden bg-gray-600">
+                        <InstantImage 
+                          src={item.skins?.image_url} 
+                          alt={item.skins?.name || 'Скин'}
+                          className="w-full h-full object-cover"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center bg-gray-600 text-gray-400">
+                              <span className="text-2xl">🎯</span>
+                            </div>
+                          }
+                        />
                       </div>
-                      {item.never_drop && (
-                        <div className="text-red-400 text-sm">Не выпадает</div>
-                      )}
+                      <div>
+                        <h6 className="text-white font-medium">{item.skins?.name}</h6>
+                        <p className="text-gray-400 text-sm">
+                          {item.skins?.weapon_type} • {item.skins?.price} монет
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          ID: {item.skins?.id}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-yellow-500 rounded flex items-center justify-center">
+                        <span className="text-white text-2xl">🪙</span>
+                      </div>
+                      <div>
+                        <h6 className="text-white font-medium">{item.coin_rewards?.name}</h6>
+                        <p className="text-gray-400 text-sm">{item.coin_rewards?.amount} монет</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  {editingItemId === item.id ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="text-right">
+                        <Input
+                          type="number"
+                          value={editData.probability || ''}
+                          onChange={(e) => setEditData({ ...editData, probability: parseFloat(e.target.value) || 0 })}
+                          placeholder="Вероятность"
+                          className="w-20 bg-gray-600 text-white border-gray-500 text-sm"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                        />
+                        <Input
+                          type="number"
+                          value={editData.custom_probability || ''}
+                          onChange={(e) => setEditData({ 
+                            ...editData, 
+                            custom_probability: e.target.value ? parseFloat(e.target.value) : null 
+                          })}
+                          placeholder="Кастом"
+                          className="w-20 bg-gray-600 text-white border-gray-500 text-sm mt-1"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                        />
+                      </div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={editData.never_drop || false}
+                          onChange={(e) => setEditData({ ...editData, never_drop: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-gray-300 text-sm ml-1">Не выпадает</span>
+                      </label>
+                      <Button onClick={handleSaveItem} size="sm" className="bg-green-600 hover:bg-green-700">
+                        <Save className="w-3 h-3" />
+                      </Button>
+                      <Button onClick={() => setEditingItemId(null)} size="sm" variant="outline">
+                        <X className="w-3 h-3" />
+                      </Button>
                     </div>
-                    <Button 
-                      onClick={() => handleEditItem(item)} 
-                      size="sm" 
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </Button>
-                    <Button 
-                      onClick={() => handleDeleteItem(item.id)} 
-                      size="sm" 
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <div className="text-white font-medium">
+                          {item.custom_probability || item.probability}%
+                        </div>
+                        {item.never_drop && (
+                          <div className="text-red-400 text-sm">Не выпадает</div>
+                        )}
+                      </div>
+                      <Button 
+                        onClick={() => handleEditItem(item)} 
+                        size="sm" 
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button 
+                        onClick={() => handleDeleteItem(item.id)} 
+                        size="sm" 
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {(!caseSkins || caseSkins.length === 0) && (
           <div className="text-center py-8 text-gray-400">
