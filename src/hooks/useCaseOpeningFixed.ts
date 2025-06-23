@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { SafeSellCaseRewardResponse } from '@/types/rpc';
 
 export interface CaseOpeningResult {
   success: boolean;
@@ -152,21 +153,24 @@ export const useCaseOpeningFixed = ({
     
     setIsProcessing(true);
     try {
-      console.log('💰 [CASE_OPENING_FIXED] Selling skin directly');
+      console.log('💰 [CASE_OPENING_FIXED] Selling skin directly for price:', wonSkin.price);
       
-      // Продаем скин напрямую
-      const { data, error } = await supabase.rpc('safe_sell_skin', {
+      // Используем правильную RPC функцию для продажи награды из кейса
+      const { data, error } = await supabase.rpc('safe_sell_case_reward', {
         p_user_id: currentUser.id,
-        p_inventory_id: wonSkin.inventory_id,
-        p_sell_price: wonSkin.price
+        p_skin_id: wonSkin.id, // Используем ID скина, а не inventory_id
+        p_sell_price: wonSkin.price // Используем цену скина
       });
 
       if (error) {
+        console.error('❌ [CASE_OPENING_FIXED] RPC error:', error);
         throw new Error(error.message || 'Не удалось продать скин');
       }
 
-      const result = data as { success: boolean; new_balance: number };
-      if (result.success) {
+      const result = data as SafeSellCaseRewardResponse;
+      console.log('✅ [CASE_OPENING_FIXED] Sell result:', result);
+      
+      if (result.success && result.new_balance !== undefined) {
         onCoinsUpdate(result.new_balance);
         toast({
           title: "Скин продан!",
@@ -176,6 +180,8 @@ export const useCaseOpeningFixed = ({
         // Инвалидируем кэши
         queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
         queryClient.invalidateQueries({ queryKey: ['user-balance', currentUser.id] });
+      } else {
+        throw new Error(result.error || 'Не удалось продать скин');
       }
     } catch (error: any) {
       console.error('❌ [CASE_OPENING_FIXED] Failed to sell skin:', error);

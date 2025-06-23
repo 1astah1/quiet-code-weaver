@@ -1,3 +1,4 @@
+
 // Типы для ответов от RPC функций
 export interface SafeOpenCaseResponse {
   success: boolean;
