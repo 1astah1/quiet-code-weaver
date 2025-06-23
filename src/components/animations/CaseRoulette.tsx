@@ -12,13 +12,14 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedReward, setSelectedReward] = useState<any>(null);
   const [rouletteItems, setRouletteItems] = useState<any[]>([]);
+  const [winnerIndex, setWinnerIndex] = useState<number>(0);
 
   console.log('CaseRoulette: Rendering with', caseSkins.length, 'items');
 
   useEffect(() => {
-    // Создаем расширенный список для рулетки (дублируем items для визуального эффекта)
+    // Создаем расширенный список для рулетки
     const expandedItems = [];
-    const itemsToShow = 50; // Количество элементов в рулетке
+    const itemsToShow = 50;
     
     for (let i = 0; i < itemsToShow; i++) {
       const randomItem = caseSkins[Math.floor(Math.random() * caseSkins.length)];
@@ -33,11 +34,11 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
     
     // Запускаем рулетку через небольшую задержку
     setTimeout(() => {
-      startRoulette();
+      startRoulette(expandedItems);
     }, 1000);
   }, [caseSkins]);
 
-  const startRoulette = () => {
+  const startRoulette = (items: any[]) => {
     console.log('🎰 Starting roulette');
     setIsSpinning(true);
     
@@ -46,6 +47,19 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
     console.log('🎯 Selected reward for roulette:', selected);
     
     if (selected) {
+      // Находим позицию в середине рулетки (под указателем)
+      const centerPosition = Math.floor(items.length * 0.85); // Позиция под указателем
+      
+      // Заменяем элемент под указателем на выигранную награду
+      const updatedItems = [...items];
+      updatedItems[centerPosition] = {
+        ...selected,
+        id: `winner-${centerPosition}`,
+        displayData: selected.reward_type === 'coin_reward' ? selected.coin_rewards : selected.skins
+      };
+      
+      setRouletteItems(updatedItems);
+      setWinnerIndex(centerPosition);
       setSelectedReward(selected);
       
       // Анимация длится 4 секунды
@@ -97,49 +111,55 @@ const CaseRoulette = ({ caseSkins, onComplete, selectRandomReward }: CaseRoulett
             transform: isSpinning ? 'translateX(-80%)' : 'translateX(0)',
           }}
         >
-          {rouletteItems.map((item, index) => (
-            <div
-              key={`${item.id}-${index}`}
-              className="flex-shrink-0 w-24 h-32 border-r border-slate-700 flex flex-col items-center justify-center p-2 relative"
-              style={{
-                backgroundColor: item.displayData?.rarity ? 
-                  getRarityColor(item.displayData.rarity) + '20' : 
-                  '#374151'
-              }}
-            >
-              {/* Изображение */}
-              <div className="w-16 h-16 mb-1">
-                {item.reward_type === 'coin_reward' ? (
-                  <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">₽</span>
-                  </div>
-                ) : item.displayData?.image_url ? (
-                  <OptimizedImage
-                    src={item.displayData.image_url}
-                    alt={item.displayData.name || 'Item'}
-                    className="w-full h-full object-contain"
-                    fallback={
-                      <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
-                        <span className="text-white text-xs">🔫</span>
-                      </div>
-                    }
-                  />
-                ) : (
-                  <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
-                    <span className="text-white text-xs">🔫</span>
-                  </div>
-                )}
+          {rouletteItems.map((item, index) => {
+            const isWinner = index === winnerIndex && selectedReward;
+            
+            return (
+              <div
+                key={`${item.id}-${index}`}
+                className={`flex-shrink-0 w-24 h-32 border-r border-slate-700 flex flex-col items-center justify-center p-2 relative ${
+                  isWinner && !isSpinning ? 'ring-2 ring-yellow-400 bg-yellow-400/20' : ''
+                }`}
+                style={{
+                  backgroundColor: item.displayData?.rarity ? 
+                    getRarityColor(item.displayData.rarity) + '20' : 
+                    '#374151'
+                }}
+              >
+                {/* Изображение */}
+                <div className="w-16 h-16 mb-1">
+                  {item.reward_type === 'coin_reward' ? (
+                    <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">₽</span>
+                    </div>
+                  ) : item.displayData?.image_url ? (
+                    <OptimizedImage
+                      src={item.displayData.image_url}
+                      alt={item.displayData.name || 'Item'}
+                      className="w-full h-full object-contain"
+                      fallback={
+                        <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
+                          <span className="text-white text-xs">🔫</span>
+                        </div>
+                      }
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-600 rounded flex items-center justify-center">
+                      <span className="text-white text-xs">🔫</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Название */}
+                <div className="text-white text-xs text-center leading-tight">
+                  {item.reward_type === 'coin_reward' 
+                    ? `${item.displayData?.amount || 0}₽`
+                    : (item.displayData?.name || 'Item')
+                  }
+                </div>
               </div>
-              
-              {/* Название */}
-              <div className="text-white text-xs text-center leading-tight">
-                {item.reward_type === 'coin_reward' 
-                  ? `${item.displayData?.amount || 0}₽`
-                  : (item.displayData?.name || 'Item')
-                }
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
