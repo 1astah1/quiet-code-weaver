@@ -17,26 +17,31 @@ const InstantImage: React.FC<InstantImageProps> = ({
   onError
 }) => {
   const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Reset error state when src changes
+  // Reset states when src changes
   useEffect(() => {
     if (src) {
-      console.log('🖼️ [INSTANT_IMAGE] Source changed, resetting error state:', src);
+      console.log('🖼️ [INSTANT_IMAGE] Source changed:', src);
       setHasError(false);
+      setIsLoading(true);
     }
   }, [src]);
 
   const handleError = () => {
     console.log('❌ [INSTANT_IMAGE] Image failed to load:', src);
     setHasError(true);
+    setIsLoading(false);
     onError?.();
   };
 
   const handleLoad = () => {
     console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', src);
+    setIsLoading(false);
+    setHasError(false);
   };
 
-  // Show fallback immediately if no src or if error occurred
+  // Show fallback if no src, error occurred, or for problematic URLs
   if (!src || hasError) {
     console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError);
     return (
@@ -51,17 +56,24 @@ const InstantImage: React.FC<InstantImageProps> = ({
     );
   }
 
-  // Show image immediately
+  // Show image with loading state
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={handleError}
-      onLoad={handleLoad}
-      loading="eager"
-      decoding="sync"
-    />
+    <div className={`relative ${className}`}>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300">
+          <div className="text-sm">Загрузка...</div>
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
+        onError={handleError}
+        onLoad={handleLoad}
+        loading="eager"
+        decoding="sync"
+      />
+    </div>
   );
 };
 

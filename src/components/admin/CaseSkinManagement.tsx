@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, Plus, Save, X, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import InstantImage from "@/components/ui/InstantImage";
 
 interface CaseSkinManagementProps {
   caseId: string;
@@ -29,10 +29,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Загружаем скины в кейсе
-  const { data: caseSkins, isLoading } = useQuery({
+  // Загружаем скины в кейсе с принудительным обновлением
+  const { data: caseSkins, isLoading, refetch: refetchCaseSkins } = useQuery({
     queryKey: ['case_skins', caseId],
     queryFn: async () => {
+      console.log('🔄 [CASE_SKINS] Fetching case skins for:', caseId);
       const { data, error } = await supabase
         .from('case_skins')
         .select(`
@@ -46,9 +47,18 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         `)
         .eq('case_id', caseId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [CASE_SKINS] Fetch error:', error);
+        throw error;
+      }
+      
+      console.log('✅ [CASE_SKINS] Fetched data:', data);
       return data || [];
-    }
+    },
+    staleTime: 0, // Всегда считать данные устаревшими
+    cacheTime: 0, // Не кэшировать данные
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   // Загружаем все доступные скины
@@ -116,7 +126,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       if (error) throw error;
       
       setEditingItemId(null);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      // Принудительное обновление данных
+      await refetchCaseSkins();
+      await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
       toast({ title: "Параметры скина обновлены" });
     } catch (error: any) {
       toast({ 
@@ -138,7 +152,10 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       
       if (error) throw error;
       
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      // Принудительное обновление данных
+      await refetchCaseSkins();
+      await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
       toast({ title: "Предмет удален из кейса" });
     } catch (error: any) {
       toast({ 
@@ -189,7 +206,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         custom_probability: null
       });
       setShowAddForm(false);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      // Принудительное обновление данных
+      await refetchCaseSkins();
+      await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
       toast({ title: "Предмет добавлен в кейс" });
     } catch (error: any) {
       toast({ 
@@ -238,7 +259,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       if (insertError) throw insertError;
 
       setCloneFromCase('');
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      // Принудительное обновление данных
+      await refetchCaseSkins();
+      await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
       toast({ title: `Скопировано ${itemsToInsert.length} предметов` });
     } catch (error: any) {
       toast({ 
@@ -259,9 +284,14 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         <h4 className="text-xl font-bold text-white">
           Управление скинами: {caseName}
         </h4>
-        <Button onClick={onClose} variant="outline" size="sm">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => refetchCaseSkins()} size="sm" className="bg-blue-600 hover:bg-blue-700">
+            🔄 Обновить
+          </Button>
+          <Button onClick={onClose} variant="outline" size="sm">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Статистика кейса */}
@@ -450,7 +480,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         </div>
       )}
 
-      {/* Список скинов */}
+      {/* Список скинов с улучшенным отображением изображений */}
       <div className="space-y-3">
         {caseSkins?.map((item: any) => (
           <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
@@ -458,13 +488,16 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <div className="flex items-center space-x-4">
                 {item.reward_type === 'skin' ? (
                   <>
-                    {item.skins?.image_url && (
-                      <img 
-                        src={item.skins.image_url} 
-                        alt={item.skins.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                    )}
+                    <InstantImage 
+                      src={item.skins?.image_url} 
+                      alt={item.skins?.name || 'Скин'}
+                      className="w-12 h-12 object-cover rounded"
+                      fallback={
+                        <div className="w-12 h-12 bg-gray-600 rounded flex items-center justify-center text-gray-400 text-xs">
+                          🎯
+                        </div>
+                      }
+                    />
                     <div>
                       <h6 className="text-white font-medium">{item.skins?.name}</h6>
                       <p className="text-gray-400 text-sm">
