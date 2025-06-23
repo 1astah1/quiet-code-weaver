@@ -43,7 +43,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const { logCaseOpening } = useCaseOpeningLogger();
   const { toast } = useToast();
 
-  // Загружаем скины кейса
+  // Загружаем скины кейса для проверки, что кейс не пустой
   const { data: caseSkins = [], isLoading } = useQuery({
     queryKey: ['case-skins', caseItem?.id],
     queryFn: async () => {
@@ -128,48 +128,23 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       return;
     }
 
-    // Анимация открытия
+    // Анимация открытия (2 секунды)
     setTimeout(() => {
-      setAnimationPhase('roulette');
       openCaseWithRPC();
     }, 2000);
   };
 
   const openCaseWithRPC = async () => {
-    if (caseSkins.length === 0) {
-      console.error('❌ [CASE_OPENING] No skins available for case');
-      setError('В кейсе нет доступных предметов');
-      return;
-    }
-
     try {
-      console.log('🎯 [CASE_OPENING] Selecting random skin from', caseSkins.length, 'options');
+      console.log('🎯 [CASE_OPENING] Calling RPC function for case opening');
       
-      // Выбираем случайный скин на основе вероятностей
-      let totalProbability = caseSkins.reduce((sum, skin) => sum + (skin.probability || 0.01), 0);
-      let random = Math.random() * totalProbability;
-      let selectedSkin = caseSkins[0]; // fallback
-      
-      for (const skin of caseSkins) {
-        random -= (skin.probability || 0.01);
-        if (random <= 0) {
-          selectedSkin = skin;
-          break;
-        }
-      }
-
-      if (!selectedSkin.skins) {
-        throw new Error('Выбранный скин не найден');
-      }
-
-      console.log('🎁 [CASE_OPENING] Selected skin:', selectedSkin.skins.name);
-
-      // Вызываем RPC функцию с всеми 5 параметрами
+      // Вызываем RPC функцию БЕЗ указания конкретного скина
+      // Сервер сам выберет случайную награду
       const { data, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
-        p_skin_id: selectedSkin.skins.id,
-        p_coin_reward_id: null,
+        p_skin_id: null, // Пусть сервер выбирает сам
+        p_coin_reward_id: null, // Пусть сервер выбирает сам
         p_is_free: caseItem.is_free || false
       });
 
@@ -189,18 +164,22 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       console.log('✅ [CASE_OPENING] Case opened successfully:', response);
       
-      // Устанавливаем данные рулетки
+      // Обновляем баланс пользователя
+      if (response.new_balance !== undefined) {
+        onCoinsUpdate(response.new_balance);
+        console.log('💰 [CASE_OPENING] Balance updated to:', response.new_balance);
+      }
+      
+      // Устанавливаем данные рулетки и запускаем анимацию
       if (response.roulette_items && response.winner_position !== undefined) {
         setRouletteData({
           items: response.roulette_items,
           winnerPosition: response.winner_position
         });
-      }
-      
-      // Обновляем баланс пользователя
-      if (response.new_balance !== undefined) {
-        onCoinsUpdate(response.new_balance);
-        console.log('💰 [CASE_OPENING] Balance updated to:', response.new_balance);
+        setAnimationPhase('roulette');
+      } else {
+        // Если нет данных рулетки, сразу показываем результат
+        handleDirectResult(response.reward);
       }
       
       // Логируем успешное открытие
@@ -226,6 +205,19 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         variant: "destructive",
       });
     }
+  };
+
+  const handleDirectResult = (reward: any) => {
+    if (reward?.type === 'skin') {
+      setWonSkin(reward);
+    } else if (reward?.type === 'coin_reward') {
+      setWonCoins(reward.amount || 0);
+    }
+    
+    setAnimationPhase('complete');
+    setTimeout(() => {
+      setIsComplete(true);
+    }, 1000);
   };
 
   const handleRouletteComplete = (winnerItem: RouletteItem) => {

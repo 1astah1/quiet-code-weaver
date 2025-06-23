@@ -127,7 +127,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
           
           <div className="text-center">
             <div className="text-6xl mb-4">📦</div>
-            <h2 className="text-2xl font-bold text-white mb-4">Загрузка...</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">Загрузка кейса...</h2>
             <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           </div>
         </div>
@@ -146,10 +146,14 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         </button>
 
         <div className="p-3 sm:p-6">
-          {/* Фаза открытия */}
-          {animationPhase === 'opening' && <CaseOpeningPhase />}
+          {/* Фаза открытия - показывает анимацию кейса */}
+          {animationPhase === 'opening' && (
+            <div className="min-h-[400px] flex items-center justify-center">
+              <CaseOpeningPhase />
+            </div>
+          )}
           
-          {/* Фаза рулетки */}
+          {/* Фаза рулетки - показывает данные от сервера */}
           {animationPhase === 'roulette' && rouletteData && (
             <UnifiedCaseRoulette 
               rouletteItems={rouletteData.items}

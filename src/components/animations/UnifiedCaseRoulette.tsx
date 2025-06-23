@@ -29,31 +29,36 @@ const UnifiedCaseRoulette = ({
 
   useEffect(() => {
     if (!rouletteItems || rouletteItems.length === 0) {
-      console.error('No roulette items provided');
+      console.error('❌ [ROULETTE] No roulette items provided');
       return;
     }
 
     console.log('🎰 [ROULETTE] Starting with items:', rouletteItems.length);
     console.log('🎯 [ROULETTE] Winner position:', winnerPosition);
+    console.log('🏆 [ROULETTE] Winner item:', rouletteItems[winnerPosition]);
 
-    // Запускаем анимацию
+    // Небольшая задержка перед началом анимации
     const startTimer = setTimeout(() => {
       setIsSpinning(true);
       
-      // Вычисляем финальную позицию (центрируем на победителе)
-      const itemWidth = 128; // ширина одного элемента
+      // Вычисляем финальную позицию для центровки победителя
+      const itemWidth = 128; // ширина одного элемента (w-32)
       const containerCenter = window.innerWidth / 2;
       const finalPosition = -(winnerPosition * itemWidth - containerCenter + itemWidth / 2);
       
+      console.log('🎯 [ROULETTE] Final position:', finalPosition);
       setTranslateX(finalPosition);
     }, 500);
 
-    // Завершаем анимацию
+    // Завершаем анимацию через 4 секунды
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
       const winnerItem = rouletteItems[winnerPosition];
-      console.log('🏆 [ROULETTE] Winner:', winnerItem?.name);
-      setTimeout(() => onComplete(winnerItem), 1000);
+      console.log('🏆 [ROULETTE] Animation complete, winner:', winnerItem?.name);
+      
+      if (winnerItem) {
+        setTimeout(() => onComplete(winnerItem), 1000);
+      }
     }, 4000);
 
     return () => {
@@ -84,7 +89,7 @@ const UnifiedCaseRoulette = ({
 
   return (
     <div className="space-y-8 p-4 bg-slate-900">
-      <h2 className="text-3xl font-bold text-white text-center">Определяем награду!</h2>
+      <h2 className="text-3xl font-bold text-white text-center">Крутим рулетку!</h2>
       
       <div className="relative overflow-hidden bg-slate-800 rounded-lg border-2 border-orange-500/50 h-40">
         {/* Указатель победителя */}
@@ -94,7 +99,7 @@ const UnifiedCaseRoulette = ({
         
         {/* Рулетка */}
         <div 
-          className={`flex transition-transform duration-3000 ease-out ${isSpinning ? '' : ''}`}
+          className="flex transition-transform duration-3000 ease-out"
           style={{ 
             transform: `translateX(${translateX}px)`,
             transition: isSpinning ? 'transform 3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none'
