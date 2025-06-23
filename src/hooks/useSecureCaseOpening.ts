@@ -71,7 +71,7 @@ export const useSecureCaseOpening = () => {
         }
 
         // Типизируем ответ от RPC функции
-        const result = data as SafeOpenCaseResponse;
+        const result = data as unknown as SafeOpenCaseResponse;
         
         console.log('✅ [SECURE_CASE_OPENING] Case opened successfully:', {
           success: result?.success,

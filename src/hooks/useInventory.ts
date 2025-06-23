@@ -145,7 +145,7 @@ export const useSellSkin = () => {
         }
 
         // Типизируем ответ от RPC функции
-        const result = data as SafeSellSkinResponse;
+        const result = data as unknown as SafeSellSkinResponse;
 
         const duration = Date.now() - startTime;
         console.log(`🎉 [SELL] Sale completed successfully in ${duration}ms:`, {

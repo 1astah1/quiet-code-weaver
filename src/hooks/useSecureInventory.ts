@@ -27,7 +27,7 @@ export const useSecureInventory = () => {
       }
 
       // Типизируем ответ от RPC функции
-      const result = data as SafeSellSkinResponse;
+      const result = data as unknown as SafeSellSkinResponse;
 
       console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', result);
       return { success: true, newBalance: result?.new_balance };
