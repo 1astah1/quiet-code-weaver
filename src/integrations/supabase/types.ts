@@ -757,6 +757,39 @@ export type Database = {
           },
         ]
       }
+      user_task_progress: {
+        Row: {
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          status: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           auth_id: string | null
@@ -849,9 +882,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_user_id: string
+          p_action: string
+          p_max_attempts?: number
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
       is_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      safe_claim_task_reward: {
+        Args: { p_user_id: string; p_task_id: string }
+        Returns: Json
+      }
+      safe_complete_task: {
+        Args: { p_user_id: string; p_task_id: string }
+        Returns: Json
       }
       safe_open_case: {
         Args: {
