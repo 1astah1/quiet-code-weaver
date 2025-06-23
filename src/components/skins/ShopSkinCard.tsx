@@ -1,7 +1,9 @@
 
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import InstantImage from '@/components/ui/InstantImage';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Crown, Coins } from "lucide-react";
+import { InstantImage } from "@/components/ui/InstantImage";
 
 interface Skin {
   id: string;
@@ -17,97 +19,115 @@ interface ShopSkinCardProps {
   canAfford: boolean;
   onPurchase: (skin: Skin) => void;
   isPurchasing: boolean;
+  isAdmin?: boolean; // ДОБАВЛЕНО: Проп для статуса администратора
 }
 
-const ShopSkinCard: React.FC<ShopSkinCardProps> = ({ 
+const ShopSkinCard = ({ 
   skin, 
   canAfford, 
   onPurchase, 
-  isPurchasing 
-}) => {
+  isPurchasing,
+  isAdmin = false 
+}: ShopSkinCardProps) => {
   const getRarityColor = (rarity: string) => {
-    const colors = {
-      'Covert': 'from-orange-500 to-red-500',
-      'Classified': 'from-red-500 to-pink-500',
-      'Restricted': 'from-purple-500 to-pink-500',
-      'Mil-Spec': 'from-blue-500 to-purple-500',
-      'Industrial Grade': 'from-blue-400 to-blue-600',
-      'Consumer Grade': 'from-gray-500 to-gray-600',
+    const colors: Record<string, string> = {
+      'Consumer Grade': 'bg-gray-100 text-gray-800',
+      'Industrial Grade': 'bg-blue-100 text-blue-800',
+      'Mil-Spec': 'bg-purple-100 text-purple-800',
+      'Restricted': 'bg-pink-100 text-pink-800',
+      'Classified': 'bg-red-100 text-red-800',
+      'Covert': 'bg-orange-100 text-orange-800',
+      'Contraband': 'bg-yellow-100 text-yellow-800'
     };
-    return colors[rarity as keyof typeof colors] || 'from-gray-500 to-gray-600';
+    return colors[rarity] || 'bg-gray-100 text-gray-800';
   };
-
-  const handlePurchaseClick = () => {
-    if (!isPurchasing && canAfford) {
-      console.log('🛒 [SHOP_SKIN_CARD] Purchase initiated for:', skin.name);
-      onPurchase(skin);
-    }
-  };
-
-  const SkinImageFallback = () => (
-    <div className="w-full h-full flex items-center justify-center text-slate-300 bg-gradient-to-br from-slate-700 to-slate-800">
-      <div className="text-center">
-        <div className="text-xl mb-1">🎯</div>
-        <div className="text-xs font-medium">Скин</div>
-      </div>
-    </div>
-  );
 
   return (
-    <div className={`bg-gradient-to-br ${getRarityColor(skin.rarity)} p-0.5 rounded-lg hover:scale-105 transition-transform duration-200`}>
-      <div className="bg-slate-900 rounded-lg p-2 sm:p-3 h-full flex flex-col">
-        <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-slate-800">
+    <Card className={`group hover:shadow-lg transition-all duration-200 ${
+      !canAfford ? 'opacity-60' : 'hover:scale-105'
+    } ${isAdmin ? 'ring-2 ring-yellow-300 bg-gradient-to-br from-yellow-50 to-white' : ''}`}>
+      <CardContent className="p-2 sm:p-3">
+        <div className="aspect-square mb-2 relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200">
+          {/* ДОБАВЛЕНО: Индикатор администратора */}
+          {isAdmin && (
+            <div className="absolute top-1 left-1 z-10">
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-300 text-xs">
+                <Crown className="h-3 w-3 mr-1" />
+                Админ
+              </Badge>
+            </div>
+          )}
+          
           <InstantImage
             src={skin.image_url}
             alt={skin.name}
-            className="w-full h-full object-cover"
-            fallback={<SkinImageFallback />}
+            className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-200"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
+                <span className="text-slate-500 text-xs">No Image</span>
+              </div>
+            }
           />
         </div>
-        
-        <div className="flex-1 flex flex-col">
-          <h3 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2 leading-tight" title={skin.name}>
+
+        <div className="space-y-1 sm:space-y-2">
+          <h3 className="font-medium text-xs sm:text-sm line-clamp-2 min-h-[2.5rem] sm:min-h-[2.8rem] text-slate-800">
             {skin.name}
           </h3>
           
-          <p className="text-slate-400 text-xs mb-1 truncate" title={skin.weapon_type}>
-            {skin.weapon_type}
-          </p>
-          
-          <p className="text-xs text-slate-500 mb-2 capitalize">
-            {skin.rarity}
-          </p>
-          
-          <div className="mt-auto">
-            <div className="text-yellow-400 font-bold text-sm mb-2 text-center">
-              {skin.price}₽
-            </div>
-            
-            <Button
-              onClick={handlePurchaseClick}
-              disabled={!canAfford || isPurchasing}
-              size="sm"
-              className={`w-full text-xs transition-all duration-200 ${
-                canAfford 
-                  ? 'bg-green-600 hover:bg-green-700 active:bg-green-800' 
-                  : 'bg-gray-600 cursor-not-allowed opacity-60'
-              }`}
+          <div className="space-y-1">
+            <Badge 
+              variant="outline" 
+              className={`text-xs px-1 py-0 ${getRarityColor(skin.rarity)}`}
             >
-              {isPurchasing ? (
-                <div className="flex items-center justify-center space-x-1">
-                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Покупка...</span>
-                </div>
-              ) : canAfford ? (
-                'Купить'
-              ) : (
-                'Мало монет'
-              )}
-            </Button>
+              {skin.rarity}
+            </Badge>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Coins className="h-3 w-3 text-yellow-600" />
+                <span className={`text-xs sm:text-sm font-bold ${
+                  isAdmin ? 'text-yellow-600 line-through' : 'text-slate-700'
+                }`}>
+                  {skin.price}
+                </span>
+                {/* ДОБАВЛЕНО: Показываем "БЕСПЛАТНО" для администраторов */}
+                {isAdmin && (
+                  <span className="text-xs font-bold text-green-600 ml-1">
+                    БЕСПЛАТНО
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
+
+          <Button
+            size="sm"
+            onClick={() => onPurchase(skin)}
+            disabled={isPurchasing || (!canAfford && !isAdmin)}
+            className={`w-full text-xs h-7 sm:h-8 ${
+              isAdmin 
+                ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white' 
+                : ''
+            }`}
+          >
+            {isPurchasing ? (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Покупка...</span>
+              </div>
+            ) : isAdmin ? (
+              <div className="flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                <span>Получить</span>
+              </div>
+            ) : (
+              'Купить'
+            )}
+          </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

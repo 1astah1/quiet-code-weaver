@@ -264,54 +264,37 @@ export const useOpenCase = () => {
       isAdWatched?: boolean;
     }) => {
       try {
-        console.log('Opening case:', caseItem.name, 'Price:', caseItem.price, 'User coins:', userCoins, 'Is free:', caseItem.is_free, 'Ad watched:', isAdWatched);
+        console.log('🎯 [CASE_OPENING] Starting case opening via RPC:', {
+          caseId: caseItem.id,
+          caseName: caseItem.name,
+          price: caseItem.price,
+          isFree: caseItem.is_free,
+          userId,
+          userCoins,
+          isAdWatched
+        });
         
         if (!isValidUUID(userId)) {
           throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
         }
 
-        // Проверяем кулдаун для бесплатного кейса
-        if (caseItem.is_free && !isAdWatched) {
-          const { data: userData, error: userDataError } = await supabase
-            .from('users')
-            .select('last_free_case_notification')
-            .eq('id', userId)
-            .maybeSingle();
-
-          if (!userDataError && userData?.last_free_case_notification) {
-            const lastOpen = new Date(userData.last_free_case_notification);
-            const now = new Date();
-            const timeDiff = now.getTime() - lastOpen.getTime();
-            const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-            if (hoursDiff < 2) {
-              const remainingTime = Math.ceil(2 - hoursDiff);
-              throw new Error(`Бесплатный кейс можно открыть через ${remainingTime} ч.`);
-            }
-          }
-        }
-
-        // Проверяем достаточность монет
-        if (!caseItem.is_free && !isAdWatched && caseItem.price > userCoins) {
-          throw new Error(`Недостаточно монет. Нужно ${caseItem.price}, у вас ${userCoins}`);
-        }
-
+        // ИСПРАВЛЕНО: Убрана клиентская проверка баланса и списание
+        // Все финансовые операции теперь происходят только на сервере через RPC
+        
         // Проверяем/создаем пользователя
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
-          .select('id, coins')
+          .select('id, coins, is_admin')
           .eq('id', userId)
           .maybeSingle();
 
-        let actualCoins = userCoins;
-
         if (userCheckError && userCheckError.code !== 'PGRST116') {
-          console.error('Error checking user:', userCheckError);
+          console.error('❌ [CASE_OPENING] Error checking user:', userCheckError);
           throw new Error('Ошибка проверки пользователя');
         }
 
         if (!existingUser) {
-          console.log('Creating new user for case opening');
+          console.log('👤 [CASE_OPENING] Creating new user for case opening');
           const { error: createError } = await supabase
             .from('users')
             .insert({
@@ -321,127 +304,50 @@ export const useOpenCase = () => {
             });
 
           if (createError) {
-            console.error('Error creating user:', createError);
+            console.error('❌ [CASE_OPENING] Error creating user:', createError);
             throw new Error('Не удалось создать пользователя');
           }
-        } else {
-          actualCoins = existingUser.coins;
         }
 
-        // Получаем скины кейса
-        const { data: caseSkins, error: skinsError } = await supabase
-          .from('case_skins')
-          .select(`
-            probability,
-            never_drop,
-            custom_probability,
-            skins (*)
-          `)
-          .eq('case_id', caseItem.id)
-          .eq('never_drop', false);
+        // ИСПРАВЛЕНО: Используем RPC функцию для безопасного открытия кейса
+        console.log('📡 [CASE_OPENING] Calling safe_open_case RPC');
+        const { data: rpcData, error: rpcError } = await supabase.rpc('safe_open_case', {
+          p_user_id: userId,
+          p_case_id: caseItem.id,
+          p_skin_id: null,
+          p_coin_reward_id: null,
+          p_is_free: caseItem.is_free || false,
+          p_ad_watched: isAdWatched
+        });
 
-        if (skinsError) {
-          console.error('Error getting case skins:', skinsError);
-          throw new Error('Не удалось получить содержимое кейса');
-        }
-        
-        if (!caseSkins || caseSkins.length === 0) {
-          throw new Error('В кейсе нет доступных скинов');
+        if (rpcError) {
+          console.error('❌ [CASE_OPENING] RPC error:', rpcError);
+          throw new Error(`Ошибка сервера: ${rpcError.message}`);
         }
 
-        console.log('Case skins loaded:', caseSkins.length);
-
-        // Выбираем случайный скин
-        const totalProbability = caseSkins.reduce((sum, item) => {
-          return sum + (item.custom_probability || item.probability || 0.01);
-        }, 0);
-        
-        let random = Math.random() * totalProbability;
-        let selectedSkin = caseSkins[0];
-
-        for (const skin of caseSkins) {
-          const probability = skin.custom_probability || skin.probability || 0.01;
-          random -= probability;
-          if (random <= 0) {
-            selectedSkin = skin;
-            break;
-          }
-        }
-
-        console.log('Selected skin:', selectedSkin.skins.name);
-
-        let newCoins = actualCoins;
-        let updateData: any = {};
-
-        // Списываем монеты если кейс платный и не просмотрена реклама
-        if (!caseItem.is_free && !isAdWatched) {
-          if (actualCoins < caseItem.price) {
-            throw new Error(`Недостаточно монет. Нужно ${caseItem.price}, у вас ${actualCoins}`);
+        if (!rpcData || !rpcData.success) {
+          console.error('❌ [CASE_OPENING] RPC returned failure:', rpcData);
+          const errorMsg = rpcData?.error || 'Не удалось открыть кейс';
+          
+          if (errorMsg.includes('Insufficient funds')) {
+            throw new Error(`Недостаточно монет. Нужно: ${rpcData.required}, у вас: ${rpcData.current}`);
           }
           
-          newCoins = actualCoins - caseItem.price;
-          updateData.coins = newCoins;
+          throw new Error(errorMsg);
         }
 
-        // Обновляем время последнего открытия бесплатного кейса
-        if (caseItem.is_free) {
-          updateData.last_free_case_notification = new Date().toISOString();
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          const { error: updateError } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', userId);
-          
-          if (updateError) {
-            console.error('Error updating user:', updateError);
-            throw new Error('Не удалось обновить данные пользователя');
-          }
-        }
-
-        // Добавляем скин в инвентарь
-        const { error: inventoryError } = await supabase
-          .from('user_inventory')
-          .insert({
-            id: generateUUID(),
-            user_id: userId,
-            skin_id: selectedSkin.skins.id,
-            obtained_at: new Date().toISOString(),
-            is_sold: false
-          });
+        console.log('✅ [CASE_OPENING] Case opened successfully via RPC');
         
-        if (inventoryError) {
-          console.error('Error adding to inventory:', inventoryError);
-          // Откатываем изменения пользователя
-          if (Object.keys(updateData).length > 0) {
-            await supabase
-              .from('users')
-              .update({ coins: actualCoins })
-              .eq('id', userId);
-          }
-          throw new Error('Не удалось добавить скин в инвентарь');
-        }
-
-        // Записываем в историю выигрышей
-        try {
-          await supabase
-            .from('recent_wins')
-            .insert({
-              id: generateUUID(),
-              user_id: userId,
-              skin_id: selectedSkin.skins.id,
-              case_id: caseItem.id,
-              won_at: new Date().toISOString()
-            });
-        } catch (error) {
-          console.error('Error adding to recent wins (non-critical):', error);
-        }
-
-        console.log('Case opened successfully');
-        return { selectedSkin: selectedSkin.skins, newCoins };
+        // Возвращаем результат с сервера
+        return { 
+          selectedSkin: rpcData.reward,
+          newCoins: rpcData.new_balance,
+          rouletteItems: rpcData.roulette_items,
+          winnerPosition: rpcData.winner_position
+        };
+        
       } catch (error) {
-        console.error('Open case error:', error);
+        console.error('💥 [CASE_OPENING] Case opening error:', error);
         throw error;
       }
     },
@@ -450,7 +356,7 @@ export const useOpenCase = () => {
       queryClient.invalidateQueries({ queryKey: ['recent-wins'] });
     },
     onError: (error: any) => {
-      console.error('Open case mutation error:', error);
+      console.error('❌ [CASE_OPENING] Open case mutation error:', error);
       toast({
         title: "Ошибка открытия кейса",
         description: error.message || "Не удалось открыть кейс",

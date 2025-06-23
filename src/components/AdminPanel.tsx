@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,7 @@ import AdminTable from "./admin/AdminTable";
 import UserDuplicatesCleaner from "./admin/UserDuplicatesCleaner";
 import UserManagement from "./admin/UserManagement";
 import PromoCodeManagement from "./admin/PromoCodeManagement";
+import SuspiciousActivityManagement from "./admin/SuspiciousActivityManagement";
 import { TableName } from "@/types/admin";
 
 const AdminPanel = () => {
@@ -420,7 +422,12 @@ const AdminPanel = () => {
           <PromoCodeManagement />
         )}
 
-        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'users' && activeTable !== 'promo_codes' && (
+        {/* ДОБАВЛЕНО: Новый раздел для управления подозрительной активностью */}
+        {activeTable === 'suspicious_activities' && (
+          <SuspiciousActivityManagement />
+        )}
+
+        {activeTable !== 'cases' && activeTable !== 'banners' && activeTable !== 'users' && activeTable !== 'promo_codes' && activeTable !== 'suspicious_activities' && (
           <>
             <AddItemForm
               activeTable={activeTable}

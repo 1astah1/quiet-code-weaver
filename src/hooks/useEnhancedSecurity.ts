@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,13 +7,21 @@ interface SecurityMetrics {
   lastViolation: Date | null;
 }
 
-export const useEnhancedSecurity = (userId: string) => {
+interface User {
+  id: string;
+  is_admin?: boolean;
+}
+
+export const useEnhancedSecurity = (user: User) => {
   const [metrics, setMetrics] = useState<SecurityMetrics>({
     rateLimitViolations: 0,
     suspiciousActions: 0,
     lastViolation: null
   });
   const [isBlocked, setIsBlocked] = useState(false);
+
+  // ИСПРАВЛЕНО: Проверяем статус администратора
+  const isAdmin = user.is_admin || false;
 
   // Проверка rate limit через RPC функцию
   const checkRateLimit = useCallback(async (
@@ -23,10 +30,16 @@ export const useEnhancedSecurity = (userId: string) => {
     windowMinutes: number = 60
   ): Promise<boolean> => {
     try {
+      // ИСПРАВЛЕНО: Администраторы всегда проходят проверку rate limit
+      if (isAdmin) {
+        console.log(`👑 [SECURITY] Admin user bypassing rate limit for action: ${action}`);
+        return true;
+      }
+
       console.log(`🔒 Checking rate limit for action: ${action}`);
       
       const { data, error } = await supabase.rpc('check_rate_limit', {
-        p_user_id: userId,
+        p_user_id: user.id,
         p_action: action,
         p_max_attempts: maxAttempts,
         p_window_minutes: windowMinutes
@@ -57,9 +70,9 @@ export const useEnhancedSecurity = (userId: string) => {
       return canProceed;
     } catch (error) {
       console.error('💥 Security check failed:', error);
-      return false;
+      return isAdmin; // Администраторы проходят даже при ошибках
     }
-  }, [userId]);
+  }, [user.id, isAdmin]);
 
   // Валидация входных данных
   const validateInput = useCallback((input: any, type: 'uuid' | 'coins' | 'string'): boolean => {
@@ -102,6 +115,12 @@ export const useEnhancedSecurity = (userId: string) => {
     details: Record<string, any>
   ): Promise<void> => {
     try {
+      // ИСПРАВЛЕНО: Не логируем активность администраторов как подозрительную
+      if (isAdmin) {
+        console.log(`👑 [SECURITY] Admin activity ignored: ${activity}`, details);
+        return;
+      }
+
       console.warn(`🚨 Suspicious activity detected: ${activity}`, details);
       
       setMetrics(prev => ({
@@ -116,14 +135,15 @@ export const useEnhancedSecurity = (userId: string) => {
     } catch (error) {
       console.error('Failed to log suspicious activity:', error);
     }
-  }, []);
+  }, [isAdmin]);
 
   return {
     metrics,
-    isBlocked,
+    isBlocked: isBlocked && !isAdmin, // ИСПРАВЛЕНО: Администраторы никогда не блокируются
     checkRateLimit,
     validateInput,
     sanitizeString,
-    logSuspiciousActivity
+    logSuspiciousActivity,
+    isAdmin
   };
 };

@@ -1,4 +1,5 @@
 
+import { Button } from "@/components/ui/button";
 import { TableName } from "@/types/admin";
 
 interface AdminTableSelectorProps {
@@ -7,32 +8,34 @@ interface AdminTableSelectorProps {
 }
 
 const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorProps) => {
-  const tables: { key: TableName; label: string }[] = [
-    { key: "cases", label: "Кейсы" },
-    { key: "skins", label: "Скины" },
-    { key: "users", label: "Пользователи" },
-    { key: "banners", label: "Баннеры" },
-    { key: "promo_codes", label: "Промокоды" },
-    { key: "tasks", label: "Задания" },
-    { key: "quiz_questions", label: "Вопросы викторины" },
-    { key: "faq_items", label: "FAQ" },
+  const tables: { name: TableName; label: string; icon: string }[] = [
+    { name: "cases", label: "Кейсы", icon: "📦" },
+    { name: "skins", label: "Скины", icon: "🎨" },
+    { name: "users", label: "Пользователи", icon: "👥" },
+    { name: "banners", label: "Баннеры", icon: "🖼️" },
+    { name: "tasks", label: "Задания", icon: "📋" },
+    { name: "quiz_questions", label: "Вопросы", icon: "❓" },
+    { name: "promo_codes", label: "Промокоды", icon: "🎫" },
+    { name: "coin_rewards", label: "Монетные награды", icon: "🪙" },
+    { name: "daily_rewards", label: "Ежедневные награды", icon: "🎁" },
+    { name: "faq_items", label: "FAQ", icon: "ℹ️" },
+    // ДОБАВЛЕНО: Новая опция для управления подозрительной активностью
+    { name: "suspicious_activities", label: "Подозрительная активность", icon: "🚨" }
   ];
 
   return (
     <div className="mb-6">
       <div className="flex flex-wrap gap-2">
         {tables.map((table) => (
-          <button
-            key={table.key}
-            onClick={() => onTableChange(table.key)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTable === table.key
-                ? "bg-orange-500 text-white"
-                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-            }`}
+          <Button
+            key={table.name}
+            variant={activeTable === table.name ? "default" : "outline"}
+            onClick={() => onTableChange(table.name)}
+            className="text-xs sm:text-sm"
           >
+            <span className="mr-2">{table.icon}</span>
             {table.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

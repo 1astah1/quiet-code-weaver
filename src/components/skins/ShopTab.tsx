@@ -8,12 +8,15 @@ import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
 import ShopPagination from "./ShopPagination";
 import PurchaseSuccessModal from "./PurchaseSuccessModal";
+import { Badge } from "@/components/ui/badge";
+import { Crown } from "lucide-react";
 
 interface ShopTabProps {
   currentUser: {
     id: string;
     username: string;
     coins: number;
+    is_admin?: boolean;
   };
   onCoinsUpdate: (newCoins: number) => void;
   onTabChange?: (tab: string) => void;
@@ -41,7 +44,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     item: Skin | null;
   }>({ isOpen: false, item: null });
   
-  const { purchaseMutation, isPurchasing } = useSecureShop(currentUser);
+  const { purchaseMutation, isPurchasing, isAdmin } = useSecureShop(currentUser);
 
   // ИСПРАВЛЕНО: Безопасная загрузка скинов с валидацией
   const { data: skins, isLoading } = useQuery({
@@ -225,6 +228,22 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* ДОБАВЛЕНО: Индикатор администратора */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 border border-yellow-300 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <Crown className="h-5 w-5 text-yellow-600" />
+            <span className="font-semibold text-yellow-800">Администраторский режим</span>
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+              Бесплатные покупки
+            </Badge>
+          </div>
+          <p className="text-sm text-yellow-700 mt-1">
+            Все покупки в магазине для администраторов бесплатны и не списывают монеты
+          </p>
+        </div>
+      )}
+
       <ShopFilters
         selectedRarity={selectedRarity}
         selectedWeapon={selectedWeapon}
@@ -239,6 +258,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       <div className="flex justify-between items-center text-xs sm:text-sm text-slate-400 px-1">
         <span>
           Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
+          {isAdmin && <span className="text-yellow-600 ml-2">(режим администратора)</span>}
         </span>
         {totalPages > 1 && (
           <span>
@@ -252,9 +272,10 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           <ShopSkinCard
             key={skin.id}
             skin={skin}
-            canAfford={currentUser.coins >= skin.price}
+            canAfford={isAdmin || currentUser.coins >= skin.price} // ИСПРАВЛЕНО: Админы всегда могут покупать
             onPurchase={handlePurchase}
             isPurchasing={isPurchasing}
+            isAdmin={isAdmin} // ДОБАВЛЕНО: Передаем статус администратора
           />
         ))}
       </div>

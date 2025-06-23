@@ -56,6 +56,39 @@ export const enhancedValidation = {
 export class SecurityMonitor {
   private static suspiciousActivities: Map<string, { count: number; lastActivity: number }> = new Map();
   private static rateLimitCache: Map<string, { attempts: number; resetTime: number }> = new Map();
+  private static adminCache: Map<string, { isAdmin: boolean; lastCheck: number }> = new Map();
+  
+  // ДОБАВЛЕНО: Проверка статуса администратора с кэшированием
+  static async isAdmin(userId: string): Promise<boolean> {
+    const cached = this.adminCache.get(userId);
+    const now = Date.now();
+    
+    // Кэшируем результат на 5 минут
+    if (cached && (now - cached.lastCheck) < 5 * 60 * 1000) {
+      return cached.isAdmin;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error || !data) {
+        console.error('🚨 [SECURITY] Failed to check admin status:', error);
+        return false;
+      }
+      
+      const isAdminUser = data.is_admin || false;
+      this.adminCache.set(userId, { isAdmin: isAdminUser, lastCheck: now });
+      
+      return isAdminUser;
+    } catch (error) {
+      console.error('🚨 [SECURITY] Admin check error:', error);
+      return false;
+    }
+  }
   
   // Серверная проверка rate limiting через существующую RPC функцию
   static async checkServerRateLimit(
@@ -65,12 +98,17 @@ export class SecurityMonitor {
     windowMinutes: number = 60
   ): Promise<boolean> {
     try {
+      // ИСПРАВЛЕНО: Администраторы пропускают rate limiting
+      if (await this.isAdmin(userId)) {
+        console.log(`👑 [SECURITY] Admin bypassing rate limit: ${action}`);
+        return true;
+      }
+
       if (!enhancedValidation.uuid(userId)) {
         console.error('🚨 [SECURITY] Invalid user ID format:', userId);
         return false;
       }
 
-      // ИСПРАВЛЕНО: Используем существующую RPC функцию
       const { data, error } = await supabase.rpc('check_rate_limit', {
         p_user_id: userId,
         p_action: action,
@@ -96,7 +134,13 @@ export class SecurityMonitor {
   }
   
   // Клиентская проверка как дополнительная защита
-  static checkClientRateLimit(userId: string, action: string, maxAttempts: number = 5): boolean {
+  static async checkClientRateLimit(userId: string, action: string, maxAttempts: number = 5): Promise<boolean> {
+    // ИСПРАВЛЕНО: Администраторы пропускают клиентские проверки
+    if (await this.isAdmin(userId)) {
+      console.log(`👑 [SECURITY] Admin bypassing client rate limit: ${action}`);
+      return true;
+    }
+
     const key = `${userId}:${action}`;
     const now = Date.now();
     const windowMs = 60 * 1000; // 1 минута
@@ -124,6 +168,12 @@ export class SecurityMonitor {
     riskLevel: 'low' | 'medium' | 'high' = 'medium'
   ): Promise<void> {
     try {
+      // ИСПРАВЛЕНО: Не логируем активность администраторов
+      if (await this.isAdmin(userId)) {
+        console.log(`👑 [SECURITY] Admin activity ignored: ${activity}`, details);
+        return;
+      }
+
       if (!enhancedValidation.uuid(userId)) {
         console.error('🚨 [SECURITY] Invalid user ID for suspicious activity log:', userId);
         return;
@@ -151,7 +201,6 @@ export class SecurityMonitor {
       // Если слишком много подозрительной активности
       if (current.count >= 10) {
         console.error(`🚫 [SECURITY] High suspicious activity detected for user ${userId}`);
-        // ИСПРАВЛЕНО: Убираем обращение к несуществующей таблице
         console.warn('[SECURITY] High risk activity logged for investigation');
       }
     } catch (error) {
@@ -178,7 +227,13 @@ export class SecurityMonitor {
   }
   
   // Проверка на аномальные паттерны
-  static detectAnomalousActivity(userId: string, action: string, value?: number): boolean {
+  static async detectAnomalousActivity(userId: string, action: string, value?: number): Promise<boolean> {
+    // ИСПРАВЛЕНО: Администраторы не проверяются на аномальную активность
+    if (await this.isAdmin(userId)) {
+      console.log(`👑 [SECURITY] Admin bypassing anomaly detection: ${action}`);
+      return false;
+    }
+
     if (value && (action === 'purchase' || action === 'sell')) {
       // Подозрительно высокие суммы
       if (value > 100000) {
@@ -194,6 +249,24 @@ export class SecurityMonitor {
     }
     
     return false;
+  }
+
+  private static sanitizeLogDetails(details: Record<string, any>): Record<string, any> {
+    const sanitized: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(details)) {
+      if (typeof value === 'string') {
+        sanitized[key] = enhancedValidation.sanitizeString(value);
+      } else if (typeof value === 'number' && !Number.isNaN(value)) {
+        sanitized[key] = Math.min(Math.max(value, -1000000), 1000000); // Ограничение числовых значений
+      } else if (typeof value === 'boolean') {
+        sanitized[key] = value;
+      } else {
+        sanitized[key] = '[FILTERED]';
+      }
+    }
+    
+    return sanitized;
   }
 }
 
@@ -244,41 +317,50 @@ export const secureOperation = async <T>(
   params?: Record<string, any>
 ): Promise<T> => {
   try {
-    // Проверяем rate limiting на сервере
-    const canProceed = await SecurityMonitor.checkServerRateLimit(userId, action);
-    if (!canProceed) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
+    // ИСПРАВЛЕНО: Администраторы пропускают проверки
+    const isAdminUser = await SecurityMonitor.isAdmin(userId);
     
-    // Проверяем на аномальную активность
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        if (typeof value === 'number' && SecurityMonitor.detectAnomalousActivity(userId, action, value)) {
-          throw new Error('Suspicious activity detected.');
-        }
-        
-        if (typeof value === 'string' && !enhancedValidation.checkSqlInjection(value)) {
-          await SecurityMonitor.logSuspiciousActivity(userId, 'sql_injection_attempt', { key, value }, 'high');
-          throw new Error('Invalid input detected.');
+    if (!isAdminUser) {
+      // Проверяем rate limiting на сервере только для не-админов
+      const canProceed = await SecurityMonitor.checkServerRateLimit(userId, action);
+      if (!canProceed) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
+      // Проверяем на аномальную активность
+      if (params) {
+        for (const [key, value] of Object.entries(params)) {
+          if (typeof value === 'number' && await SecurityMonitor.detectAnomalousActivity(userId, action, value)) {
+            throw new Error('Suspicious activity detected.');
+          }
+          
+          if (typeof value === 'string' && !enhancedValidation.checkSqlInjection(value)) {
+            await SecurityMonitor.logSuspiciousActivity(userId, 'sql_injection_attempt', { key, value }, 'high');
+            throw new Error('Invalid input detected.');
+          }
         }
       }
+    } else {
+      console.log(`👑 [SECURITY] Admin user ${userId} bypassing all security checks for ${action}`);
     }
     
     // Выполняем операцию
     const result = await operation();
     
     // Логируем успешную операцию
-    console.log(`✅ [SECURITY] Operation ${action} completed successfully for user ${userId}`);
+    console.log(`✅ [SECURITY] Operation ${action} completed successfully for user ${userId}${isAdminUser ? ' (admin)' : ''}`);
     
     return result;
   } catch (error) {
-    // Логируем неудачную операцию
-    await SecurityMonitor.logSuspiciousActivity(
-      userId, 
-      `failed_${action}`, 
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      'medium'
-    );
+    // Логируем неудачную операцию только для не-админов
+    if (!(await SecurityMonitor.isAdmin(userId))) {
+      await SecurityMonitor.logSuspiciousActivity(
+        userId, 
+        `failed_${action}`, 
+        { error: error instanceof Error ? error.message : 'Unknown error' },
+        'medium'
+      );
+    }
     throw error;
   }
 };
