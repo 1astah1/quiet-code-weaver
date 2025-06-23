@@ -90,22 +90,44 @@ const BannerManagement = () => {
     
     setUploadingImage(true);
     try {
-      // Проверяем размер файла (максимум 5MB)
+      console.log('🖼️ [BANNER_UPLOAD] Starting banner image upload:', { 
+        fileName: file.name, 
+        fileSize: file.size, 
+        fileType: file.type 
+      });
+
+      // Валидация файла
       if (file.size > 5 * 1024 * 1024) {
         throw new Error('Файл слишком большой. Максимальный размер: 5MB');
       }
 
-      // Проверяем тип файла
       if (!file.type.startsWith('image/')) {
         throw new Error('Файл должен быть изображением');
       }
 
+      // Проверяем что bucket banner-images существует
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      if (listError) {
+        console.error('❌ [BANNER_UPLOAD] Error listing buckets:', listError);
+        throw new Error(`Ошибка проверки buckets: ${listError.message}`);
+      }
+
+      const bucketExists = buckets?.some(bucket => bucket.name === 'banner-images');
+      if (!bucketExists) {
+        console.error('❌ [BANNER_UPLOAD] banner-images bucket not found');
+        throw new Error('Storage bucket для баннеров не найден. Обратитесь к администратору.');
+      }
+
+      // Генерируем имя файла
       const fileExt = file.name.split('.').pop();
-      const fileName = `banner_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const fileName = `banner_${timestamp}_${randomId}.${fileExt}`;
       const filePath = `banners/${fileName}`;
 
-      console.log('🚀 [BANNER_UPLOAD] Uploading banner image:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+      console.log('📁 [BANNER_UPLOAD] Upload details:', { fileName, filePath });
 
+      // Загружаем файл
       const { error: uploadError } = await supabase.storage
         .from('banner-images')
         .upload(filePath, file, {
@@ -118,16 +140,17 @@ const BannerManagement = () => {
         throw new Error(`Ошибка загрузки: ${uploadError.message}`);
       }
 
+      // Получаем публичный URL
       const { data: { publicUrl } } = supabase.storage
         .from('banner-images')
         .getPublicUrl(filePath);
 
-      console.log('✅ [BANNER_UPLOAD] Generated public URL:', publicUrl);
+      console.log('✅ [BANNER_UPLOAD] Upload successful:', publicUrl);
 
-      toast({ title: "Изображение загружено успешно" });
+      toast({ title: "Изображение баннера загружено успешно" });
       return publicUrl;
     } catch (error: any) {
-      console.error('❌ [BANNER_UPLOAD] Upload error:', error);
+      console.error('❌ [BANNER_UPLOAD] Upload failed:', error);
       toast({ 
         title: "Ошибка загрузки", 
         description: error.message || "Неизвестная ошибка",
@@ -143,7 +166,6 @@ const BannerManagement = () => {
     console.log('💾 [BANNER_SAVE] Saving banner data:', bannerData);
     
     if (isCreating) {
-      // Validate required fields for creation
       if (!bannerData.title || !bannerData.description || !bannerData.button_text || !bannerData.button_action) {
         toast({ 
           title: "Ошибка валидации", 
@@ -205,7 +227,6 @@ const BannerManagement = () => {
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <div className="flex items-start space-x-4">
-                  {/* Banner Image Preview */}
                   <div className="w-20 h-20 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                     {banner.image_url ? (
                       <OptimizedImage
@@ -229,7 +250,6 @@ const BannerManagement = () => {
                     )}
                   </div>
                   
-                  {/* Banner Details */}
                   <div className="flex-1">
                     <h3 className="text-white font-semibold">{banner.title}</h3>
                     <p className="text-gray-400 text-sm">{banner.description}</p>
@@ -332,11 +352,9 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
           />
         </div>
 
-        {/* Image Upload Section */}
         <div>
           <label className="block text-white text-sm font-medium mb-2">Изображение баннера</label>
           
-          {/* Current Image Preview */}
           {formData.image_url && (
             <div className="mb-3">
               <div className="relative w-full h-32 bg-gray-700 rounded-lg overflow-hidden">
@@ -365,7 +383,6 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
             </div>
           )}
 
-          {/* Upload Button */}
           <div className="flex items-center space-x-3">
             <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
               <Upload className="w-4 h-4" />
