@@ -1,6 +1,6 @@
 
 import { Edit, Trash2, Image } from "lucide-react";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import InstantImage from "@/components/ui/InstantImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
 interface BannerCardProps {
@@ -10,32 +10,24 @@ interface BannerCardProps {
 }
 
 const BannerCard = ({ banner, onEdit, onDelete }: BannerCardProps) => {
+  const BannerThumbnailFallback = () => (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-red-500">
+      <Image className="w-6 h-6 text-white" />
+    </div>
+  );
+
   return (
     <div className="bg-gray-800 rounded-lg p-4">
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <div className="flex items-start space-x-4">
             <div className="w-20 h-20 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-              {banner.image_url ? (
-                <OptimizedImage
-                  src={banner.image_url}
-                  alt={banner.title}
-                  className="w-full h-full object-cover"
-                  fallback={
-                    <div className="w-full h-full flex items-center justify-center bg-gray-600">
-                      <Image className="w-6 h-6 text-gray-400" />
-                    </div>
-                  }
-                  timeout={3000}
-                  onError={() => {
-                    console.error('❌ [BANNER_PREVIEW] Image failed to load:', banner.image_url);
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-600">
-                  <Image className="w-6 h-6 text-gray-400" />
-                </div>
-              )}
+              <InstantImage
+                src={banner.image_url}
+                alt={banner.title}
+                className="w-full h-full object-cover"
+                fallback={<BannerThumbnailFallback />}
+              />
             </div>
             
             <div className="flex-1">

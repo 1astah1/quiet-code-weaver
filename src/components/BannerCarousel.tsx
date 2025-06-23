@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import InstantImage from "@/components/ui/InstantImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
 interface BannerCarouselProps {
@@ -11,7 +11,6 @@ interface BannerCarouselProps {
 const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
@@ -36,8 +35,6 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
         }
       } catch (error) {
         console.error('❌ [BANNER_CAROUSEL] Unexpected error:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -87,16 +84,9 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="relative w-full h-48 sm:h-64 md:h-80 bg-gray-800 rounded-xl animate-pulse">
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl"></div>
-      </div>
-    );
-  }
-
+  // Show default banner immediately if no banners
   if (banners.length === 0) {
-    console.log('⚠️ [BANNER_CAROUSEL] No banners found');
+    console.log('⚠️ [BANNER_CAROUSEL] No banners found, showing default');
     return (
       <div className="relative w-full h-48 sm:h-64 md:h-80 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl">
         <div className="absolute inset-0 bg-black/40"></div>
@@ -138,20 +128,12 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     >
       {/* Banner Image */}
       <div className="absolute inset-0">
-        {currentBanner.image_url ? (
-          <OptimizedImage
-            src={currentBanner.image_url}
-            alt={currentBanner.title}
-            className="w-full h-full object-cover"
-            fallback={<BannerImageFallback />}
-            timeout={3000}
-            onError={() => {
-              console.error('❌ [BANNER_CAROUSEL] Image failed to load:', currentBanner.image_url);
-            }}
-          />
-        ) : (
-          <BannerImageFallback />
-        )}
+        <InstantImage
+          src={currentBanner.image_url}
+          alt={currentBanner.title}
+          className="w-full h-full object-cover"
+          fallback={<BannerImageFallback />}
+        />
         <div className="absolute inset-0 bg-black/40"></div>
       </div>
 

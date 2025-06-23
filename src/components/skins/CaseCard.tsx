@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CasePreviewModal from "@/components/skins/CasePreviewModal";
 import FreeCaseTimer from "@/components/FreeCaseTimer";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import InstantImage from "@/components/ui/InstantImage";
 
 interface CaseCardProps {
   caseItem: {
@@ -33,7 +33,6 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
   const [showPreview, setShowPreview] = useState(false);
   const [canOpenFreeCase, setCanOpenFreeCase] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const { toast } = useToast();
 
   const handleOpen = async () => {
@@ -77,11 +76,6 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
     setCanOpenFreeCase(true);
   };
 
-  const handleImageError = () => {
-    console.log('Image failed to load for case:', caseItem.name);
-    setImageError(true);
-  };
-
   // Используем cover_image_url если есть, иначе image_url
   const imageUrl = caseItem.cover_image_url || caseItem.image_url;
 
@@ -90,7 +84,7 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
                      isOpening;
 
   const CaseImageFallback = () => (
-    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-700 to-slate-800 text-slate-400">
+    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300">
       <Package className="w-8 h-8 sm:w-12 sm:h-12 mb-2" />
       <span className="text-xs font-medium text-center px-2">
         {caseItem.name}
@@ -103,18 +97,12 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: CaseCardProp
       <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-600/50 overflow-hidden hover:border-orange-500/50 transition-all duration-300 group">
         {/* Case Image */}
         <div className="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-800 overflow-hidden">
-          {imageUrl && !imageError ? (
-            <OptimizedImage
-              src={imageUrl}
-              alt={caseItem.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              fallback={<CaseImageFallback />}
-              onError={handleImageError}
-              timeout={5000}
-            />
-          ) : (
-            <CaseImageFallback />
-          )}
+          <InstantImage
+            src={imageUrl}
+            alt={caseItem.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fallback={<CaseImageFallback />}
+          />
           
           {/* Free badge */}
           {caseItem.is_free && (

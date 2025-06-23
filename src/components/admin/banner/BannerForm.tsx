@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { X, Save, Upload, Image, Loader2, AlertCircle, RefreshCw } from "lucide-react";
-import OptimizedImage from "@/components/ui/OptimizedImage";
+import { X, Save, Upload, Image, Loader2, AlertCircle } from "lucide-react";
+import InstantImage from "@/components/ui/InstantImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
 interface BannerFormProps {
@@ -25,7 +25,6 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const validateImageUrl = (url: string): boolean => {
@@ -130,17 +129,14 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
     }
   };
 
-  const retryImageLoad = () => {
-    setImageLoading(true);
-    setImageError(null);
-    // Форсируем перезагрузку изображения
-    const currentUrl = formData.image_url;
-    setFormData({ ...formData, image_url: '' });
-    setTimeout(() => {
-      setFormData({ ...formData, image_url: currentUrl });
-      setImageLoading(false);
-    }, 100);
-  };
+  const BannerImageFallback = () => (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-red-500">
+      <div className="text-center">
+        <div className="text-xl mb-1">🎁</div>
+        <div className="text-xs text-white font-medium">Превью баннера</div>
+      </div>
+    </div>
+  );
 
   const isLoading = isSubmitting || isSaving || uploadingImage;
 
@@ -177,41 +173,12 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
           {formData.image_url && (
             <div className="mb-3">
               <div className="relative w-full h-32 bg-gray-700 rounded-lg overflow-hidden">
-                <OptimizedImage
+                <InstantImage
                   src={formData.image_url}
                   alt="Preview"
                   className="w-full h-full object-cover"
-                  fallback={
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-600 text-gray-400 p-2">
-                      <Image className="w-8 h-8 mb-2" />
-                      <span className="text-xs text-center">Ошибка загрузки</span>
-                      <button
-                        type="button"
-                        onClick={retryImageLoad}
-                        className="mt-1 text-xs text-blue-400 hover:text-blue-300 flex items-center"
-                      >
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Повторить
-                      </button>
-                    </div>
-                  }
-                  timeout={10000}
-                  onLoad={() => {
-                    setImageLoading(false);
-                    setImageError(null);
-                  }}
-                  onError={() => {
-                    console.error('❌ [BANNER_FORM] Preview image failed to load:', formData.image_url);
-                    setImageLoading(false);
-                    setImageError('Изображение не загружается');
-                  }}
+                  fallback={<BannerImageFallback />}
                 />
-                
-                {imageLoading && (
-                  <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                  </div>
-                )}
                 
                 <button
                   type="button"

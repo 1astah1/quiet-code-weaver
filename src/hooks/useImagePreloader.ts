@@ -12,52 +12,39 @@ export const useImagePreloader = (urls: string[], options: PreloadOptions = {}) 
   useEffect(() => {
     if (!urls.length) return;
 
-    console.log('🚀 [IMAGE_PRELOADER] Starting preload for', urls.length, 'images');
+    console.log('🚀 [IMAGE_PRELOADER] Starting instant preload for', urls.length, 'images');
 
-    const preloadPromises = urls.map(url => {
-      return new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        
-        // Создаем srcset для адаптивных изображений
-        if (url.includes('supabase') && url.includes('storage')) {
-          const srcset = sizes.map(size => {
-            const preloadUrl = new URL(url);
-            preloadUrl.searchParams.set('width', size);
-            preloadUrl.searchParams.set('quality', '85');
-            preloadUrl.searchParams.set('format', 'webp');
-            return `${preloadUrl.toString()} ${size}w`;
-          }).join(', ');
-          
-          img.srcset = srcset;
-        }
-        
-        img.src = url;
-        img.onload = () => {
-          console.log('✅ [IMAGE_PRELOADER] Preloaded:', url);
-          resolve();
-        };
-        img.onerror = () => {
-          console.warn('⚠️ [IMAGE_PRELOADER] Failed to preload:', url);
-          resolve(); // Не блокируем другие изображения
-        };
-      });
+    // Предзагружаем изображения без ожидания результата для мгновенного отображения
+    urls.forEach(url => {
+      if (!url) return;
+      
+      const img = new Image();
+      img.src = url;
+      
+      // Если это Supabase URL, создаем также WebP версию
+      if (url.includes('supabase') && url.includes('storage')) {
+        const webpImg = new Image();
+        const webpUrl = new URL(url);
+        webpUrl.searchParams.set('format', 'webp');
+        webpImg.src = webpUrl.toString();
+      }
     });
 
-    // Если это приоритетные изображения, добавляем link preload в head
+    // Для приоритетных изображений добавляем preload links
     if (priority) {
       urls.forEach(url => {
+        if (!url) return;
+        
         const link = document.createElement('link');
         link.rel = 'preload';
         link.as = 'image';
         link.href = url;
-        link.type = 'image/webp';
+        link.fetchPriority = 'high';
         document.head.appendChild(link);
       });
     }
 
-    Promise.allSettled(preloadPromises).then(() => {
-      console.log('🎉 [IMAGE_PRELOADER] All preloads completed');
-    });
+    console.log('✅ [IMAGE_PRELOADER] Instant preload initiated');
 
     // Cleanup для priority links
     return () => {
@@ -73,10 +60,10 @@ export const useImagePreloader = (urls: string[], options: PreloadOptions = {}) 
   }, [urls, priority, sizes]);
 };
 
-// Хук для предзагрузки критических изображений в компонентах
+// Хук для предзагрузки критических изображений
 export const useCriticalImagePreloader = () => {
   useEffect(() => {
-    // Предзагружаем важные изображения сразу при загрузке приложения
+    // Предзагружаем важные изображения агрессивно для мгновенного отображения
     const criticalImages = [
       '/lovable-uploads/47a122b5-c1e7-44cd-af3e-d4ae59ce6838.png', // Main icon
       '/lovable-uploads/7872de96-7d2a-441b-a062-58e9068a686b.png', // Cases icon
@@ -84,14 +71,20 @@ export const useCriticalImagePreloader = () => {
       '/lovable-uploads/bc1fd348-a889-4ecf-8b2a-d806d4a84459.png'  // Tasks icon
     ];
 
-    console.log('⚡ [CRITICAL_PRELOADER] Preloading critical images...');
+    console.log('⚡ [CRITICAL_PRELOADER] Instant loading critical images...');
     
     criticalImages.forEach(src => {
+      // Создаем preload link
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
       link.href = src;
+      link.fetchPriority = 'high';
       document.head.appendChild(link);
+      
+      // Также загружаем через Image для кеширования
+      const img = new Image();
+      img.src = src;
     });
 
     return () => {

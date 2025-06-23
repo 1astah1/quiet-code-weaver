@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import OptimizedImage from '@/components/ui/OptimizedImage';
+import InstantImage from '@/components/ui/InstantImage';
 
 interface Skin {
   id: string;
@@ -44,25 +44,24 @@ const ShopSkinCard: React.FC<ShopSkinCardProps> = ({
     }
   };
 
+  const SkinImageFallback = () => (
+    <div className="w-full h-full flex items-center justify-center text-slate-300 bg-gradient-to-br from-slate-700 to-slate-800">
+      <div className="text-center">
+        <div className="text-xl mb-1">🎯</div>
+        <div className="text-xs font-medium">Скин</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`bg-gradient-to-br ${getRarityColor(skin.rarity)} p-0.5 rounded-lg hover:scale-105 transition-transform duration-200`}>
       <div className="bg-slate-900 rounded-lg p-2 sm:p-3 h-full flex flex-col">
         <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-slate-800">
-          <OptimizedImage
+          <InstantImage
             src={skin.image_url}
             alt={skin.name}
             className="w-full h-full object-cover"
-            fallback={
-              <div className="w-full h-full flex items-center justify-center text-slate-400">
-                <div className="text-center">
-                  <div className="text-xl mb-1">🎯</div>
-                  <div className="text-xs">Нет фото</div>
-                </div>
-              </div>
-            }
-            onError={() => {
-              console.warn('🖼️ [SHOP_SKIN_CARD] Image failed for skin:', skin.name, 'URL:', skin.image_url);
-            }}
+            fallback={<SkinImageFallback />}
           />
         </div>
         
