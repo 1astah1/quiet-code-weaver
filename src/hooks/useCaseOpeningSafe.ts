@@ -107,7 +107,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       return;
     }
 
-    console.log('🎯 [SAFE_CASE_OPENING] Starting SYNCHRONIZED case opening');
+    console.log('🎯 [SAFE_CASE_OPENING] Starting FIXED case opening with image sync');
     
     setIsProcessing(true);
     setError(null);
@@ -140,7 +140,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       }
 
       const response = data as unknown as CaseOpeningResponse;
-      console.log('✅ [SAFE_CASE_OPENING] SYNCHRONIZED response received:', response);
+      console.log('✅ [SAFE_CASE_OPENING] Raw response received:', response);
 
       if (!response.success) {
         throw new Error(response.error || 'Не удалось открыть кейс');
@@ -148,7 +148,12 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
 
       // КРИТИЧЕСКИ ВАЖНО: Сохраняем реальную награду от сервера
       if (response.reward) {
-        console.log('🏆 [SAFE_CASE_OPENING] Storing SYNCHRONIZED reward from server:', response.reward);
+        console.log('🏆 [SAFE_CASE_OPENING] Setting actualReward from server:', {
+          id: response.reward.id,
+          name: response.reward.name,
+          image_url: response.reward.image_url,
+          type: response.reward.type
+        });
         setActualReward(response.reward);
       }
 
@@ -158,30 +163,40 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Enhanced logging for SYNCHRONIZED roulette data validation
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Принудительно синхронизируем рулетку с actualReward
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [SAFE_CASE_OPENING] Validating SYNCHRONIZED roulette data:', {
-          itemsCount: response.roulette_items.length,
+        const originalWinnerItem = response.roulette_items[response.winner_position];
+        
+        console.log('🔍 [IMAGE_SYNC] Detailed comparison:', {
           winnerPosition: response.winner_position,
-          winnerItem: response.roulette_items[response.winner_position],
-          actualReward: response.reward,
-          itemsMatch: response.roulette_items[response.winner_position]?.id === response.reward?.id,
-          synchronizationStatus: 'FIXED_SERVER_SYNCED'
+          originalWinnerItem: {
+            id: originalWinnerItem?.id,
+            name: originalWinnerItem?.name,
+            image_url: originalWinnerItem?.image_url,
+            type: originalWinnerItem?.type
+          },
+          actualReward: {
+            id: response.reward?.id,
+            name: response.reward?.name,
+            image_url: response.reward?.image_url,
+            type: response.reward?.type
+          },
+          imageUrlsMatch: originalWinnerItem?.image_url === response.reward?.image_url,
+          idsMatch: originalWinnerItem?.id === response.reward?.id
+        });
+
+        // ПРИНУДИТЕЛЬНАЯ СИНХРОНИЗАЦИЯ: Заменяем элемент на позиции победителя данными из actualReward
+        const synchronizedItems = [...response.roulette_items];
+        synchronizedItems[response.winner_position] = response.reward;
+        
+        console.log('🔧 [IMAGE_SYNC] FORCED synchronization applied:', {
+          beforeSync: originalWinnerItem?.image_url,
+          afterSync: response.reward?.image_url,
+          positionFixed: response.winner_position
         });
         
-        // Verify PERFECT synchronization between winner item and actual reward
-        const winnerFromRoulette = response.roulette_items[response.winner_position];
-        if (winnerFromRoulette?.id !== response.reward?.id) {
-          console.error('🚨 [SAFE_CASE_OPENING] CRITICAL: Synchronization STILL broken!', {
-            winnerFromRoulette,
-            actualReward: response.reward
-          });
-        } else {
-          console.log('✅ [SAFE_CASE_OPENING] PERFECT SYNCHRONIZATION achieved!');
-        }
-        
         setRouletteData({
-          items: response.roulette_items,
+          items: synchronizedItems,
           winnerPosition: response.winner_position
         });
         
@@ -247,61 +262,37 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     }, 1000);
   }, [actualReward]);
 
-  const handleRouletteComplete = useCallback((winnerItem: RouletteItem) => {
-    console.log('🏆 [SAFE_CASE_OPENING] Roulette animation complete, SYNCHRONIZED winner item:', {
-      winnerItem,
-      type: winnerItem.type,
-      id: winnerItem.id,
-      name: winnerItem.name,
-      synchronizationStatus: 'SHOULD_BE_SYNCED'
-    });
+  const handleRouletteComplete = useCallback(() => {
+    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete - using ONLY actualReward');
     
-    console.log('🎯 [SAFE_CASE_OPENING] Using SYNCHRONIZED reward from server:', {
-      actualReward,
-      serverRewardId: actualReward?.id,
-      serverRewardName: actualReward?.name,
-      serverRewardType: actualReward?.type,
-      matchesRouletteWinner: winnerItem.id === actualReward?.id
-    });
-    
-    // После исправления SQL функции winnerItem и actualReward должны быть идентичными
+    // ИСПРАВЛЕНИЕ: Полностью игнорируем визуального победителя рулетки
+    // Используем ТОЛЬКО actualReward от сервера
     if (!actualReward) {
-      console.error('❌ [SAFE_CASE_OPENING] No actual reward found, this should not happen!');
+      console.error('❌ [SAFE_CASE_OPENING] No actualReward found, this should not happen!');
       return;
     }
     
-    // Проверяем идеальную синхронизацию
-    if (winnerItem.id !== actualReward.id) {
-      console.error('🚨 [SAFE_CASE_OPENING] SYNCHRONIZATION FAILURE detected!', {
-        rouletteWinner: winnerItem,
-        serverReward: actualReward
-      });
-    } else {
-      console.log('✅ [SAFE_CASE_OPENING] PERFECT SYNCHRONIZATION confirmed!');
-    }
+    console.log('🏆 [SAFE_CASE_OPENING] Using SYNCHRONIZED actualReward:', {
+      id: actualReward.id,
+      name: actualReward.name,
+      image_url: actualReward.image_url,
+      type: actualReward.type,
+      price: actualReward.price || actualReward.amount
+    });
     
     if (actualReward.type === 'skin') {
-      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from SERVER reward:', {
-        id: actualReward.id,
-        name: actualReward.name,
-        price: actualReward.price
-      });
+      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from actualReward');
       setWonSkin(actualReward);
     } else if (actualReward.type === 'coin_reward') {
-      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from SERVER reward:', {
-        id: actualReward.id,
-        amount: actualReward.amount
-      });
+      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from actualReward');
       setWonCoins(actualReward.amount || 0);
-    } else {
-      console.error('❌ [SAFE_CASE_OPENING] Unknown actual reward type:', actualReward);
     }
     
     // Переключаем только фазу анимации
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with SYNCHRONIZED server reward');
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with SYNCHRONIZED actualReward');
     }, 1000);
   }, [actualReward]);
 

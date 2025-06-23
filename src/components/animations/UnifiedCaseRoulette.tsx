@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import LazyImage from "@/components/ui/LazyImage";
 
@@ -16,7 +15,7 @@ interface RouletteItem {
 interface UnifiedCaseRouletteProps {
   rouletteItems: RouletteItem[];
   winnerPosition: number;
-  onComplete: (winnerItem: RouletteItem) => void;
+  onComplete: () => void; // ИЗМЕНЕНО: больше не передаем winnerItem
 }
 
 const UnifiedCaseRoulette = ({ 
@@ -34,21 +33,17 @@ const UnifiedCaseRoulette = ({
     }
 
     // Enhanced logging for synchronization verification
-    console.log('🎰 [ROULETTE] Starting roulette with FIXED synchronization:', {
+    console.log('🎰 [ROULETTE] Starting roulette with SYNCHRONIZED data:', {
       totalItems: rouletteItems.length,
       winnerPosition,
       winnerItem: rouletteItems[winnerPosition],
-      winnerVerification: {
-        id: rouletteItems[winnerPosition]?.id,
-        name: rouletteItems[winnerPosition]?.name,
-        type: rouletteItems[winnerPosition]?.type,
-        price: rouletteItems[winnerPosition]?.price || rouletteItems[winnerPosition]?.amount
-      },
+      winnerImageUrl: rouletteItems[winnerPosition]?.image_url,
       allItems: rouletteItems.map((item, index) => ({
         position: index,
         id: item.id,
         name: item.name,
         type: item.type,
+        image_url: item.image_url,
         isWinner: index === winnerPosition
       }))
     });
@@ -63,12 +58,13 @@ const UnifiedCaseRoulette = ({
     }
 
     const winnerItem = rouletteItems[winnerPosition];
-    console.log('🏆 [ROULETTE] FIXED - Winner item details:', {
+    console.log('🏆 [ROULETTE] Winner item details (should be SYNCHRONIZED):', {
       position: winnerPosition,
       item: winnerItem,
       itemType: winnerItem?.type,
       itemName: winnerItem?.name,
       itemId: winnerItem?.id,
+      itemImageUrl: winnerItem?.image_url,
       serverSynced: true
     });
 
@@ -89,7 +85,7 @@ const UnifiedCaseRoulette = ({
       // Calculate final position to center the winner
       const finalPosition = -(targetPosition * totalItemWidth - containerCenter + totalItemWidth / 2);
       
-      console.log('🎯 [ROULETTE] Animation calculation (SYNCHRONIZED):', {
+      console.log('🎯 [ROULETTE] Animation calculation:', {
         itemWidth,
         itemMargin,
         totalItemWidth,
@@ -97,8 +93,7 @@ const UnifiedCaseRoulette = ({
         targetPosition,
         finalPosition,
         winnerPosition,
-        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition,
-        serverSynced: true
+        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition
       });
       
       setTranslateX(finalPosition);
@@ -108,27 +103,11 @@ const UnifiedCaseRoulette = ({
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
       
-      // Verify that we're using the correct winner item (should now be synchronized)
-      const actualWinner = rouletteItems[winnerPosition];
-      console.log('🏆 [ROULETTE] Animation complete - SYNCHRONIZED winner verification:', {
-        expectedPosition: winnerPosition,
-        actualWinner: actualWinner,
-        winnerVerification: {
-          id: actualWinner?.id,
-          name: actualWinner?.name,
-          type: actualWinner?.type,
-          price: actualWinner?.price || actualWinner?.amount
-        },
-        synchronizationStatus: 'FIXED_SERVER_SYNCED'
-      });
+      console.log('🎊 [ROULETTE] Animation complete - calling onComplete WITHOUT winner item');
+      console.log('🔧 [ROULETTE] actualReward will be handled by useCaseOpeningSafe hook');
       
-      if (actualWinner) {
-        console.log('✅ [ROULETTE] Calling onComplete with SYNCHRONIZED winner item:', actualWinner);
-        setTimeout(() => onComplete(actualWinner), 1000);
-      } else {
-        console.error('❌ [ROULETTE] Winner item not found at position:', winnerPosition);
-        console.error('❌ [ROULETTE] Available items:', rouletteItems);
-      }
+      // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Не передаем winnerItem, пусть hook использует actualReward
+      setTimeout(() => onComplete(), 1000);
     }, 4000);
 
     return () => {
@@ -220,13 +199,24 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
-        {/* Winner display removed - now showing in CaseCompletePhase with synchronized server data */}
         <p className="text-green-400 text-sm mt-2">
-          {!isSpinning ? 'Рулетка синхронизирована с сервером ✅' : 'Синхронизация с сервером...'}
+          {!isSpinning ? 'Изображение награды синхронизировано ✅' : 'Синхронизация изображений...'}
         </p>
       </div>
     </div>
   );
+};
+
+const getRarityColor = (rarity?: string) => {
+  switch (rarity?.toLowerCase()) {
+    case 'consumer': return 'border-gray-500';
+    case 'industrial': return 'border-blue-500';
+    case 'mil-spec': return 'border-purple-500';
+    case 'restricted': return 'border-pink-500';
+    case 'classified': return 'border-red-500';
+    case 'covert': return 'border-yellow-500';
+    default: return 'border-gray-500';
+  }
 };
 
 export default UnifiedCaseRoulette;
