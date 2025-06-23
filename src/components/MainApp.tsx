@@ -37,112 +37,100 @@ const MainApp: React.FC = () => {
     }
   }, [isWebView]);
 
-  console.log('🎯 MainApp render state:', { isLoading, hasUser: !!user });
+  console.log('🎯 MainApp render state:', { isLoading, hasUser: !!user, userId: user?.id });
 
   // Показываем экран загрузки только пока идет загрузка
   if (isLoading) {
-    return (
-      <LoadingScreen 
-        timeout={3000}
-        onTimeout={() => {
-          console.log('🚨 Loading timeout reached, should proceed to next state');
-        }}
-      />
-    );
+    console.log('⏳ Showing loading screen');
+    return <LoadingScreen />;
   }
 
   // Если загрузка завершена и нет пользователя, показываем экран авторизации
-  if (!isLoading && !user) {
+  if (!user) {
     console.log('🔐 Showing auth screen - no user found');
     return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
   // Если есть пользователь, показываем основное приложение
-  if (user) {
-    console.log('✅ Showing main app for user:', user.username);
-    
-    const handleScreenChange = (screen: string) => {
-      setCurrentScreen(screen as Screen);
+  console.log('✅ Showing main app for user:', user.username);
+  
+  const handleScreenChange = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
+  const renderScreen = () => {
+    const commonProps = {
+      currentUser: {
+        id: user.id,
+        username: user.username,
+        coins: user.coins,
+        referralCode: user.referralCode
+      },
+      onCoinsUpdate: updateUserCoins
     };
 
-    const renderScreen = () => {
-      const commonProps = {
-        currentUser: {
-          id: user.id,
-          username: user.username,
-          coins: user.coins,
-          referralCode: user.referralCode
-        },
-        onCoinsUpdate: updateUserCoins
-      };
-
-      const quizUserProps = {
-        currentUser: {
-          id: user.id,
-          username: user.username,
-          coins: user.coins,
-          quiz_lives: user.quiz_lives,
-          quiz_streak: user.quiz_streak
-        },
-        onCoinsUpdate: updateUserCoins
-      };
-
-      switch (currentScreen) {
-        case 'inventory':
-          return <InventoryScreen />;
-        case 'skins':
-          return <SkinsScreen {...commonProps} />;
-        case 'quiz':
-          return <QuizScreen 
-            {...quizUserProps} 
-            onBack={() => setCurrentScreen('main')}
-            onLivesUpdate={() => {}}
-            onStreakUpdate={() => {}}
-          />;
-        case 'tasks':
-          return <TasksScreen {...commonProps} />;
-        case 'settings':
-          return <SettingsScreen {...commonProps} />;
-        case 'admin':
-          return user.isAdmin ? <AdminPanel /> : <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
-        default:
-          return <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
-      }
+    const quizUserProps = {
+      currentUser: {
+        id: user.id,
+        username: user.username,
+        coins: user.coins,
+        quiz_lives: user.quiz_lives,
+        quiz_streak: user.quiz_streak
+      },
+      onCoinsUpdate: updateUserCoins
     };
 
-    return (
-      <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
-        <SecurityMonitor />
-        
-        <Header 
-          onMenuClick={() => setSidebarOpen(true)}
-          currentScreen={currentScreen}
-        />
-        
-        <Sidebar 
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          currentScreen={currentScreen}
-          onScreenChange={handleScreenChange}
-        />
-        
-        <main className="pb-20 pt-16">
-          {renderScreen()}
-        </main>
-        
-        <BottomNavigation 
-          currentScreen={currentScreen}
-          onScreenChange={handleScreenChange}
-        />
-        
-        <Toaster />
-      </div>
-    );
-  }
+    switch (currentScreen) {
+      case 'inventory':
+        return <InventoryScreen />;
+      case 'skins':
+        return <SkinsScreen {...commonProps} />;
+      case 'quiz':
+        return <QuizScreen 
+          {...quizUserProps} 
+          onBack={() => setCurrentScreen('main')}
+          onLivesUpdate={() => {}}
+          onStreakUpdate={() => {}}
+        />;
+      case 'tasks':
+        return <TasksScreen {...commonProps} />;
+      case 'settings':
+        return <SettingsScreen {...commonProps} />;
+      case 'admin':
+        return user.isAdmin ? <AdminPanel /> : <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
+      default:
+        return <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
+    }
+  };
 
-  // Резервный экран загрузки (не должен показываться)
-  console.log('⚠️ Fallback loading state');
-  return <LoadingScreen timeout={1000} onTimeout={() => {}} />;
+  return (
+    <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
+      <SecurityMonitor />
+      
+      <Header 
+        onMenuClick={() => setSidebarOpen(true)}
+        currentScreen={currentScreen}
+      />
+      
+      <Sidebar 
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        currentScreen={currentScreen}
+        onScreenChange={handleScreenChange}
+      />
+      
+      <main className="pb-20 pt-16">
+        {renderScreen()}
+      </main>
+      
+      <BottomNavigation 
+        currentScreen={currentScreen}
+        onScreenChange={handleScreenChange}
+      />
+      
+      <Toaster />
+    </div>
+  );
 };
 
 export default MainApp;

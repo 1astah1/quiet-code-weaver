@@ -39,7 +39,6 @@ export const useAuth = () => {
         if (error.code === 'PGRST116') {
           console.log('📝 User not found, creating new user...');
           
-          // Создаем нового пользователя
           const { data: newUser, error: createError } = await supabase
             .from('users')
             .insert({
@@ -61,7 +60,7 @@ export const useAuth = () => {
 
           if (createError) {
             console.error('❌ Error creating user:', createError);
-            return;
+            return null;
           }
 
           if (newUser) {
@@ -80,10 +79,10 @@ export const useAuth = () => {
               isPremium: newUser.premium_until ? new Date(newUser.premium_until) > new Date() : false,
               steam_trade_url: newUser.steam_trade_url
             };
-            setUser(userData);
+            return userData;
           }
         }
-        return;
+        return null;
       }
 
       if (data) {
@@ -102,11 +101,12 @@ export const useAuth = () => {
           isPremium: data.premium_until ? new Date(data.premium_until) > new Date() : false,
           steam_trade_url: data.steam_trade_url
         };
-        setUser(userData);
+        return userData;
       }
     } catch (error) {
       console.error('🚨 Error in fetchUserData:', error);
     }
+    return null;
   };
 
   const updateUserCoins = async (newCoins: number) => {
@@ -144,12 +144,14 @@ export const useAuth = () => {
     
     const initAuth = async () => {
       try {
-        // Проверяем существующую сессию
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user && mounted) {
           console.log('🔑 Existing session found');
-          await fetchUserData(session.user);
+          const userData = await fetchUserData(session.user);
+          if (userData) {
+            setUser(userData);
+          }
         } else {
           console.log('❌ No existing session');
         }
@@ -163,22 +165,26 @@ export const useAuth = () => {
       }
     };
 
-    // Устанавливаем слушатель изменений состояния аутентификации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 Auth state changed:', event);
+        console.log('🔄 Auth state changed:', event, !!session);
         
         if (!mounted) return;
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ User signed in:', session.user.id);
-          await fetchUserData(session.user);
+          const userData = await fetchUserData(session.user);
+          if (userData) {
+            setUser(userData);
+          }
         } else if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
         }
         
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     );
 
@@ -200,7 +206,11 @@ export const useAuth = () => {
         console.log('🔄 Refetching user data');
         supabase.auth.getUser().then(({ data }) => {
           if (data.user) {
-            fetchUserData(data.user);
+            fetchUserData(data.user).then(userData => {
+              if (userData) {
+                setUser(userData);
+              }
+            });
           }
         });
       }
