@@ -1,122 +1,169 @@
 
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from "react";
+import { Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FreeCaseTimerProps {
   lastOpenTime: string | null;
   onTimerComplete: () => void;
-  isDisabled: boolean;
+  isDisabled?: boolean;
   userId: string;
   caseId: string;
 }
 
-const FreeCaseTimer = ({ onTimerComplete, userId, caseId }: FreeCaseTimerProps) => {
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [canOpen, setCanOpen] = useState(false);
+const FreeCaseTimer = ({ 
+  lastOpenTime, 
+  onTimerComplete, 
+  isDisabled = false, 
+  userId, 
+  caseId 
+}: FreeCaseTimerProps) => {
+  console.log('⏰ [FREE_CASE_TIMER] Component mounting:', {
+    lastOpenTime,
+    isDisabled,
+    userId,
+    caseId
+  });
 
-  // Query to get the last opening time for this specific case
-  const { data: lastOpeningData } = useQuery({
-    queryKey: ['free-case-timer', userId, caseId],
-    queryFn: async () => {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [lastFreeOpen, setLastFreeOpen] = useState<string | null>(lastOpenTime);
+
+  useEffect(() => {
+    const checkTimer = async () => {
       try {
-        console.log('🕒 Checking free case timer for user:', userId, 'case:', caseId);
+        console.log('🔍 [FREE_CASE_TIMER] Checking individual case timer status...');
         
-        const { data, error } = await supabase
+        // Если нет userId или caseId, делаем доступным
+        if (!userId || !caseId) {
+          console.log('✅ [FREE_CASE_TIMER] No user/case ID, available immediately');
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+          return;
+        }
+
+        // Получаем информацию о последнем открытии этого конкретного кейса
+        const { data: caseOpeningData, error: caseOpeningError } = await supabase
           .from('user_free_case_openings')
           .select('opened_at')
           .eq('user_id', userId)
           .eq('case_id', caseId)
-          .order('opened_at', { ascending: false })
-          .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-          console.error('❌ Error fetching free case timer:', error);
-          throw error;
+        if (caseOpeningError && caseOpeningError.code !== 'PGRST116') {
+          console.error('❌ [FREE_CASE_TIMER] Error fetching case opening data:', caseOpeningError);
+          // Если ошибка, делаем доступным
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+          return;
         }
 
-        return data;
+        const serverLastOpen = caseOpeningData?.opened_at;
+        
+        console.log('📊 [FREE_CASE_TIMER] Individual case data:', {
+          caseId,
+          serverLastOpen
+        });
+        
+        if (!serverLastOpen) {
+          console.log('✅ [FREE_CASE_TIMER] No previous opening for this case, available immediately');
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+          return;
+        }
+
+        const lastOpen = new Date(serverLastOpen);
+        const now = new Date();
+        
+        const timeDiff = now.getTime() - lastOpen.getTime();
+        const twoHours = 2 * 60 * 60 * 1000; // 2 часа в миллисекундах
+
+        console.log('⏱️ [FREE_CASE_TIMER] Time calculation for case:', {
+          caseId,
+          lastOpen: lastOpen.toISOString(),
+          now: now.toISOString(),
+          timeDiff,
+          twoHours,
+          isAvailable: timeDiff >= twoHours
+        });
+
+        if (timeDiff >= twoHours) {
+          console.log('✅ [FREE_CASE_TIMER] Timer completed for this case, available');
+          setIsAvailable(true);
+          setTimeLeft(0);
+          onTimerComplete();
+        } else {
+          console.log('⏳ [FREE_CASE_TIMER] Timer still running for this case');
+          setIsAvailable(false);
+          const remaining = twoHours - timeDiff;
+          setTimeLeft(remaining);
+        }
+
+        setLastFreeOpen(serverLastOpen);
       } catch (error) {
-        console.error('❌ Free case timer query error:', error);
-        return null;
-      }
-    },
-    enabled: !!userId && !!caseId,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 0 // Always check for fresh data
-  });
-
-  useEffect(() => {
-    const updateTimer = () => {
-      if (!lastOpeningData?.opened_at) {
-        // No previous opening found, can open immediately
-        setCanOpen(true);
+        console.error('💥 [FREE_CASE_TIMER] Timer check error:', error);
+        // В случае ошибки делаем доступным
+        setIsAvailable(true);
         setTimeLeft(0);
         onTimerComplete();
-        return;
-      }
-
-      const lastOpenTime = new Date(lastOpeningData.opened_at);
-      const now = new Date();
-      const timeDiff = now.getTime() - lastOpenTime.getTime();
-      const cooldownPeriod = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-      const remaining = cooldownPeriod - timeDiff;
-
-      if (remaining <= 0) {
-        setCanOpen(true);
-        setTimeLeft(0);
-        onTimerComplete();
-      } else {
-        setCanOpen(false);
-        setTimeLeft(remaining);
       }
     };
 
-    // Update immediately
-    updateTimer();
+    console.log('🔄 [FREE_CASE_TIMER] Setting up individual case timer checks...');
+    checkTimer();
+    
+    // Проверяем каждые 30 секунд (реже чтобы снизить нагрузку)
+    const interval = setInterval(checkTimer, 30000);
 
-    // Update every second
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [lastOpeningData, onTimerComplete]);
+    return () => {
+      console.log('🛑 [FREE_CASE_TIMER] Cleaning up timer');
+      clearInterval(interval);
+    };
+  }, [userId, caseId, onTimerComplete]);
 
   const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const hours = Math.floor(milliseconds / (1000 * 60 * 60));
+    const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((milliseconds % (1000 * 60)) / 1000);
 
-    if (hours > 0) {
-      return `${hours}ч ${minutes}м ${seconds}с`;
-    } else if (minutes > 0) {
-      return `${minutes}м ${seconds}с`;
-    } else {
-      return `${seconds}с`;
-    }
+    const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return formatted;
   };
 
-  if (canOpen) {
+  console.log('🎨 [FREE_CASE_TIMER] Rendering:', {
+    isAvailable,
+    isDisabled,
+    timeLeft,
+    shouldRender: !isAvailable || isDisabled
+  });
+
+  // Если доступен и не отключен, не показываем таймер
+  if (isAvailable && !isDisabled) {
+    console.log('🚫 [FREE_CASE_TIMER] Not rendering (available and not disabled)');
+    return null;
+  }
+
+  // Показываем таймер только если недоступен или отключен
+  if (!isAvailable || isDisabled) {
+    console.log('✅ [FREE_CASE_TIMER] Rendering timer display');
     return (
-      <div className="text-center mb-3">
-        <div className="text-green-400 text-sm font-medium">
-          ✅ Доступно для открытия
-        </div>
+      <div className="flex items-center justify-center space-x-2 text-gray-400 text-sm font-medium mb-2">
+        <Clock className="w-4 h-4" />
+        <span>
+          {timeLeft > 0 
+            ? `Следующий бесплатный кейс через: ${formatTime(timeLeft)}`
+            : 'Проверка доступности...'
+          }
+        </span>
       </div>
     );
   }
 
-  return (
-    <div className="text-center mb-3">
-      <div className="text-orange-400 text-sm font-medium mb-1">
-        ⏰ Следующее открытие через:
-      </div>
-      <div className="text-white text-sm font-mono">
-        {formatTime(timeLeft)}
-      </div>
-    </div>
-  );
+  console.log('🚫 [FREE_CASE_TIMER] Not rendering (fallthrough)');
+  return null;
 };
 
 export default FreeCaseTimer;

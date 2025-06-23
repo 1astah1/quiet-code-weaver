@@ -6,15 +6,14 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://tskvrnrctesqmctyncad.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRza3ZybnJjdGVzcW1jdHluY2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1MTgzNjMsImV4cCI6MjA2NDA5NDM2M30.w8FwPznqG_vo_ADXnM6LxpWGDbn3cogR8AaRF5ajYQ0";
 
-// Надежная конфигурация клиента
+// Настраиваем клиент с минимальной конфигурацией
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
-    debug: process.env.NODE_ENV === 'development'
+    flowType: 'pkce'
   },
   realtime: {
     params: {
@@ -23,37 +22,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'fastmarket-cs2-app'
-    }
   }
 });
-
-// Функция для полной очистки состояния аутентификации
-export const cleanupAuthState = () => {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    // Удаляем все ключи Supabase из localStorage
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.') || key.includes('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Удаляем из sessionStorage
-    if (sessionStorage) {
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('supabase.') || key.includes('sb-')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-    }
-    
-    console.log('🧹 Auth state cleaned up');
-  } catch (error) {
-    console.warn('Error cleaning auth state:', error);
-  }
-};

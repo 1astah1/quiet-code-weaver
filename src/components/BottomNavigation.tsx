@@ -1,15 +1,14 @@
 
 import { useTranslation } from "@/hooks/useTranslation";
-import { useAuth } from "@/hooks/useAuth";
 
 interface BottomNavigationProps {
   currentScreen: string;
   onScreenChange: (screen: string) => void;
+  currentLanguage?: string;
 }
 
-const BottomNavigation = ({ currentScreen, onScreenChange }: BottomNavigationProps) => {
-  const { user } = useAuth();
-  const { t } = useTranslation(user?.language_code || 'ru');
+const BottomNavigation = ({ currentScreen, onScreenChange, currentLanguage = 'ru' }: BottomNavigationProps) => {
+  const { t } = useTranslation(currentLanguage);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-40">

@@ -3,17 +3,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface SellAllResult {
-  items_sold: number;
-  total_earned: number;
-}
-
 export const useSellAllSkins = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ userId }: { userId: string }): Promise<SellAllResult> => {
+    mutationFn: async ({ userId }: { userId: string }) => {
       console.log('🛒 Selling all skins for user:', userId);
       
       const { data: sellResult, error } = await supabase.rpc('sell_all_user_skins', {
@@ -26,7 +21,7 @@ export const useSellAllSkins = () => {
       }
 
       console.log('✅ All items sold successfully:', sellResult);
-      return sellResult as unknown as SellAllResult;
+      return sellResult;
     },
     onSuccess: async (data, variables) => {
       console.log('🎉 Mutation success, refreshing data...');

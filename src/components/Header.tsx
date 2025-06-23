@@ -1,18 +1,20 @@
 
 import { Settings, Coins } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
+  currentUser: {
+    username: string;
+    coins: number;
+    isPremium: boolean;
+    avatar_url?: string;
+    language_code?: string;
+  };
   onMenuClick: () => void;
-  currentScreen: string;
 }
 
-const Header = ({ onMenuClick, currentScreen }: HeaderProps) => {
-  const { user } = useAuth();
-  const { t } = useTranslation(user?.language_code);
-
-  if (!user) return null;
+const Header = ({ currentUser, onMenuClick }: HeaderProps) => {
+  const { t } = useTranslation(currentUser.language_code);
 
   return (
     <header className="relative z-30 bg-gray-900/90 backdrop-blur-sm border-b border-orange-500/30 px-4 sm:px-6 md:px-8 lg:px-10">
@@ -36,15 +38,15 @@ const Header = ({ onMenuClick, currentScreen }: HeaderProps) => {
         <div className="flex items-center space-x-2 sm:space-x-3">
           {/* User Avatar */}
           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-gradient-to-r from-orange-400 to-red-500 flex items-center justify-center">
-            {user.avatar_url ? (
+            {currentUser.avatar_url ? (
               <img 
-                src={user.avatar_url} 
+                src={currentUser.avatar_url} 
                 alt="Avatar" 
                 className="w-full h-full object-cover"
               />
             ) : (
               <span className="text-white text-xs font-bold">
-                {user.username.charAt(0).toUpperCase()}
+                {currentUser.username.charAt(0).toUpperCase()}
               </span>
             )}
           </div>
@@ -52,7 +54,7 @@ const Header = ({ onMenuClick, currentScreen }: HeaderProps) => {
           {/* Coins */}
           <div className="flex items-center space-x-1 sm:space-x-2 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-full px-2 sm:px-3 py-1">
             <Coins className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-200" />
-            <span className="text-white font-bold text-xs sm:text-sm">{user.coins.toLocaleString()}</span>
+            <span className="text-white font-bold text-xs sm:text-sm">{currentUser.coins.toLocaleString()}</span>
           </div>
         </div>
       </div>

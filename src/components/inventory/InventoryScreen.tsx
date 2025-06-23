@@ -1,25 +1,27 @@
 
 import { useState } from "react";
-import { useInventory } from "@/hooks/useInventory";
+import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
+import { useSellAllSkins } from "@/hooks/useSellAllSkins";
 import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 import { inventoryLimiter } from "@/utils/rateLimiter";
 import { useToast } from "@/hooks/use-toast";
 import WithdrawSkinModal from "./WithdrawSkinModal";
-import { useAuth } from "@/hooks/useAuth";
 
-const InventoryScreen = () => {
-  const { user } = useAuth();
-  const { 
-    inventory, 
-    isLoading, 
-    error, 
-    sellSkin, 
-    sellAllSkins, 
-    isSelling, 
-    isSellingAll 
-  } = useInventory(user?.id);
-  
+interface InventoryScreenProps {
+  currentUser: {
+    id: string;
+    username: string;
+    coins: number;
+    steam_trade_url?: string;
+  };
+  onCoinsUpdate: (newCoins: number) => void;
+}
+
+const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
+  const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
+  const sellSkinMutation = useSellSkin();
+  const sellAllMutation = useSellAllSkins();
   const { toast } = useToast();
   
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -39,9 +41,7 @@ const InventoryScreen = () => {
 
   const handleSellSkin = async (inventoryId: string, sellPrice: number) => {
     try {
-      if (!user?.id) return;
-      
-      if (!inventoryLimiter.isAllowed(user.id)) {
+      if (!inventoryLimiter.isAllowed(currentUser.id)) {
         toast({
           title: "Слишком много операций",
           description: "Подождите немного перед следующей продажей",
@@ -51,12 +51,21 @@ const InventoryScreen = () => {
       }
 
       console.log('Selling skin from inventory:', inventoryId, 'for', sellPrice);
-      if (isSelling) {
+      if (sellSkinMutation.isPending) {
         console.log('Sell already in progress');
         return;
       }
       
-      sellSkin(inventoryId, sellPrice);
+      const result = await sellSkinMutation.mutateAsync({
+        inventoryId,
+        userId: currentUser.id,
+        sellPrice
+      });
+      
+      if (result && result.newCoins !== undefined) {
+        console.log('Skin sold, updating coins to:', result.newCoins);
+        onCoinsUpdate(result.newCoins);
+      }
     } catch (error) {
       console.error('Error selling skin:', error);
     }
@@ -64,8 +73,6 @@ const InventoryScreen = () => {
 
   const handleSellAll = async () => {
     try {
-      if (!user?.id) return;
-      
       if (!inventory || inventory.length === 0) {
         toast({
           title: "Нет предметов",
@@ -75,12 +82,19 @@ const InventoryScreen = () => {
         return;
       }
 
-      if (isSellingAll) {
+      if (sellAllMutation.isPending) {
         console.log('Sell all already in progress');
         return;
       }
 
-      sellAllSkins();
+      const result = await sellAllMutation.mutateAsync({
+        userId: currentUser.id
+      });
+
+      if (result && result.totalValue !== undefined) {
+        console.log('All skins sold, updating coins by:', result.totalValue);
+        onCoinsUpdate(currentUser.coins + result.totalValue);
+      }
     } catch (error) {
       console.error('Error selling all skins:', error);
     }
@@ -130,10 +144,10 @@ const InventoryScreen = () => {
           {inventory && inventory.length > 0 && (
             <button
               onClick={handleSellAll}
-              disabled={isSellingAll}
+              disabled={sellAllMutation.isPending}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-2 sm:px-4 sm:py-2 rounded text-xs sm:text-sm font-medium transition-all flex items-center space-x-1 sm:space-x-2"
             >
-              {isSellingAll ? (
+              {sellAllMutation.isPending ? (
                 <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
               ) : (
                 <Coins className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -204,10 +218,10 @@ const InventoryScreen = () => {
                   <div className="space-y-1">
                     <button
                       onClick={() => handleSellSkin(item.id, item.skins.price)}
-                      disabled={isSelling}
+                      disabled={sellSkinMutation.isPending}
                       className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
                     >
-                      {isSelling ? (
+                      {sellSkinMutation.isPending ? (
                         <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
                       ) : (
                         <>
@@ -240,7 +254,7 @@ const InventoryScreen = () => {
         </div>
       )}
 
-      {selectedItem && user && (
+      {selectedItem && (
         <WithdrawSkinModal
           isOpen={withdrawModalOpen}
           onClose={() => {
@@ -250,7 +264,7 @@ const InventoryScreen = () => {
           inventoryItemId={selectedItem.id}
           skinName={selectedItem.skins.name}
           skinImage={selectedItem.skins.image_url}
-          currentTradeUrl={user.steam_trade_url}
+          currentTradeUrl={currentUser.steam_trade_url}
         />
       )}
     </div>

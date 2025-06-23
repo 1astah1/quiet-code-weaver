@@ -1,114 +1,65 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import AuthScreen from '@/components/auth/AuthScreen';
-import MainScreen from '@/components/screens/MainScreen';
-import InventoryScreen from '@/components/inventory/InventoryScreen';
-import SkinsScreen from '@/components/screens/SkinsScreen';
-import QuizScreen from '@/components/screens/QuizScreen';
-import TasksScreen from '@/components/screens/TasksScreen';
-import SettingsScreen from '@/components/settings/SettingsScreen';
-import AdminPanel from '@/components/AdminPanel';
-import Header from '@/components/Header';
-import BottomNavigation from '@/components/BottomNavigation';
-import Sidebar from '@/components/Sidebar';
-import LoadingScreen from '@/components/LoadingScreen';
-import SecurityMonitor from '@/components/security/SecurityMonitor';
+import { AuthScreen } from '@/components/auth/AuthScreen';
+import { MainScreen } from '@/components/screens/MainScreen';
+import { InventoryScreen } from '@/components/inventory/InventoryScreen';
+import { SkinsScreen } from '@/components/screens/SkinsScreen';
+import { QuizScreen } from '@/components/screens/QuizScreen';
+import { TasksScreen } from '@/components/screens/TasksScreen';
+import { SettingsScreen } from '@/components/settings/SettingsScreen';
+import { AdminPanel } from '@/components/AdminPanel';
+import { Header } from '@/components/Header';
+import { BottomNavigation } from '@/components/BottomNavigation';
+import { Sidebar } from '@/components/Sidebar';
+import { LoadingScreen } from '@/components/LoadingScreen';
+import { SecurityMonitor } from '@/components/security/SecurityMonitor';
 import { Toaster } from '@/components/ui/toaster';
 import { useWebViewDetection } from '@/hooks/useWebViewDetection';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 
-export type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
+type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
 
 const MainApp: React.FC = () => {
-  const { user, isLoading, updateUserCoins } = useAuth();
+  const { user, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = React.useState<Screen>('main');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
   
-  useImagePreloader([]);
+  useImagePreloader();
 
   useEffect(() => {
     if (isWebView) {
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
-      // @ts-ignore
       document.body.style.webkitTouchCallout = 'none';
     }
   }, [isWebView]);
 
-  console.log('🎯 MainApp render state:', { 
-    isLoading, 
-    hasUser: !!user, 
-    userId: user?.id,
-    userEmail: user?.email 
-  });
-
-  // Показываем экран загрузки только пока идет загрузка
-  if (isLoading) {
-    console.log('⏳ Showing loading screen');
+  if (loading) {
     return <LoadingScreen />;
   }
 
-  // Если загрузка завершена и нет пользователя, показываем экран авторизации
   if (!user) {
-    console.log('🔐 Showing auth screen - no user found');
-    return (
-      <div className="min-h-screen bg-black">
-        <AuthScreen onAuthSuccess={() => {}} />
-      </div>
-    );
+    return <AuthScreen />;
   }
 
-  // Если есть пользователь, показываем основное приложение
-  console.log('✅ Showing main app for user:', user.username);
-  
-  const handleScreenChange = (screen: string) => {
-    setCurrentScreen(screen as Screen);
-  };
-
   const renderScreen = () => {
-    const commonProps = {
-      currentUser: {
-        id: user.id,
-        username: user.username,
-        coins: user.coins,
-        referralCode: user.referralCode
-      },
-      onCoinsUpdate: updateUserCoins
-    };
-
-    const quizUserProps = {
-      currentUser: {
-        id: user.id,
-        username: user.username,
-        coins: user.coins,
-        quiz_lives: user.quiz_lives,
-        quiz_streak: user.quiz_streak
-      },
-      onCoinsUpdate: updateUserCoins
-    };
-
     switch (currentScreen) {
       case 'inventory':
         return <InventoryScreen />;
       case 'skins':
-        return <SkinsScreen {...commonProps} />;
+        return <SkinsScreen />;
       case 'quiz':
-        return <QuizScreen 
-          {...quizUserProps} 
-          onBack={() => setCurrentScreen('main')}
-          onLivesUpdate={() => {}}
-          onStreakUpdate={() => {}}
-        />;
+        return <QuizScreen />;
       case 'tasks':
-        return <TasksScreen {...commonProps} />;
+        return <TasksScreen />;
       case 'settings':
-        return <SettingsScreen {...commonProps} />;
+        return <SettingsScreen />;
       case 'admin':
-        return user.isAdmin ? <AdminPanel /> : <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
+        return user.is_admin ? <AdminPanel /> : <MainScreen />;
       default:
-        return <MainScreen {...commonProps} onScreenChange={handleScreenChange} />;
+        return <MainScreen />;
     }
   };
 
@@ -125,7 +76,7 @@ const MainApp: React.FC = () => {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentScreen={currentScreen}
-        onScreenChange={handleScreenChange}
+        onScreenChange={setCurrentScreen}
       />
       
       <main className="pb-20 pt-16">
@@ -134,7 +85,7 @@ const MainApp: React.FC = () => {
       
       <BottomNavigation 
         currentScreen={currentScreen}
-        onScreenChange={handleScreenChange}
+        onScreenChange={setCurrentScreen}
       />
       
       <Toaster />

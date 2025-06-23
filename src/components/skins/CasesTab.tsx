@@ -18,10 +18,9 @@ interface CasesTabProps {
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [selectedCaseForPreview, setSelectedCaseForPreview] = useState<any>(null);
   const [openingCase, setOpeningCase] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: cases = [], isLoading, error } = useQuery({
-    queryKey: ['cases', refreshKey],
+    queryKey: ['cases'],
     queryFn: async () => {
       try {
         console.log('Loading cases...');
@@ -89,13 +88,6 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     setOpeningCase(caseData);
   };
 
-  const handleCloseOpening = () => {
-    console.log('Closing case opening animation');
-    setOpeningCase(null);
-    // Обновляем список кейсов для сброса состояний кнопок
-    setRefreshKey(prev => prev + 1);
-  };
-
   if (error) {
     console.error('Cases tab error:', error);
     return (
@@ -132,7 +124,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 sm:mt-4">
             {freeCases.map((caseItem) => (
               <CaseCard
-                key={`${caseItem.id}-${refreshKey}`}
+                key={caseItem.id}
                 caseItem={caseItem}
                 currentUser={currentUser}
                 onOpen={handleCaseOpen}
@@ -154,7 +146,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
           <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
             {paidCases.map((caseItem) => (
               <CaseCard
-                key={`${caseItem.id}-${refreshKey}`}
+                key={caseItem.id}
                 caseItem={caseItem}
                 currentUser={currentUser}
                 onOpen={handleCaseOpen}
@@ -184,7 +176,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       {openingCase && currentUser && (
         <CaseOpeningAnimation
           caseItem={openingCase}
-          onClose={handleCloseOpening}
+          onClose={() => setOpeningCase(null)}
           currentUser={currentUser}
           onCoinsUpdate={onCoinsUpdate}
         />
