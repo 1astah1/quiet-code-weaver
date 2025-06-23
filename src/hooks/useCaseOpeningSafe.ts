@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -107,7 +108,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       return;
     }
 
-    console.log('🎯 [SAFE_CASE_OPENING] Starting FIXED case opening with image sync');
+    console.log('🎯 [SAFE_CASE_OPENING] Starting case opening with SQL-generated roulette data');
     
     setIsProcessing(true);
     setError(null);
@@ -121,9 +122,9 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       // Сохраняем ID сессии
       storeSessionId(currentUser.id, caseItem.id, sessionId);
 
-      console.log('📡 [SAFE_CASE_OPENING] Calling FIXED RPC with session:', sessionId);
+      console.log('📡 [SAFE_CASE_OPENING] Calling RPC with session:', sessionId);
 
-      // Вызываем исправленную RPC функцию
+      // Вызываем RPC функцию
       const { data, error } = await supabase.rpc('safe_open_case_with_session', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
@@ -146,7 +147,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         throw new Error(response.error || 'Не удалось открыть кейс');
       }
 
-      // КРИТИЧЕСКИ ВАЖНО: Сохраняем реальную награду от сервера
+      // Сохраняем награду от сервера
       if (response.reward) {
         console.log('🏆 [SAFE_CASE_OPENING] Setting actualReward from server:', {
           id: response.reward.id,
@@ -163,40 +164,20 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Принудительно синхронизируем рулетку с actualReward
+      // ДОВЕРЯЕМ SQL функции - она уже правильно разместила награду на рулетке
       if (response.roulette_items && response.winner_position !== undefined) {
-        const originalWinnerItem = response.roulette_items[response.winner_position];
-        
-        console.log('🔍 [IMAGE_SYNC] Detailed comparison:', {
+        console.log('🎰 [SAFE_CASE_OPENING] Using SQL-generated roulette data WITHOUT modification:', {
           winnerPosition: response.winner_position,
-          originalWinnerItem: {
-            id: originalWinnerItem?.id,
-            name: originalWinnerItem?.name,
-            image_url: originalWinnerItem?.image_url,
-            type: originalWinnerItem?.type
-          },
-          actualReward: {
-            id: response.reward?.id,
-            name: response.reward?.name,
-            image_url: response.reward?.image_url,
-            type: response.reward?.type
-          },
-          imageUrlsMatch: originalWinnerItem?.image_url === response.reward?.image_url,
-          idsMatch: originalWinnerItem?.id === response.reward?.id
-        });
-
-        // ПРИНУДИТЕЛЬНАЯ СИНХРОНИЗАЦИЯ: Заменяем элемент на позиции победителя данными из actualReward
-        const synchronizedItems = [...response.roulette_items];
-        synchronizedItems[response.winner_position] = response.reward;
-        
-        console.log('🔧 [IMAGE_SYNC] FORCED synchronization applied:', {
-          beforeSync: originalWinnerItem?.image_url,
-          afterSync: response.reward?.image_url,
-          positionFixed: response.winner_position
+          totalItems: response.roulette_items.length,
+          winnerItem: response.roulette_items[response.winner_position],
+          winnerImageUrl: response.roulette_items[response.winner_position]?.image_url,
+          rewardImageUrl: response.reward?.image_url,
+          imageUrlsMatch: response.roulette_items[response.winner_position]?.image_url === response.reward?.image_url
         });
         
+        // БЕЗ ИЗМЕНЕНИЙ - доверяем SQL функции
         setRouletteData({
-          items: synchronizedItems,
+          items: response.roulette_items,
           winnerPosition: response.winner_position
         });
         
@@ -246,8 +227,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   const handleDirectResult = useCallback((reward: any) => {
     console.log('🎯 [SAFE_CASE_OPENING] Handling direct result:', reward);
     
-    // Используем actualReward если он есть, иначе переданную reward
-    const rewardToUse = actualReward || reward;
+    const rewardToUse = reward;
     console.log('🏆 [SAFE_CASE_OPENING] Using reward for direct result:', rewardToUse);
     
     if (rewardToUse?.type === 'skin') {
@@ -260,19 +240,17 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     setTimeout(() => {
       setIsComplete(true);
     }, 1000);
-  }, [actualReward]);
+  }, []);
 
   const handleRouletteComplete = useCallback(() => {
-    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete - using ONLY actualReward');
+    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete - using actualReward');
     
-    // ИСПРАВЛЕНИЕ: Полностью игнорируем визуального победителя рулетки
-    // Используем ТОЛЬКО actualReward от сервера
     if (!actualReward) {
-      console.error('❌ [SAFE_CASE_OPENING] No actualReward found, this should not happen!');
+      console.error('❌ [SAFE_CASE_OPENING] No actualReward found!');
       return;
     }
     
-    console.log('🏆 [SAFE_CASE_OPENING] Using SYNCHRONIZED actualReward:', {
+    console.log('🏆 [SAFE_CASE_OPENING] Using actualReward from SQL:', {
       id: actualReward.id,
       name: actualReward.name,
       image_url: actualReward.image_url,
@@ -288,11 +266,10 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       setWonCoins(actualReward.amount || 0);
     }
     
-    // Переключаем только фазу анимации
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with SYNCHRONIZED actualReward');
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed');
     }, 1000);
   }, [actualReward]);
 
@@ -313,13 +290,12 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [currentUser.id, queryClient]);
 
   const sellDirectly = useCallback(async () => {
-    // Используем actualReward вместо wonSkin для продажи
-    const rewardToSell = actualReward || wonSkin;
+    const rewardToSell = actualReward;
     if (!rewardToSell) return;
     
     setIsProcessing(true);
     try {
-      console.log('💰 [SAFE_CASE_OPENING] Selling ACTUAL reward directly:', rewardToSell.name);
+      console.log('💰 [SAFE_CASE_OPENING] Selling reward directly:', rewardToSell.name);
       
       const { data, error } = await supabase.rpc('safe_sell_case_reward', {
         p_user_id: currentUser.id,
@@ -344,7 +320,6 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         description: `Получено ${rewardToSell.price} монет`,
       });
       
-      // Инвалидируем кэши
       queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
       
     } catch (error: any) {
@@ -357,7 +332,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     } finally {
       setIsProcessing(false);
     }
-  }, [actualReward, wonSkin, currentUser.id, onCoinsUpdate, toast, queryClient]);
+  }, [actualReward, currentUser.id, onCoinsUpdate, toast, queryClient]);
 
   // Сброс состояния при смене кейса
   useEffect(() => {
@@ -376,8 +351,8 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [caseItem?.id]);
 
   return {
-    wonSkin: actualReward?.type === 'skin' ? actualReward : wonSkin,
-    wonCoins: actualReward?.type === 'coin_reward' ? actualReward.amount : wonCoins,
+    wonSkin,
+    wonCoins,
     isComplete,
     animationPhase,
     isProcessing,
