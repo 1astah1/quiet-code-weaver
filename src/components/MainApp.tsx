@@ -2,16 +2,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import Navbar from "@/components/Navbar";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import SkinsScreen from "@/components/SkinsScreen";
-import TasksScreen from "@/components/TasksScreen";
-import QuizScreen from "@/components/QuizScreen";
-import InventoryScreen from "@/components/InventoryScreen";
-import Sidebar from "@/components/Sidebar";
-import SettingsScreen from "@/components/SettingsScreen";
 import BannerCarousel from "@/components/BannerCarousel";
-import RecentWinsLiveFeed from "@/components/RecentWinsLiveFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,7 +14,6 @@ const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { toast } = useToast();
 
   // Используем хук для получения данных пользователя
@@ -142,6 +134,11 @@ const MainApp = () => {
     }
   };
 
+  const handleCoinsUpdate = (newCoins: number) => {
+    // Force refetch of user data when coins are updated
+    window.location.reload();
+  };
+
   // Показываем загрузку пока инициализируется аутентификация
   if (authLoading) {
     return (
@@ -179,47 +176,36 @@ const MainApp = () => {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'skins':
-        return <SkinsScreen currentUser={currentUser} />;
-      case 'tasks':
-        return <TasksScreen currentUser={currentUser} />;
-      case 'quiz':
-        return <QuizScreen currentUser={currentUser} />;
-      case 'inventory':
-        return <InventoryScreen currentUser={currentUser} />;
-      case 'settings':
-        return <SettingsScreen currentUser={currentUser} />;
+        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       default:
-        return <SkinsScreen currentUser={currentUser} />;
+        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <Navbar
-        currentUser={currentUser}
-        currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
-        onMenuClick={() => setSidebarOpen(true)}
-      />
+      {/* Simple header */}
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-white">FastMarket</h1>
+          <div className="flex items-center space-x-4">
+            <div className="text-yellow-400 font-bold">
+              💰 {currentUser.coins} монет
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="text-gray-400 hover:text-white text-sm"
+            >
+              Выход
+            </button>
+          </div>
+        </div>
+      </div>
 
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        currentUser={currentUser}
-        onScreenChange={(screen) => {
-          setCurrentScreen(screen);
-          setSidebarOpen(false);
-        }}
-        onSignOut={handleSignOut}
-      />
-
-      <main className="pt-16">
+      <main className="pt-4">
         <div className="container mx-auto px-4 py-6">
           {currentScreen === 'skins' && (
-            <>
-              <BannerCarousel onBannerAction={setCurrentScreen} />
-              <RecentWinsLiveFeed />
-            </>
+            <BannerCarousel onBannerAction={setCurrentScreen} />
           )}
           {renderScreen()}
         </div>

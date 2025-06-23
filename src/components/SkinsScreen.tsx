@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import CaseOpeningSimulation from "@/components/CaseOpeningSimulation";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 import { useCases } from "@/hooks/useCases";
 import { useOpenCase } from "@/hooks/useOpenCase";
@@ -11,12 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SkinsScreenProps {
   currentUser: any;
+  onCoinsUpdate: (newCoins: number) => void;
 }
 
-const SkinsScreen = ({ currentUser }: SkinsScreenProps) => {
+const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [isAnimationOpen, setIsAnimationOpen] = useState(false);
-  const [wonItem, setWonItem] = useState<any>(null);
   
   const { data: cases, isLoading } = useCases();
   const openCaseMutation = useOpenCase();
@@ -108,8 +108,11 @@ const SkinsScreen = ({ currentUser }: SkinsScreenProps) => {
         isFree: caseData.is_free
       });
 
-      if (result.success) {
-        setWonItem(result.reward);
+      // Type assertion to handle the response correctly
+      const typedResult = result as any;
+      if (typedResult && typeof typedResult === 'object') {
+        // Handle successful result
+        onCoinsUpdate(currentUser.coins - (caseData.is_free ? 0 : caseData.price));
       }
     } catch (error) {
       setIsAnimationOpen(false);
@@ -119,7 +122,7 @@ const SkinsScreen = ({ currentUser }: SkinsScreenProps) => {
 
   const handleAnimationComplete = () => {
     setSelectedCase(null);
-    setWonItem(null);
+    setIsAnimationOpen(false);
   };
 
   if (isLoading) {
@@ -230,13 +233,14 @@ const SkinsScreen = ({ currentUser }: SkinsScreenProps) => {
         ))}
       </div>
 
-      <CaseOpeningAnimation
-        isOpen={isAnimationOpen}
-        onClose={() => setIsAnimationOpen(false)}
-        caseData={selectedCase}
-        wonItem={wonItem}
-        onOpenComplete={handleAnimationComplete}
-      />
+      {isAnimationOpen && selectedCase && (
+        <CaseOpeningSimulation
+          caseItem={selectedCase}
+          onClose={handleAnimationComplete}
+          currentUser={currentUser}
+          onCoinsUpdate={onCoinsUpdate}
+        />
+      )}
     </div>
   );
 };
