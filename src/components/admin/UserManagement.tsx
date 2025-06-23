@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,11 +21,12 @@ const UserManagement = () => {
     queryKey: ['admin_users'],
     queryFn: async () => {
       console.log('Загрузка пользователей...');
+      // ИСПРАВЛЕНО: Используем LEFT JOIN вместо INNER JOIN чтобы показать всех пользователей
       const { data, error } = await supabase
         .from('users')
         .select(`
           *,
-          user_roles!inner(role)
+          user_roles(role)
         `)
         .order('created_at', { ascending: false });
       
@@ -54,7 +56,7 @@ const UserManagement = () => {
         throw error;
       }
 
-      // Правильная типизация ответа RPC
+      // ИСПРАВЛЕНО: Правильная типизация ответа RPC
       const result = data as { success: boolean; error?: string };
       
       if (!result?.success) {
@@ -97,8 +99,9 @@ const UserManagement = () => {
     });
   };
 
+  // ИСПРАВЛЕНО: Проверяем роли правильно с учетом LEFT JOIN
   const checkUserHasRole = (user: any, role: string) => {
-    return user.user_roles?.some((userRole: any) => userRole.role === role) || false;
+    return user.user_roles?.some((userRole: any) => userRole?.role === role) || false;
   };
 
   if (isLoading) {

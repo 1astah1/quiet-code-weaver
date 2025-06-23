@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Package } from "lucide-react";
+import { Coins, Package, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import OptimizedImage from "@/components/ui/OptimizedImage";
@@ -35,8 +35,8 @@ const PurchaseSuccessModal = ({
   onInventoryUpdate
 }: PurchaseSuccessModalProps) => {
   const { toast } = useToast();
-  const [isSellingMode, setIsSellingMode] = useState(false);
-  const [isSelling, setIsSelling] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [hasPerformedAction, setHasPerformedAction] = useState(false);
 
   const getRarityColor = (rarity?: string) => {
     const colors = {
@@ -51,9 +51,9 @@ const PurchaseSuccessModal = ({
   };
 
   const handleSellItem = async () => {
-    if (!inventoryId || reward.type !== 'skin') return;
+    if (!inventoryId || reward.type !== 'skin' || isProcessing) return;
     
-    setIsSelling(true);
+    setIsProcessing(true);
     try {
       const sellPrice = Math.floor(reward.price * 0.8);
       
@@ -73,8 +73,13 @@ const PurchaseSuccessModal = ({
           title: "Скин продан!",
           description: `Получено ${sellPrice} монет`,
         });
+        setHasPerformedAction(true);
         onInventoryUpdate();
-        onClose();
+        
+        // Автоматически закрываем модальное окно через 2 секунды
+        setTimeout(() => {
+          onClose();
+        }, 2000);
       } else {
         throw new Error(result?.error || 'Ошибка продажи');
       }
@@ -86,23 +91,33 @@ const PurchaseSuccessModal = ({
         variant: "destructive",
       });
     } finally {
-      setIsSelling(false);
+      setIsProcessing(false);
     }
   };
 
   const handleAddToInventory = () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     toast({
       title: "Добавлено в инвентарь!",
       description: "Предмет успешно добавлен в ваш инвентарь",
     });
+    setHasPerformedAction(true);
     onInventoryUpdate();
-    onClose();
+    
+    // Автоматически закрываем модальное окно через 2 секунды
+    setTimeout(() => {
+      onClose();
+    }, 2000);
   };
 
   const handleCloseModal = () => {
-    setIsSellingMode(false);
-    setIsSelling(false);
-    onClose();
+    if (!isProcessing) {
+      setHasPerformedAction(false);
+      setIsProcessing(false);
+      onClose();
+    }
   };
 
   const sellPrice = reward.type === 'skin' ? Math.floor(reward.price * 0.8) : 0;
@@ -112,7 +127,7 @@ const PurchaseSuccessModal = ({
       <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700">
         <DialogHeader>
           <DialogTitle className="text-center text-white">
-            {reward.type === 'coin_reward' ? 'Награда получена!' : 'Поздравляем с выигрышем!'}
+            {reward.type === 'coin_reward' ? 'Награда получена!' : 'Поздравляем с покупкой!'}
           </DialogTitle>
         </DialogHeader>
 
@@ -167,65 +182,47 @@ const PurchaseSuccessModal = ({
           </div>
 
           <div className="space-y-3">
-            {reward.type === 'skin' && !isSellingMode && (
-              <>
-                <Button
-                  onClick={handleAddToInventory}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  disabled={isSelling}
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  Добавить в инвентарь
-                </Button>
-                
-                <Button
-                  onClick={() => setIsSellingMode(true)}
-                  variant="outline"
-                  className="w-full border-orange-500 text-orange-400 hover:bg-orange-500/10"
-                  disabled={isSelling}
-                >
-                  <Coins className="w-4 h-4 mr-2" />
-                  Продать за {sellPrice} монет
-                </Button>
-              </>
-            )}
-
-            {reward.type === 'skin' && isSellingMode && (
-              <div className="space-y-3">
-                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                  <p className="text-orange-300 text-sm text-center">
-                    Вы уверены, что хотите продать этот предмет за {sellPrice} монет?
-                  </p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleSellItem}
-                    className="flex-1 bg-orange-600 hover:bg-orange-700"
-                    disabled={isSelling}
-                  >
-                    {isSelling ? 'Продаем...' : 'Да, продать'}
-                  </Button>
-                  
-                  <Button
-                    onClick={() => setIsSellingMode(false)}
-                    variant="outline"
-                    className="flex-1"
-                    disabled={isSelling}
-                  >
-                    Отмена
-                  </Button>
-                </div>
+            {hasPerformedAction ? (
+              <div className="flex flex-col items-center gap-3">
+                <CheckCircle className="w-12 h-12 text-green-500" />
+                <p className="text-green-400 text-center">Операция выполнена успешно!</p>
+                <p className="text-gray-400 text-sm text-center">Окно закроется автоматически...</p>
               </div>
-            )}
+            ) : (
+              <>
+                {reward.type === 'skin' && (
+                  <>
+                    <Button
+                      onClick={handleAddToInventory}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      disabled={isProcessing}
+                    >
+                      <Package className="w-4 h-4 mr-2" />
+                      {isProcessing ? 'Добавление...' : 'Добавить в инвентарь'}
+                    </Button>
+                    
+                    <Button
+                      onClick={handleSellItem}
+                      variant="outline"
+                      className="w-full border-orange-500 text-orange-400 hover:bg-orange-500/10"
+                      disabled={isProcessing}
+                    >
+                      <Coins className="w-4 h-4 mr-2" />
+                      {isProcessing ? 'Продаем...' : `Продать за ${sellPrice} монет`}
+                    </Button>
+                  </>
+                )}
 
-            {reward.type === 'coin_reward' && (
-              <Button
-                onClick={handleCloseModal}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                Отлично!
-              </Button>
+                {reward.type === 'coin_reward' && (
+                  <Button
+                    onClick={handleCloseModal}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={isProcessing}
+                  >
+                    Отлично!
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
