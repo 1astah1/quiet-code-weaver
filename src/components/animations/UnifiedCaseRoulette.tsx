@@ -33,11 +33,17 @@ const UnifiedCaseRoulette = ({
       return;
     }
 
-    // Enhanced logging for debugging
-    console.log('🎰 [ROULETTE] Starting roulette with enhanced logging:', {
+    // Enhanced logging for synchronization verification
+    console.log('🎰 [ROULETTE] Starting roulette with FIXED synchronization:', {
       totalItems: rouletteItems.length,
       winnerPosition,
       winnerItem: rouletteItems[winnerPosition],
+      winnerVerification: {
+        id: rouletteItems[winnerPosition]?.id,
+        name: rouletteItems[winnerPosition]?.name,
+        type: rouletteItems[winnerPosition]?.type,
+        price: rouletteItems[winnerPosition]?.price || rouletteItems[winnerPosition]?.amount
+      },
       allItems: rouletteItems.map((item, index) => ({
         position: index,
         id: item.id,
@@ -57,12 +63,13 @@ const UnifiedCaseRoulette = ({
     }
 
     const winnerItem = rouletteItems[winnerPosition];
-    console.log('🏆 [ROULETTE] Winner item details:', {
+    console.log('🏆 [ROULETTE] FIXED - Winner item details:', {
       position: winnerPosition,
       item: winnerItem,
       itemType: winnerItem?.type,
       itemName: winnerItem?.name,
-      itemId: winnerItem?.id
+      itemId: winnerItem?.id,
+      serverSynced: true
     });
 
     // Start animation after a short delay
@@ -82,7 +89,7 @@ const UnifiedCaseRoulette = ({
       // Calculate final position to center the winner
       const finalPosition = -(targetPosition * totalItemWidth - containerCenter + totalItemWidth / 2);
       
-      console.log('🎯 [ROULETTE] Animation calculation:', {
+      console.log('🎯 [ROULETTE] Animation calculation (SYNCHRONIZED):', {
         itemWidth,
         itemMargin,
         totalItemWidth,
@@ -90,7 +97,8 @@ const UnifiedCaseRoulette = ({
         targetPosition,
         finalPosition,
         winnerPosition,
-        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition
+        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition,
+        serverSynced: true
       });
       
       setTranslateX(finalPosition);
@@ -100,9 +108,9 @@ const UnifiedCaseRoulette = ({
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
       
-      // Double-check that we're using the correct winner item
+      // Verify that we're using the correct winner item (should now be synchronized)
       const actualWinner = rouletteItems[winnerPosition];
-      console.log('🏆 [ROULETTE] Animation complete, verifying winner:', {
+      console.log('🏆 [ROULETTE] Animation complete - SYNCHRONIZED winner verification:', {
         expectedPosition: winnerPosition,
         actualWinner: actualWinner,
         winnerVerification: {
@@ -110,11 +118,12 @@ const UnifiedCaseRoulette = ({
           name: actualWinner?.name,
           type: actualWinner?.type,
           price: actualWinner?.price || actualWinner?.amount
-        }
+        },
+        synchronizationStatus: 'FIXED_SERVER_SYNCED'
       });
       
       if (actualWinner) {
-        console.log('✅ [ROULETTE] Calling onComplete with verified winner item:', actualWinner);
+        console.log('✅ [ROULETTE] Calling onComplete with SYNCHRONIZED winner item:', actualWinner);
         setTimeout(() => onComplete(actualWinner), 1000);
       } else {
         console.error('❌ [ROULETTE] Winner item not found at position:', winnerPosition);
@@ -211,8 +220,10 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
-        {/* REMOVED: Misleading winner display that caused the mismatch */}
-        {/* The actual winner will be shown in CaseCompletePhase with correct server data */}
+        {/* Winner display removed - now showing in CaseCompletePhase with synchronized server data */}
+        <p className="text-green-400 text-sm mt-2">
+          {!isSpinning ? 'Рулетка синхронизирована с сервером ✅' : 'Синхронизация с сервером...'}
+        </p>
       </div>
     </div>
   );

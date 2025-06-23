@@ -41,7 +41,7 @@ interface UseCaseOpeningSafeProps {
 export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: UseCaseOpeningSafeProps) => {
   const [wonSkin, setWonSkin] = useState<any>(null);
   const [wonCoins, setWonCoins] = useState(0);
-  const [actualReward, setActualReward] = useState<any>(null); // Добавляем состояние для реальной награды
+  const [actualReward, setActualReward] = useState<any>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [animationPhase, setAnimationPhase] = useState<'opening' | 'roulette' | 'complete' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -107,7 +107,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       return;
     }
 
-    console.log('🎯 [SAFE_CASE_OPENING] Starting safe case opening');
+    console.log('🎯 [SAFE_CASE_OPENING] Starting SYNCHRONIZED case opening');
     
     setIsProcessing(true);
     setError(null);
@@ -121,9 +121,9 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       // Сохраняем ID сессии
       storeSessionId(currentUser.id, caseItem.id, sessionId);
 
-      console.log('📡 [SAFE_CASE_OPENING] Calling safe RPC with session:', sessionId);
+      console.log('📡 [SAFE_CASE_OPENING] Calling FIXED RPC with session:', sessionId);
 
-      // Вызываем новую безопасную RPC функцию
+      // Вызываем исправленную RPC функцию
       const { data, error } = await supabase.rpc('safe_open_case_with_session', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
@@ -140,7 +140,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       }
 
       const response = data as unknown as CaseOpeningResponse;
-      console.log('✅ [SAFE_CASE_OPENING] Response received:', response);
+      console.log('✅ [SAFE_CASE_OPENING] SYNCHRONIZED response received:', response);
 
       if (!response.success) {
         throw new Error(response.error || 'Не удалось открыть кейс');
@@ -148,7 +148,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
 
       // КРИТИЧЕСКИ ВАЖНО: Сохраняем реальную награду от сервера
       if (response.reward) {
-        console.log('🏆 [SAFE_CASE_OPENING] Storing ACTUAL reward from server:', response.reward);
+        console.log('🏆 [SAFE_CASE_OPENING] Storing SYNCHRONIZED reward from server:', response.reward);
         setActualReward(response.reward);
       }
 
@@ -158,26 +158,26 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Enhanced logging for roulette data validation
+      // Enhanced logging for SYNCHRONIZED roulette data validation
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [SAFE_CASE_OPENING] Validating roulette data:', {
+        console.log('🎰 [SAFE_CASE_OPENING] Validating SYNCHRONIZED roulette data:', {
           itemsCount: response.roulette_items.length,
           winnerPosition: response.winner_position,
           winnerItem: response.roulette_items[response.winner_position],
           actualReward: response.reward,
-          itemsMatch: response.roulette_items[response.winner_position]?.id === response.reward?.id
+          itemsMatch: response.roulette_items[response.winner_position]?.id === response.reward?.id,
+          synchronizationStatus: 'FIXED_SERVER_SYNCED'
         });
         
-        // Verify consistency between winner item and actual reward
+        // Verify PERFECT synchronization between winner item and actual reward
         const winnerFromRoulette = response.roulette_items[response.winner_position];
         if (winnerFromRoulette?.id !== response.reward?.id) {
-          console.warn('⚠️ [SAFE_CASE_OPENING] MISMATCH DETECTED between roulette winner and actual reward:', {
+          console.error('🚨 [SAFE_CASE_OPENING] CRITICAL: Synchronization STILL broken!', {
             winnerFromRoulette,
             actualReward: response.reward
           });
-          console.log('✅ [SAFE_CASE_OPENING] Will use ACTUAL reward from server, not roulette item');
         } else {
-          console.log('✅ [SAFE_CASE_OPENING] Roulette winner matches actual reward perfectly');
+          console.log('✅ [SAFE_CASE_OPENING] PERFECT SYNCHRONIZATION achieved!');
         }
         
         setRouletteData({
@@ -248,25 +248,36 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [actualReward]);
 
   const handleRouletteComplete = useCallback((winnerItem: RouletteItem) => {
-    console.log('🏆 [SAFE_CASE_OPENING] Roulette animation complete, winner item from roulette:', {
+    console.log('🏆 [SAFE_CASE_OPENING] Roulette animation complete, SYNCHRONIZED winner item:', {
       winnerItem,
       type: winnerItem.type,
       id: winnerItem.id,
-      name: winnerItem.name
+      name: winnerItem.name,
+      synchronizationStatus: 'SHOULD_BE_SYNCED'
     });
     
-    console.log('🎯 [SAFE_CASE_OPENING] BUT using ACTUAL reward from server instead:', {
+    console.log('🎯 [SAFE_CASE_OPENING] Using SYNCHRONIZED reward from server:', {
       actualReward,
       serverRewardId: actualReward?.id,
       serverRewardName: actualReward?.name,
-      serverRewardType: actualReward?.type
+      serverRewardType: actualReward?.type,
+      matchesRouletteWinner: winnerItem.id === actualReward?.id
     });
     
-    // КРИТИЧЕСКИ ВАЖНО: НЕ используем winnerItem из рулетки!
-    // Используем только actualReward от сервера
+    // После исправления SQL функции winnerItem и actualReward должны быть идентичными
     if (!actualReward) {
       console.error('❌ [SAFE_CASE_OPENING] No actual reward found, this should not happen!');
       return;
+    }
+    
+    // Проверяем идеальную синхронизацию
+    if (winnerItem.id !== actualReward.id) {
+      console.error('🚨 [SAFE_CASE_OPENING] SYNCHRONIZATION FAILURE detected!', {
+        rouletteWinner: winnerItem,
+        serverReward: actualReward
+      });
+    } else {
+      console.log('✅ [SAFE_CASE_OPENING] PERFECT SYNCHRONIZATION confirmed!');
     }
     
     if (actualReward.type === 'skin') {
@@ -290,7 +301,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with CORRECT server reward');
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with SYNCHRONIZED server reward');
     }, 1000);
   }, [actualReward]);
 
@@ -363,7 +374,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       console.log('🔄 [SAFE_CASE_OPENING] Resetting state for case:', caseItem.name);
       setWonSkin(null);
       setWonCoins(0);
-      setActualReward(null); // Сбрасываем actualReward
+      setActualReward(null);
       setIsComplete(false);
       setAnimationPhase(null);
       setError(null);
@@ -374,8 +385,8 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, [caseItem?.id]);
 
   return {
-    wonSkin: actualReward?.type === 'skin' ? actualReward : wonSkin, // Возвращаем actualReward если это скин
-    wonCoins: actualReward?.type === 'coin_reward' ? actualReward.amount : wonCoins, // Возвращаем actualReward если это монеты
+    wonSkin: actualReward?.type === 'skin' ? actualReward : wonSkin,
+    wonCoins: actualReward?.type === 'coin_reward' ? actualReward.amount : wonCoins,
     isComplete,
     animationPhase,
     isProcessing,
