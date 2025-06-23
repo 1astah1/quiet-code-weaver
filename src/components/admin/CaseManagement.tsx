@@ -37,7 +37,7 @@ const CaseManagement = ({
     reward_type: 'skin',
     skin_id: '',
     coin_reward_id: '',
-    probability: 10,
+    probability: 1.0,
     never_drop: false,
     custom_probability: null as number | null
   });
@@ -82,9 +82,9 @@ const CaseManagement = ({
     }
   });
 
-  // Валидация вероятности
+  // ИСПРАВЛЕНО: Валидация вероятности с учетом ограничений БД
   const validateProbability = (value: number): boolean => {
-    return value >= 0 && value <= 100 && value <= 9.9999;
+    return value >= 0 && value <= 9.9999 && !isNaN(value);
   };
 
   const { data: caseSkins } = useQuery({
@@ -141,7 +141,8 @@ const CaseManagement = ({
       let availableSkinsQuery = supabase
         .from('skins')
         .select('id, name, rarity, price')
-        .limit(50); // Получаем больше для лучшего выбора
+        .order('id', { ascending: false })
+        .limit(50);
 
       // Исключаем уже добавленные скины
       if (existingSkinIds.length > 0) {
@@ -166,7 +167,7 @@ const CaseManagement = ({
       // Перемешиваем и берем первые 10
       const shuffledSkins = availableSkins.sort(() => Math.random() - 0.5).slice(0, 10);
 
-      // Добавляем каждый скин в кейс с вероятностью по редкости
+      // ИСПРАВЛЕНО: Добавляем каждый скин с вероятностью в пределах БД (максимум 9.9999)
       const rarityProbabilities: { [key: string]: number } = {
         'Consumer Grade': 8.5,
         'Industrial Grade': 6.0,
@@ -178,7 +179,7 @@ const CaseManagement = ({
       };
 
       const insertPromises = shuffledSkins.map(async (skin) => {
-        const probability = rarityProbabilities[skin.rarity] || 5.0;
+        const probability = Math.min(rarityProbabilities[skin.rarity] || 5.0, 9.9999);
         
         return supabase
           .from('case_skins')
@@ -458,11 +459,11 @@ const CaseManagement = ({
       return;
     }
 
-    // Валидация вероятностей
+    // ИСПРАВЛЕНО: Валидация вероятностей с учетом ограничений БД
     if (!validateProbability(newSkinData.probability)) {
       toast({ 
-        title: "Ошибка", 
-        description: "Вероятность должна быть от 0 до 9.9999%",
+        title: "Ошибка вероятности", 
+        description: "Вероятность должна быть от 0 до 9.9999% (ограничение БД)",
         variant: "destructive" 
       });
       return;
@@ -470,8 +471,8 @@ const CaseManagement = ({
 
     if (newSkinData.custom_probability !== null && !validateProbability(newSkinData.custom_probability)) {
       toast({ 
-        title: "Ошибка", 
-        description: "Кастомная вероятность должна быть от 0 до 9.9999%",
+        title: "Ошибка кастомной вероятности", 
+        description: "Кастомная вероятность должна быть от 0 до 9.9999% (ограничение БД)",
         variant: "destructive" 
       });
       return;
@@ -520,7 +521,7 @@ const CaseManagement = ({
         reward_type: 'skin',
         skin_id: '',
         coin_reward_id: '',
-        probability: 10,
+        probability: 1.0,
         never_drop: false,
         custom_probability: null
       });
@@ -613,7 +614,6 @@ const CaseManagement = ({
               />
             </div>
             
-            {/* НОВОЕ: Загрузка обложки кейса */}
             <div className="col-span-1 md:col-span-2">
               <label className="block text-gray-300 text-sm mb-2">Обложка кейса:</label>
               <input
@@ -644,7 +644,6 @@ const CaseManagement = ({
               )}
             </div>
 
-            {/* НОВОЕ: Загрузка основного изображения кейса */}
             <div className="col-span-1 md:col-span-2">
               <label className="block text-gray-300 text-sm mb-2">Основное изображение кейса:</label>
               <input
@@ -715,7 +714,6 @@ const CaseManagement = ({
           <div key={caseItem.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             {editingCase === caseItem.id ? (
               <div className="space-y-3">
-                {/* НОВОЕ: Редактирование с возможностью загрузки изображений */}
                 <input
                   type="text"
                   value={editData.name || ''}
@@ -738,7 +736,6 @@ const CaseManagement = ({
                   placeholder="Цена"
                 />
 
-                {/* НОВОЕ: Загрузка обложки в режиме редактирования */}
                 <div className="space-y-2">
                   <label className="block text-gray-300 text-sm">Обложка кейса:</label>
                   <div className="flex items-center space-x-2">
@@ -765,7 +762,6 @@ const CaseManagement = ({
                   )}
                 </div>
 
-                {/* НОВОЕ: Загрузка основного изображения в режиме редактирования */}
                 <div className="space-y-2">
                   <label className="block text-gray-300 text-sm">Основное изображение:</label>
                   <div className="flex items-center space-x-2">
@@ -890,9 +886,14 @@ const CaseManagement = ({
               )}
             </Button>
           </div>
-          <p className="text-gray-400 text-sm mb-4">
-            Автоматически добавит до 10 случайных скинов в кейс с вероятностями в зависимости от редкости.
-          </p>
+          <div className="space-y-2">
+            <p className="text-gray-400 text-sm">
+              Автоматически добавит до 10 случайных скинов в кейс с вероятностями по редкости.
+            </p>
+            <p className="text-yellow-400 text-xs bg-yellow-900/20 p-2 rounded">
+              ⚠️ Максимальная вероятность: 9.9999% (ограничение базы данных)
+            </p>
+          </div>
         </div>
       )}
 
