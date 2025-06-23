@@ -50,30 +50,88 @@ const SecurityMonitor = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Monitor for console usage (potential tampering)
-    const originalConsole = { ...console };
+    const originalConsole = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+      info: console.info,
+      debug: console.debug
+    };
+    
     let consoleUsageCount = 0;
     
-    ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
-      (console as any)[method] = (...args: any[]) => {
-        consoleUsageCount++;
-        if (consoleUsageCount % 10 === 0) { // Log every 10th console usage
-          logSecurityEvent('console_usage', {
-            method,
-            usage_count: consoleUsageCount,
-            timestamp: new Date().toISOString()
-          });
-        }
-        return originalConsole[method as keyof typeof originalConsole](...args);
-      };
-    });
+    // Override console methods with proper typing
+    console.log = (...args: any[]) => {
+      consoleUsageCount++;
+      if (consoleUsageCount % 10 === 0) {
+        logSecurityEvent('console_usage', {
+          method: 'log',
+          usage_count: consoleUsageCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+      return originalConsole.log(...args);
+    };
+
+    console.warn = (...args: any[]) => {
+      consoleUsageCount++;
+      if (consoleUsageCount % 10 === 0) {
+        logSecurityEvent('console_usage', {
+          method: 'warn',
+          usage_count: consoleUsageCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+      return originalConsole.warn(...args);
+    };
+
+    console.error = (...args: any[]) => {
+      consoleUsageCount++;
+      if (consoleUsageCount % 10 === 0) {
+        logSecurityEvent('console_usage', {
+          method: 'error',
+          usage_count: consoleUsageCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+      return originalConsole.error(...args);
+    };
+
+    console.info = (...args: any[]) => {
+      consoleUsageCount++;
+      if (consoleUsageCount % 10 === 0) {
+        logSecurityEvent('console_usage', {
+          method: 'info',
+          usage_count: consoleUsageCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+      return originalConsole.info(...args);
+    };
+
+    console.debug = (...args: any[]) => {
+      consoleUsageCount++;
+      if (consoleUsageCount % 10 === 0) {
+        logSecurityEvent('console_usage', {
+          method: 'debug',
+          usage_count: consoleUsageCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+      return originalConsole.debug(...args);
+    };
 
     // Cleanup function
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
-      // Restore original console
-      Object.assign(console, originalConsole);
+      // Restore original console methods
+      console.log = originalConsole.log;
+      console.warn = originalConsole.warn;
+      console.error = originalConsole.error;
+      console.info = originalConsole.info;
+      console.debug = originalConsole.debug;
       
       // Log session end on cleanup
       logSecurityEvent('session_cleanup');

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +19,20 @@ interface CaseOpeningAnimationProps {
     coins: number;
   };
   onCoinsUpdate: (newCoins: number) => void;
+}
+
+interface CaseOpeningResult {
+  success: boolean;
+  reward: {
+    type: 'skin' | 'coin_reward';
+    id: string;
+    name: string;
+    amount?: number;
+    price?: number;
+    image_url?: string;
+    rarity?: string;
+  };
+  new_balance: number;
 }
 
 const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }: CaseOpeningAnimationProps) => {
@@ -156,7 +169,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
       const coinRewardId = !isSkipReward ? selectedReward.coin_rewards?.id : null;
 
       // Call secure case opening function
-      const { data: result, error } = await supabase.rpc('safe_open_case', {
+      const { data: rawResult, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
         p_skin_id: skinId,
@@ -169,6 +182,9 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
         throw new Error(error.message || 'Ошибка при открытии кейса');
       }
 
+      // Type assertion for the result
+      const result = rawResult as CaseOpeningResult;
+      
       if (!result || !result.success) {
         throw new Error('Неверный ответ сервера');
       }
@@ -189,7 +205,7 @@ const CaseOpeningAnimation = ({ caseItem, onClose, currentUser, onCoinsUpdate }:
 
       // Update user coins based on reward type
       if (result.reward.type === 'coin_reward') {
-        onCoinsUpdate(currentUser.coins + result.reward.amount);
+        onCoinsUpdate(currentUser.coins + (result.reward.amount || 0));
       } else {
         // For skin rewards, coins were already deducted by the function
         if (!caseItem.is_free) {

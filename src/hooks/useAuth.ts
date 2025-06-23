@@ -12,6 +12,10 @@ interface User {
   quiz_lives: number;
   quiz_streak: number;
   referralCode: string | null;
+  language_code: string;
+  avatar_url: string | null;
+  isPremium: boolean;
+  steam_trade_url: string | null;
 }
 
 export const useAuth = () => {
@@ -52,7 +56,11 @@ export const useAuth = () => {
           isAdmin: data.is_admin || false,
           quiz_lives: data.quiz_lives || 3,
           quiz_streak: data.quiz_streak || 0,
-          referralCode: data.referral_code
+          referralCode: data.referral_code,
+          language_code: data.language_code || 'ru',
+          avatar_url: null, // This would come from auth.users metadata
+          isPremium: data.premium_until ? new Date(data.premium_until) > new Date() : false,
+          steam_trade_url: data.steam_trade_url
         };
         setUser(userData);
         
@@ -106,7 +114,8 @@ export const useAuth = () => {
           username: username,
           email: authUser.email,
           coins: 1000, // Starting coins
-          referral_code: generateReferralCode()
+          referral_code: generateReferralCode(),
+          language_code: 'ru'
         })
         .select()
         .single();
@@ -126,7 +135,11 @@ export const useAuth = () => {
         isAdmin: data.is_admin || false,
         quiz_lives: data.quiz_lives || 3,
         quiz_streak: data.quiz_streak || 0,
-        referralCode: data.referral_code
+        referralCode: data.referral_code,
+        language_code: data.language_code || 'ru',
+        avatar_url: null,
+        isPremium: false,
+        steam_trade_url: null
       };
       setUser(userData);
 
