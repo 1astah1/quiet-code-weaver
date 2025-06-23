@@ -111,6 +111,18 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   useEffect(() => {
     if (caseItem && currentUser && caseSkins.length > 0 && !error) {
       console.log('🚀 [CASE_OPENING] Starting case opening process');
+      console.log('📊 [CASE_OPENING] Case details:', {
+        caseId: caseItem.id,
+        caseName: caseItem.name,
+        price: caseItem.price,
+        isFree: caseItem.is_free,
+        availableSkins: caseSkins.length
+      });
+      console.log('👤 [CASE_OPENING] User details:', {
+        userId: currentUser.id,
+        username: currentUser.username,
+        coins: currentUser.coins
+      });
       startCaseOpening();
     }
   }, [caseItem, currentUser, caseSkins, error]);
@@ -139,8 +151,19 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         return;
       }
 
+      // Проверяем, что в кейсе есть предметы
+      if (caseSkins.length === 0) {
+        const errorMsg = 'В этом кейсе нет доступных предметов';
+        console.error('❌ [CASE_OPENING] No items in case');
+        setError(errorMsg);
+        setAnimationPhase(null);
+        return;
+      }
+
       // Анимация открытия (2 секунды)
+      console.log('⏰ [CASE_OPENING] Starting opening animation');
       setTimeout(() => {
+        console.log('⏰ [CASE_OPENING] Opening animation complete, calling RPC');
         openCaseWithRPC();
       }, 2000);
     } catch (error) {
@@ -170,6 +193,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         p_is_free: caseItem.is_free || false
       });
 
+      console.log('📋 [CASE_OPENING] Raw RPC response:', { data, error });
+
       if (error) {
         console.error('❌ [CASE_OPENING] RPC error details:', {
           message: error.message,
@@ -186,8 +211,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       }
 
       console.log('📋 [CASE_OPENING] RPC response received:', data);
+      console.log('📋 [CASE_OPENING] Response type:', typeof data);
 
       const response = data as unknown as SafeOpenCaseResponse;
+      console.log('📋 [CASE_OPENING] Parsed response:', response);
       
       if (!response.success) {
         console.error('❌ [CASE_OPENING] RPC returned failure:', response);
