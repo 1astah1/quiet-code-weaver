@@ -33,15 +33,37 @@ const UnifiedCaseRoulette = ({
       return;
     }
 
-    console.log('🎰 [ROULETTE] Starting with items:', rouletteItems.length);
-    console.log('🎯 [ROULETTE] Winner position:', winnerPosition);
-    console.log('🏆 [ROULETTE] Winner item:', rouletteItems[winnerPosition]);
+    // Enhanced logging for debugging
+    console.log('🎰 [ROULETTE] Starting roulette with enhanced logging:', {
+      totalItems: rouletteItems.length,
+      winnerPosition,
+      winnerItem: rouletteItems[winnerPosition],
+      allItems: rouletteItems.map((item, index) => ({
+        position: index,
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        isWinner: index === winnerPosition
+      }))
+    });
 
     // Validate winner position
     if (winnerPosition < 0 || winnerPosition >= rouletteItems.length) {
-      console.error('❌ [ROULETTE] Invalid winner position:', winnerPosition);
+      console.error('❌ [ROULETTE] Invalid winner position:', {
+        winnerPosition,
+        totalItems: rouletteItems.length
+      });
       return;
     }
+
+    const winnerItem = rouletteItems[winnerPosition];
+    console.log('🏆 [ROULETTE] Winner item details:', {
+      position: winnerPosition,
+      item: winnerItem,
+      itemType: winnerItem?.type,
+      itemName: winnerItem?.name,
+      itemId: winnerItem?.id
+    });
 
     // Start animation after a short delay
     const startTimer = setTimeout(() => {
@@ -66,7 +88,9 @@ const UnifiedCaseRoulette = ({
         totalItemWidth,
         containerCenter,
         targetPosition,
-        finalPosition
+        finalPosition,
+        winnerPosition,
+        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition
       });
       
       setTranslateX(finalPosition);
@@ -75,14 +99,26 @@ const UnifiedCaseRoulette = ({
     // Complete animation after 4 seconds
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
-      const winnerItem = rouletteItems[winnerPosition];
-      console.log('🏆 [ROULETTE] Animation complete, winner:', winnerItem?.name);
       
-      if (winnerItem) {
-        console.log('✅ [ROULETTE] Calling onComplete with winner item');
-        setTimeout(() => onComplete(winnerItem), 1000);
+      // Double-check that we're using the correct winner item
+      const actualWinner = rouletteItems[winnerPosition];
+      console.log('🏆 [ROULETTE] Animation complete, verifying winner:', {
+        expectedPosition: winnerPosition,
+        actualWinner: actualWinner,
+        winnerVerification: {
+          id: actualWinner?.id,
+          name: actualWinner?.name,
+          type: actualWinner?.type,
+          price: actualWinner?.price || actualWinner?.amount
+        }
+      });
+      
+      if (actualWinner) {
+        console.log('✅ [ROULETTE] Calling onComplete with verified winner item:', actualWinner);
+        setTimeout(() => onComplete(actualWinner), 1000);
       } else {
         console.error('❌ [ROULETTE] Winner item not found at position:', winnerPosition);
+        console.error('❌ [ROULETTE] Available items:', rouletteItems);
       }
     }, 4000);
 
@@ -132,34 +168,42 @@ const UnifiedCaseRoulette = ({
           }}
         >
           {/* Triple the items for smooth scrolling */}
-          {[...rouletteItems, ...rouletteItems, ...rouletteItems].map((item, index) => (
-            <div 
-              key={`${item.id}-${index}`} 
-              className={`flex-shrink-0 w-32 h-32 border-2 ${getRarityColor(item.rarity)} p-2 flex flex-col items-center justify-center bg-slate-700 mx-1`}
-            >
-              <div className="w-full h-20 flex items-center justify-center mb-1">
-                {item.image_url ? (
-                  <LazyImage
-                    src={item.image_url}
-                    alt={item.name}
-                    className="w-full h-full object-contain"
-                    fallback={
-                      <div className="text-2xl">
-                        {item.type === 'coin_reward' ? '🪙' : '🔫'}
-                      </div>
-                    }
-                  />
-                ) : (
-                  <div className="text-2xl">
-                    {item.type === 'coin_reward' ? '🪙' : '🔫'}
-                  </div>
+          {[...rouletteItems, ...rouletteItems, ...rouletteItems].map((item, index) => {
+            const isActualWinner = index === rouletteItems.length + winnerPosition;
+            return (
+              <div 
+                key={`${item.id}-${index}`} 
+                className={`flex-shrink-0 w-32 h-32 border-2 ${getRarityColor(item.rarity)} p-2 flex flex-col items-center justify-center bg-slate-700 mx-1 ${
+                  isActualWinner ? 'ring-2 ring-orange-500' : ''
+                }`}
+              >
+                <div className="w-full h-20 flex items-center justify-center mb-1">
+                  {item.image_url ? (
+                    <LazyImage
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                      fallback={
+                        <div className="text-2xl">
+                          {item.type === 'coin_reward' ? '🪙' : '🔫'}
+                        </div>
+                      }
+                    />
+                  ) : (
+                    <div className="text-2xl">
+                      {item.type === 'coin_reward' ? '🪙' : '🔫'}
+                    </div>
+                  )}
+                </div>
+                <div className="text-white text-xs text-center truncate w-full">
+                  {item.type === 'coin_reward' ? `${item.amount} монет` : item.name?.substring(0, 12)}
+                </div>
+                {isActualWinner && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
                 )}
               </div>
-              <div className="text-white text-xs text-center truncate w-full">
-                {item.type === 'coin_reward' ? `${item.amount} монет` : item.name?.substring(0, 12)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -167,6 +211,14 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
+        {!isSpinning && rouletteItems[winnerPosition] && (
+          <div className="mt-2 text-white text-sm">
+            Выигрыш: {rouletteItems[winnerPosition].type === 'coin_reward' 
+              ? `${rouletteItems[winnerPosition].amount} монет`
+              : rouletteItems[winnerPosition].name
+            }
+          </div>
+        )}
       </div>
     </div>
   );

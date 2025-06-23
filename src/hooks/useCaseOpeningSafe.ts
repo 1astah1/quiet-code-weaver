@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -152,8 +151,27 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Устанавливаем данные рулетки
+      // Enhanced logging for roulette data validation
       if (response.roulette_items && response.winner_position !== undefined) {
+        console.log('🎰 [SAFE_CASE_OPENING] Validating roulette data:', {
+          itemsCount: response.roulette_items.length,
+          winnerPosition: response.winner_position,
+          winnerItem: response.roulette_items[response.winner_position],
+          actualReward: response.reward,
+          itemsMatch: response.roulette_items[response.winner_position]?.id === response.reward?.id
+        });
+        
+        // Verify consistency between winner item and actual reward
+        const winnerFromRoulette = response.roulette_items[response.winner_position];
+        if (winnerFromRoulette?.id !== response.reward?.id) {
+          console.error('⚠️ [SAFE_CASE_OPENING] MISMATCH DETECTED between roulette winner and actual reward:', {
+            winnerFromRoulette,
+            actualReward: response.reward
+          });
+        } else {
+          console.log('✅ [SAFE_CASE_OPENING] Roulette winner matches actual reward perfectly');
+        }
+        
         setRouletteData({
           items: response.roulette_items,
           winnerPosition: response.winner_position
@@ -218,17 +236,40 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, []);
 
   const handleRouletteComplete = useCallback((winnerItem: RouletteItem) => {
-    console.log('🏆 [SAFE_CASE_OPENING] Roulette complete, winner:', winnerItem);
+    console.log('🏆 [SAFE_CASE_OPENING] Roulette complete, processing winner:', {
+      winnerItem,
+      type: winnerItem.type,
+      id: winnerItem.id,
+      name: winnerItem.name
+    });
+    
+    // Enhanced validation
+    if (!winnerItem) {
+      console.error('❌ [SAFE_CASE_OPENING] No winner item provided');
+      return;
+    }
     
     if (winnerItem.type === 'skin') {
+      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from roulette:', {
+        id: winnerItem.id,
+        name: winnerItem.name,
+        price: winnerItem.price
+      });
       setWonSkin(winnerItem);
     } else if (winnerItem.type === 'coin_reward') {
+      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from roulette:', {
+        id: winnerItem.id,
+        amount: winnerItem.amount
+      });
       setWonCoins(winnerItem.amount || 0);
+    } else {
+      console.error('❌ [SAFE_CASE_OPENING] Unknown winner item type:', winnerItem);
     }
     
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed successfully');
     }, 1000);
   }, []);
 

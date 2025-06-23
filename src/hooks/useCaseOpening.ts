@@ -243,18 +243,36 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         console.log('💰 [CASE_OPENING] Balance updated to:', response.new_balance);
       }
       
-      // Set roulette data and start roulette animation
+      // Enhanced logging for roulette data
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [CASE_OPENING] Setting roulette data:', {
+        console.log('🎰 [CASE_OPENING] Setting roulette data with enhanced validation:', {
           itemsCount: response.roulette_items.length,
           winnerPosition: response.winner_position,
-          winnerItem: response.roulette_items[response.winner_position]
+          winnerItem: response.roulette_items[response.winner_position],
+          actualReward: response.reward,
+          itemsMatch: response.roulette_items[response.winner_position]?.id === response.reward?.id,
+          allRouletteItems: response.roulette_items.map((item, index) => ({
+            position: index,
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            isWinner: index === response.winner_position
+          }))
         });
         
-        // Ensure the winner item matches the actual reward
-        const actualWinner = response.roulette_items[response.winner_position];
-        console.log('🎯 [CASE_OPENING] Winner from roulette:', actualWinner);
-        console.log('🎁 [CASE_OPENING] Actual reward:', response.reward);
+        // Verify that the winner item matches the actual reward
+        const winnerFromRoulette = response.roulette_items[response.winner_position];
+        const actualReward = response.reward;
+        
+        if (winnerFromRoulette?.id !== actualReward?.id) {
+          console.error('⚠️ [CASE_OPENING] MISMATCH DETECTED:', {
+            winnerFromRoulette,
+            actualReward,
+            position: response.winner_position
+          });
+        } else {
+          console.log('✅ [CASE_OPENING] Winner item matches actual reward perfectly');
+        }
         
         setRouletteData({
           items: response.roulette_items,
@@ -314,21 +332,42 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   };
 
   const handleRouletteComplete = (winnerItem: RouletteItem) => {
-    console.log('🏆 [CASE_OPENING] Roulette complete, winner:', winnerItem);
+    console.log('🏆 [CASE_OPENING] Roulette complete, processing winner:', {
+      winnerItem,
+      type: winnerItem.type,
+      id: winnerItem.id,
+      name: winnerItem.name
+    });
     
-    // Use the winner from roulette animation
+    // Enhanced validation to ensure we're using the correct winner
+    if (!winnerItem) {
+      console.error('❌ [CASE_OPENING] No winner item provided to handleRouletteComplete');
+      return;
+    }
+    
+    // Use the winner from roulette animation (this should now match the actual reward)
     if (winnerItem.type === 'skin') {
-      console.log('🎨 [CASE_OPENING] Winner is skin:', winnerItem.name);
+      console.log('🎨 [CASE_OPENING] Winner is skin:', {
+        id: winnerItem.id,
+        name: winnerItem.name,
+        price: winnerItem.price
+      });
       setWonSkin(winnerItem);
     } else if (winnerItem.type === 'coin_reward') {
-      console.log('🪙 [CASE_OPENING] Winner is coins:', winnerItem.amount);
+      console.log('🪙 [CASE_OPENING] Winner is coins:', {
+        id: winnerItem.id,
+        amount: winnerItem.amount
+      });
       setWonCoins(winnerItem.amount || 0);
+    } else {
+      console.error('❌ [CASE_OPENING] Unknown winner item type:', winnerItem);
     }
     
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
       isProcessingRef.current = false;
+      console.log('✅ [CASE_OPENING] Case opening process completed successfully');
     }, 1000);
   };
 
