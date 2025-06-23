@@ -9,7 +9,7 @@ interface ImageCacheEntry {
 
 class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
-  private maxSize = 30; // Уменьшаем размер кэша
+  private maxSize = 30;
   private maxAge = 20 * 60 * 1000; // 20 минут
 
   async get(url: string): Promise<string | null> {
@@ -72,6 +72,15 @@ export const useImageCache = (src: string, timeout: number = 8000) => {
   useEffect(() => {
     if (!src) return;
 
+    // Простая валидация URL
+    try {
+      new URL(src);
+    } catch {
+      console.warn('📸 [IMAGE_CACHE] Invalid URL, using original:', src);
+      setCachedUrl(src);
+      return;
+    }
+
     const loadImage = async () => {
       try {
         setIsLoading(true);
@@ -87,7 +96,6 @@ export const useImageCache = (src: string, timeout: number = 8000) => {
         // Проверяем кэш
         const cached = await imageCache.get(src);
         if (cached) {
-          console.log('💾 [IMAGE_CACHE] Using cached image:', src);
           setCachedUrl(cached);
           setIsLoading(false);
           return;
@@ -95,14 +103,12 @@ export const useImageCache = (src: string, timeout: number = 8000) => {
 
         // Устанавливаем таймаут
         timeoutRef.current = setTimeout(() => {
-          console.warn('⏰ [IMAGE_CACHE] Fetch timeout:', src);
           abortControllerRef.current?.abort();
           setHasError(true);
           setIsLoading(false);
         }, timeout);
 
         // Загружаем изображение
-        console.log('📥 [IMAGE_CACHE] Fetching image:', src);
         const response = await fetch(src, {
           signal: abortControllerRef.current.signal,
           headers: {
@@ -115,13 +121,12 @@ export const useImageCache = (src: string, timeout: number = 8000) => {
         }
         
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}`);
         }
         
         const blob = await response.blob();
         const objectUrl = await imageCache.set(src, blob);
         
-        console.log('✅ [IMAGE_CACHE] Image cached:', src);
         setCachedUrl(objectUrl);
       } catch (error: any) {
         if (timeoutRef.current) {
@@ -129,13 +134,12 @@ export const useImageCache = (src: string, timeout: number = 8000) => {
         }
         
         if (error.name === 'AbortError') {
-          console.log('🛑 [IMAGE_CACHE] Request aborted:', src);
           return;
         }
         
-        console.error('❌ [IMAGE_CACHE] Failed to load image:', error);
+        // При ошибке используем оригинальный URL как fallback
         setHasError(true);
-        setCachedUrl(src); // Fallback к оригинальному URL
+        setCachedUrl(src);
       } finally {
         setIsLoading(false);
       }

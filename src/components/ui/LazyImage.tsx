@@ -10,7 +10,6 @@ interface LazyImageProps {
   onError?: () => void;
   priority?: boolean;
   placeholder?: string;
-  sizes?: string;
   timeout?: number;
 }
 
@@ -22,7 +21,6 @@ const LazyImage = ({
   onError,
   priority = false,
   placeholder,
-  sizes = "100vw",
   timeout = 8000
 }: LazyImageProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -38,7 +36,6 @@ const LazyImage = ({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          console.log('👀 [LAZY_IMAGE] Image entering viewport:', src);
           setIsInView(true);
           observer.disconnect();
         }
@@ -50,30 +47,16 @@ const LazyImage = ({
     );
 
     observer.observe(imgRef.current);
-
     return () => observer.disconnect();
   }, [src, priority]);
 
   const handleLoad = () => {
-    console.log('✅ [LAZY_IMAGE] Image loaded:', src);
     setIsLoaded(true);
   };
 
   const handleError = () => {
-    console.error('❌ [LAZY_IMAGE] Image error:', src);
     setLocalError(true);
     onError?.();
-  };
-
-  const createResponsiveUrl = (originalSrc: string, width: number) => {
-    if (originalSrc.includes('supabase') && originalSrc.includes('storage')) {
-      const url = new URL(originalSrc);
-      url.searchParams.set('width', width.toString());
-      url.searchParams.set('quality', '85');
-      url.searchParams.set('format', 'webp');
-      return url.toString();
-    }
-    return originalSrc;
   };
 
   const showError = hasError || localError;
@@ -105,12 +88,6 @@ const LazyImage = ({
       {(isInView && cachedUrl && !showError) && (
         <img
           src={cachedUrl}
-          srcSet={`
-            ${createResponsiveUrl(cachedUrl, 400)} 400w,
-            ${createResponsiveUrl(cachedUrl, 800)} 800w,
-            ${createResponsiveUrl(cachedUrl, 1200)} 1200w
-          `}
-          sizes={sizes}
           alt={alt}
           className={`w-full h-full object-cover transition-all duration-500 ${
             isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'

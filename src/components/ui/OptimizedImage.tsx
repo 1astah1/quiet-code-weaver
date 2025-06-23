@@ -24,39 +24,32 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [imageSrc, setImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    // Сброс состояния при изменении src
     setImageState('loading');
     setImageSrc(null);
 
     if (!src) {
-      console.log('🖼️ [OPTIMIZED_IMAGE] No src provided, showing fallback');
       setImageState('error');
       return;
     }
 
-    // Проверяем валидность URL
+    // Простая валидация URL
     try {
       new URL(src);
     } catch {
-      console.warn('🖼️ [OPTIMIZED_IMAGE] Invalid URL provided:', src);
       setImageState('error');
       onError?.();
       return;
     }
 
-    console.log('🖼️ [OPTIMIZED_IMAGE] Loading image:', src);
-
     const img = new Image();
     
     const handleLoad = () => {
-      console.log('✅ [OPTIMIZED_IMAGE] Image loaded successfully:', src);
       setImageSrc(src);
       setImageState('loaded');
       onLoad?.();
     };
 
     const handleError = () => {
-      console.warn('❌ [OPTIMIZED_IMAGE] Failed to load image:', src);
       setImageState('error');
       onError?.();
     };
@@ -64,10 +57,9 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     img.onload = handleLoad;
     img.onerror = handleError;
 
-    // Добавляем таймаут для очень медленных изображений
+    // Таймаут для медленных изображений
     const timeoutId = setTimeout(() => {
       if (imageState === 'loading') {
-        console.warn('⏰ [OPTIMIZED_IMAGE] Image loading timeout:', src);
         handleError();
       }
     }, timeout);
@@ -111,10 +103,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       alt={alt}
       className={`${className} transition-opacity duration-200`}
       loading="lazy"
-      onError={() => {
-        console.warn('🖼️ [OPTIMIZED_IMAGE] Image error after load:', imageSrc);
-        setImageState('error');
-      }}
+      onError={() => setImageState('error')}
     />
   );
 };
