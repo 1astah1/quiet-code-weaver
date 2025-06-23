@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import OptimizedImage from "@/components/ui/OptimizedImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
 interface BannerCarouselProps {
@@ -17,6 +18,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
   useEffect(() => {
     const fetchBanners = async () => {
       try {
+        console.log('🎯 [BANNER_CAROUSEL] Fetching banners...');
         const { data, error } = await supabase
           .from('banners')
           .select('*')
@@ -24,15 +26,16 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
           .order('order_index', { ascending: true });
 
         if (error) {
-          console.error('Error fetching banners:', error);
+          console.error('❌ [BANNER_CAROUSEL] Error fetching banners:', error);
           return;
         }
 
+        console.log('✅ [BANNER_CAROUSEL] Banners loaded:', data?.length || 0);
         if (data && Array.isArray(data)) {
           setBanners(data);
         }
       } catch (error) {
-        console.error('Unexpected error fetching banners:', error);
+        console.error('❌ [BANNER_CAROUSEL] Unexpected error:', error);
       } finally {
         setIsLoading(false);
       }
@@ -93,10 +96,38 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
   }
 
   if (banners.length === 0) {
-    return null;
+    console.log('⚠️ [BANNER_CAROUSEL] No banners found');
+    return (
+      <div className="relative w-full h-48 sm:h-64 md:h-80 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl">
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="relative z-10 flex flex-col justify-center items-center h-full p-6 sm:p-8 md:p-12 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 sm:mb-4">
+            FastMarket CASE CS2
+          </h2>
+          <p className="text-sm sm:text-base md:text-lg text-white/90 mb-4 sm:mb-6">
+            Открывай кейсы, получай скины!
+          </p>
+          <button 
+            onClick={() => onBannerAction?.('cases')}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base"
+          >
+            Открыть кейсы 🎁
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const currentBanner = banners[currentIndex];
+
+  const BannerImageFallback = () => (
+    <div className="w-full h-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl mb-2">🎁</div>
+        <p className="text-white font-semibold">FastMarket</p>
+      </div>
+    </div>
+  );
 
   return (
     <div 
@@ -108,13 +139,18 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
       {/* Banner Image */}
       <div className="absolute inset-0">
         {currentBanner.image_url ? (
-          <img
+          <OptimizedImage
             src={currentBanner.image_url}
             alt={currentBanner.title}
             className="w-full h-full object-cover"
+            fallback={<BannerImageFallback />}
+            timeout={3000}
+            onError={() => {
+              console.error('❌ [BANNER_CAROUSEL] Image failed to load:', currentBanner.image_url);
+            }}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-orange-500 to-red-500"></div>
+          <BannerImageFallback />
         )}
         <div className="absolute inset-0 bg-black/40"></div>
       </div>

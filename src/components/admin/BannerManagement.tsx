@@ -5,11 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Save, X, Upload, Image } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
-import type { Database } from "@/integrations/supabase/types";
-
-type Banner = Database['public']['Tables']['banners']['Row'];
-type BannerInsert = Database['public']['Tables']['banners']['Insert'];
-type BannerUpdate = Database['public']['Tables']['banners']['Update'];
+import type { Banner } from "@/utils/supabaseTypes";
 
 const BannerManagement = () => {
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
@@ -31,7 +27,7 @@ const BannerManagement = () => {
   });
 
   const createBannerMutation = useMutation({
-    mutationFn: async (banner: BannerInsert) => {
+    mutationFn: async (banner: Partial<Banner>) => {
       const { data, error } = await supabase
         .from('banners')
         .insert(banner)
@@ -98,15 +94,7 @@ const BannerManagement = () => {
       const fileName = `banner_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `banners/${fileName}`;
 
-      console.log('Uploading banner image:', { fileName, filePath, fileSize: file.size, fileType: file.type });
-
-      // Сначала проверим, существует ли bucket
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      console.log('Available buckets:', buckets);
-      
-      if (bucketsError) {
-        console.error('Error fetching buckets:', bucketsError);
-      }
+      console.log('🚀 [BANNER_UPLOAD] Uploading banner image:', { fileName, filePath, fileSize: file.size, fileType: file.type });
 
       const { error: uploadError } = await supabase.storage
         .from('banner-images')
@@ -116,7 +104,7 @@ const BannerManagement = () => {
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
+        console.error('❌ [BANNER_UPLOAD] Upload error:', uploadError);
         throw new Error(`Ошибка загрузки: ${uploadError.message}`);
       }
 
@@ -124,12 +112,12 @@ const BannerManagement = () => {
         .from('banner-images')
         .getPublicUrl(filePath);
 
-      console.log('Generated public URL:', publicUrl);
+      console.log('✅ [BANNER_UPLOAD] Generated public URL:', publicUrl);
 
       toast({ title: "Изображение загружено успешно" });
       return publicUrl;
     } catch (error: any) {
-      console.error('Upload error:', error);
+      console.error('❌ [BANNER_UPLOAD] Upload error:', error);
       toast({ 
         title: "Ошибка загрузки", 
         description: error.message || "Неизвестная ошибка",
@@ -141,8 +129,8 @@ const BannerManagement = () => {
     }
   };
 
-  const handleSave = (bannerData: BannerInsert) => {
-    console.log('Saving banner data:', bannerData);
+  const handleSave = (bannerData: Partial<Banner>) => {
+    console.log('💾 [BANNER_SAVE] Saving banner data:', bannerData);
     if (isCreating) {
       createBannerMutation.mutate(bannerData);
     } else if (editingBanner) {
@@ -151,7 +139,7 @@ const BannerManagement = () => {
   };
 
   if (isLoading) {
-    return <div className="p-4">Загрузка...</div>;
+    return <div className="p-4 text-white">Загрузка...</div>;
   }
 
   return (
@@ -198,8 +186,9 @@ const BannerManagement = () => {
                             <Image className="w-6 h-6 text-gray-400" />
                           </div>
                         }
+                        timeout={3000}
                         onError={() => {
-                          console.error('Image failed to load:', banner.image_url);
+                          console.error('❌ [BANNER_PREVIEW] Image failed to load:', banner.image_url);
                         }}
                       />
                     ) : (
@@ -216,7 +205,6 @@ const BannerManagement = () => {
                     <p className="text-gray-500 text-xs">Кнопка: {banner.button_text}</p>
                     <p className="text-gray-500 text-xs">Действие: {banner.button_action}</p>
                     <p className="text-gray-500 text-xs">Порядок: {banner.order_index}</p>
-                    <p className="text-gray-500 text-xs">URL изображения: {banner.image_url || 'Не установлено'}</p>
                     <p className={`text-xs ${banner.is_active ? 'text-green-400' : 'text-red-400'}`}>
                       {banner.is_active ? 'Активен' : 'Неактивен'}
                     </p>
@@ -248,7 +236,7 @@ const BannerManagement = () => {
 
 interface BannerFormProps {
   banner: Banner | null;
-  onSave: (data: BannerInsert) => void;
+  onSave: (data: Partial<Banner>) => void;
   onCancel: () => void;
   onImageUpload: (file: File) => Promise<string>;
   uploadingImage: boolean;
@@ -267,7 +255,7 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted with data:', formData);
+    console.log('📝 [BANNER_FORM] Form submitted with data:', formData);
     onSave(formData);
   };
 
@@ -275,12 +263,12 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
     const file = e.target.files?.[0];
     if (file) {
       try {
-        console.log('File selected for upload:', { name: file.name, size: file.size, type: file.type });
+        console.log('📁 [BANNER_FORM] File selected for upload:', { name: file.name, size: file.size, type: file.type });
         const imageUrl = await onImageUpload(file);
-        console.log('Upload successful, URL:', imageUrl);
+        console.log('✅ [BANNER_FORM] Upload successful, URL:', imageUrl);
         setFormData({ ...formData, image_url: imageUrl });
       } catch (error) {
-        console.error('Failed to upload image:', error);
+        console.error('❌ [BANNER_FORM] Failed to upload image:', error);
       }
     }
   };
@@ -330,8 +318,9 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
                       <Image className="w-8 h-8 text-gray-400" />
                     </div>
                   }
+                  timeout={3000}
                   onError={() => {
-                    console.error('Preview image failed to load:', formData.image_url);
+                    console.error('❌ [BANNER_FORM] Preview image failed to load:', formData.image_url);
                   }}
                 />
                 <button
@@ -342,7 +331,6 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-gray-400 text-xs mt-1">URL: {formData.image_url}</p>
             </div>
           )}
 
@@ -396,7 +384,7 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage }:
             className="w-full bg-gray-700 text-white rounded-lg px-3 py-2"
           >
             <option value="">Выберите действие</option>
-            <option value="shop">Перейти в магазин</option>
+            <option value="skins">Перейти в магазин</option>
             <option value="cases">Перейти к кейсам</option>
             <option value="tasks">Перейти к заданиям</option>
             <option value="quiz">Перейти к викторине</option>
