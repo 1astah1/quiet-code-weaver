@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +12,7 @@ interface AuthUser {
   isAdmin: boolean;
   referralCode: string | null;
   avatar_url?: string;
+  language_code?: string;
   quiz_lives: number;
   quiz_streak: number;
 }
@@ -106,15 +106,12 @@ export const useAuth = () => {
       console.log('🔄 Processing user sign in for:', authUser.id);
       setIsLoading(true);
       
-      // Благодаря новым уникальным ограничениям и триггерам, 
-      // можем безопасно создавать или обновлять пользователя
       const displayName = authUser.user_metadata?.full_name || 
                          authUser.user_metadata?.name || 
                          authUser.user_metadata?.display_name ||
                          authUser.email?.split('@')[0] || 
                          'User';
 
-      // Пытаемся найти существующего пользователя
       let { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
@@ -139,10 +136,10 @@ export const useAuth = () => {
           referral_code: null,
           quiz_lives: 3,
           quiz_streak: 0,
+          language_code: 'ru',
           created_at: new Date().toISOString()
         };
 
-        // Благодаря триггеру prevent_user_duplicates, дубликаты будут автоматически предотвращены
         const { data: createdUser, error: createError } = await supabase
           .from('users')
           .insert(newUserData)
@@ -152,8 +149,6 @@ export const useAuth = () => {
         if (createError) {
           console.error('❌ Error creating user:', createError);
           
-          // Если произошла ошибка, попробуем найти пользователя снова
-          // (возможно, триггер уже обновил существующую запись)
           const { data: retriedUser, error: retryError } = await supabase
             .from('users')
             .select('*')
@@ -189,6 +184,7 @@ export const useAuth = () => {
         isAdmin: existingUser.is_admin || false,
         referralCode: existingUser.referral_code,
         avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+        language_code: existingUser.language_code || 'ru',
         quiz_lives: existingUser.quiz_lives || 3,
         quiz_streak: existingUser.quiz_streak || 0
       };

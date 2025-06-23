@@ -16,7 +16,6 @@ import LoadingScreen from '@/components/LoadingScreen';
 import SecurityMonitor from '@/components/security/SecurityMonitor';
 import { Toaster } from '@/components/ui/toaster';
 import { useWebViewDetection } from '@/hooks/useWebViewDetection';
-import { useImagePreloader } from '@/hooks/useImagePreloader';
 
 export type Screen = 'main' | 'inventory' | 'skins' | 'quiz' | 'tasks' | 'settings' | 'admin';
 
@@ -25,8 +24,6 @@ const MainApp: React.FC = () => {
   const [currentScreen, setCurrentScreen] = React.useState<Screen>('main');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const isWebView = useWebViewDetection();
-  
-  useImagePreloader();
 
   useEffect(() => {
     if (isWebView) {
@@ -42,39 +39,52 @@ const MainApp: React.FC = () => {
   }
 
   if (!user) {
-    return <AuthScreen />;
+    return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
+  const handleCoinsUpdate = (newCoins: number) => {
+    console.log('Coins updated:', newCoins);
+  };
+
+  const currentUser = {
+    id: user.id,
+    username: user.username || 'User',
+    coins: user.coins || 0,
+    isPremium: user.isPremium || false,
+    avatar_url: user.avatar_url,
+    language_code: user.language_code || 'ru'
+  };
+
   const renderScreen = () => {
-    const currentUser = {
-      id: user.id,
-      username: user.username || 'User',
-      coins: user.coins || 0,
-      isPremium: user.isPremium || false,
-      avatar_url: user.avatar_url,
-      language_code: user.language_code
-    };
-
-    const handleCoinsUpdate = (newCoins: number) => {
-      // This would typically update the user context
-      console.log('Coins updated:', newCoins);
-    };
-
     switch (currentScreen) {
       case 'inventory':
-        return <InventoryScreen />;
+        return <InventoryScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'skins':
-        return <SkinsScreen />;
+        return <SkinsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'quiz':
-        return <QuizScreen />;
+        return <QuizScreen 
+          currentUser={currentUser} 
+          onCoinsUpdate={handleCoinsUpdate}
+          onBack={() => setCurrentScreen('main')}
+          onLivesUpdate={() => {}}
+          onStreakUpdate={() => {}}
+        />;
       case 'tasks':
         return <TasksScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen currentUser={currentUser} onCoinsUpdate={handleCoinsUpdate} />;
       case 'admin':
-        return user.isAdmin ? <AdminPanel /> : <MainScreen />;
+        return user.isAdmin ? <AdminPanel /> : <MainScreen 
+          currentUser={currentUser} 
+          onCoinsUpdate={handleCoinsUpdate}
+          onScreenChange={setCurrentScreen}
+        />;
       default:
-        return <MainScreen />;
+        return <MainScreen 
+          currentUser={currentUser} 
+          onCoinsUpdate={handleCoinsUpdate}
+          onScreenChange={setCurrentScreen}
+        />;
     }
   };
 
@@ -88,7 +98,7 @@ const MainApp: React.FC = () => {
           coins: user.coins || 0,
           isPremium: user.isPremium || false,
           avatar_url: user.avatar_url,
-          language_code: user.language_code
+          language_code: user.language_code || 'ru'
         }}
         onMenuClick={() => setSidebarOpen(true)}
       />
@@ -96,8 +106,7 @@ const MainApp: React.FC = () => {
       <Sidebar 
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={(screen: string) => setCurrentScreen(screen as Screen)}
       />
       
       <main className="pb-20 pt-16">
@@ -106,7 +115,7 @@ const MainApp: React.FC = () => {
       
       <BottomNavigation 
         currentScreen={currentScreen}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={(screen: string) => setCurrentScreen(screen as Screen)}
       />
       
       <Toaster />

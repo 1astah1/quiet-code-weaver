@@ -91,9 +91,9 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         userId: currentUser.id
       });
 
-      if (result && result.totalValue !== undefined) {
-        console.log('All skins sold, updating coins by:', result.totalValue);
-        onCoinsUpdate(currentUser.coins + result.totalValue);
+      if (result && result.total_earned !== undefined) {
+        console.log('All skins sold, updating coins by:', result.total_earned);
+        onCoinsUpdate(currentUser.coins + result.total_earned);
       }
     } catch (error) {
       console.error('Error selling all skins:', error);

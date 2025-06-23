@@ -36,3 +36,7 @@ export const useInventory = (userId: string | undefined) => {
     refetch: inventoryQuery.refetch
   };
 };
+
+// Export individual hooks for direct use
+export const useUserInventory = useInventoryData;
+export const useSellSkin = useSkinSale;

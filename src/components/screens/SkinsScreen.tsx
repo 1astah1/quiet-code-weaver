@@ -3,7 +3,6 @@ import { useState } from "react";
 import CasesTab from "@/components/skins/CasesTab";
 import ShopTab from "@/components/skins/ShopTab";
 import InventoryScreen from "@/components/inventory/InventoryScreen";
-import { createTestUser } from "@/utils/uuid";
 
 interface SkinsScreenProps {
   currentUser: {
@@ -16,8 +15,6 @@ interface SkinsScreenProps {
 
 const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
   const [activeTab, setActiveTab] = useState<"cases" | "shop" | "inventory">("cases");
-
-  const validUser = currentUser.id.includes('test-user') ? createTestUser() : currentUser;
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as "cases" | "shop" | "inventory");
@@ -66,17 +63,17 @@ const SkinsScreen = ({ currentUser, onCoinsUpdate }: SkinsScreenProps) => {
 
       {/* Content */}
       {activeTab === "cases" && (
-        <CasesTab currentUser={validUser} onCoinsUpdate={onCoinsUpdate} />
+        <CasesTab currentUser={currentUser} onCoinsUpdate={onCoinsUpdate} />
       )}
       {activeTab === "shop" && (
         <ShopTab 
-          currentUser={validUser} 
+          currentUser={currentUser} 
           onCoinsUpdate={onCoinsUpdate} 
           onTabChange={handleTabChange}
         />
       )}
       {activeTab === "inventory" && (
-        <InventoryScreen currentUser={validUser} onCoinsUpdate={onCoinsUpdate} />
+        <InventoryScreen currentUser={currentUser} onCoinsUpdate={onCoinsUpdate} />
       )}
     </div>
   );
