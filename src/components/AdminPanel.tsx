@@ -99,6 +99,36 @@ const AdminPanel = () => {
     }
   };
 
+  // Улучшенная функция инвалидации кэша
+  const invalidateRelatedQueries = async (table: string, itemId?: string) => {
+    console.log('🔄 [CACHE_INVALIDATION] Invalidating queries for:', { table, itemId });
+    
+    // Основная таблица
+    await queryClient.invalidateQueries({ queryKey: [table] });
+    
+    // Специфичные инвалидации для разных таблиц
+    if (table === 'skins') {
+      await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+      if (selectedCase) {
+        await queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
+      }
+      // Инвалидируем все связанные с кейсами запросы
+      await queryClient.invalidateQueries({ queryKey: ['cases'] });
+    }
+    
+    if (table === 'banners') {
+      await queryClient.invalidateQueries({ queryKey: ['banners'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+    }
+    
+    if (table === 'cases') {
+      await queryClient.invalidateQueries({ queryKey: ['cases'] });
+      await queryClient.invalidateQueries({ queryKey: ['case_skins'] });
+    }
+    
+    console.log('✅ [CACHE_INVALIDATION] Queries invalidated successfully');
+  };
+
   const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
     if (!file) {
       console.warn('⚠️ [IMAGE_UPLOAD] No file provided');
@@ -172,6 +202,8 @@ const AdminPanel = () => {
 
       // Обновляем данные
       if (isEdit && itemId) {
+        console.log('🔄 [IMAGE_UPLOAD] Updating database:', { itemId, fieldName, publicUrl });
+        
         const { error: updateError } = await supabase
           .from(activeTable as any)
           .update({ [fieldName]: publicUrl })
@@ -182,16 +214,16 @@ const AdminPanel = () => {
           throw new Error(`Ошибка обновления БД: ${updateError.message}`);
         }
         
-        // Инвалидируем кэш
-        queryClient.invalidateQueries({ queryKey: [activeTable] });
-        if (activeTable === 'skins') {
-          queryClient.invalidateQueries({ queryKey: ['all_skins'] });
-          queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-        }
-        if (activeTable === 'banners') {
-          queryClient.invalidateQueries({ queryKey: ['banners'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-        }
+        console.log('✅ [IMAGE_UPLOAD] Database updated successfully');
+        
+        // Принудительно инвалидируем кэш
+        await invalidateRelatedQueries(activeTable, itemId);
+        
+        // Добавляем небольшую задержку для обновления UI
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: [activeTable] });
+        }, 500);
+        
       } else {
         setNewItem({ ...newItem, [fieldName]: publicUrl });
       }
@@ -245,6 +277,8 @@ const AdminPanel = () => {
         .from('case-images')
         .getPublicUrl(filePath);
 
+      console.log('🔄 [SKIN_UPLOAD] Updating skin in database:', { skinId, publicUrl });
+
       const { error: updateError } = await supabase
         .from('skins')
         .update({ image_url: publicUrl })
@@ -255,10 +289,19 @@ const AdminPanel = () => {
         throw updateError;
       }
 
-      // Инвалидируем все связанные кэши
-      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-      queryClient.invalidateQueries({ queryKey: ['all_skins'] });
-      queryClient.invalidateQueries({ queryKey: ['skins'] });
+      console.log('✅ [SKIN_UPLOAD] Database updated successfully');
+
+      // Принудительно инвалидируем все связанные кэши
+      await invalidateRelatedQueries('skins', skinId);
+      
+      // Дополнительно обновляем данные с задержкой
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['skins'] });
+        queryClient.refetchQueries({ queryKey: ['all_skins'] });
+        if (selectedCase) {
+          queryClient.refetchQueries({ queryKey: ['case_skins', selectedCase] });
+        }
+      }, 500);
       
       console.log('✅ [SKIN_UPLOAD] Skin image updated successfully');
       toast({ title: "Изображение скина обновлено" });
@@ -287,13 +330,7 @@ const AdminPanel = () => {
       }
       
       setNewItem({});
-      queryClient.invalidateQueries({ queryKey: [activeTable] });
-      
-      // Дополнительная инвалидация для баннеров
-      if (activeTable === 'banners') {
-        queryClient.invalidateQueries({ queryKey: ['banners'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-      }
+      await invalidateRelatedQueries(activeTable);
       
       toast({ title: "Успешно добавлено" });
     } catch (error: any) {
@@ -319,13 +356,7 @@ const AdminPanel = () => {
         throw error;
       }
       
-      queryClient.invalidateQueries({ queryKey: [activeTable] });
-      
-      // Дополнительная инвалидация для баннеров
-      if (activeTable === 'banners') {
-        queryClient.invalidateQueries({ queryKey: ['banners'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-      }
+      await invalidateRelatedQueries(activeTable, id);
       
       toast({ title: "Успешно обновлено" });
     } catch (error: any) {
@@ -351,13 +382,7 @@ const AdminPanel = () => {
         throw error;
       }
       
-      queryClient.invalidateQueries({ queryKey: [activeTable] });
-      
-      // Дополнительная инвалидация для баннеров
-      if (activeTable === 'banners') {
-        queryClient.invalidateQueries({ queryKey: ['banners'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-      }
+      await invalidateRelatedQueries(activeTable, id);
       
       toast({ title: "Успешно удалено" });
     } catch (error: any) {

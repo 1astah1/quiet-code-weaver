@@ -1,11 +1,11 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Save, X, Copy } from "lucide-react";
+import { Edit2, Trash2, Plus, Save, X, Copy, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import InstantImage from "@/components/ui/InstantImage";
 
 interface CaseSkinManagementProps {
   caseId: string;
@@ -26,13 +26,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     custom_probability: null as number | null
   });
   const [cloneFromCase, setCloneFromCase] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Загружаем скины в кейсе
-  const { data: caseSkins, isLoading } = useQuery({
-    queryKey: ['case_skins', caseId],
+  const { data: caseSkins, isLoading, refetch: refetchCaseSkins } = useQuery({
+    queryKey: ['case_skins', caseId, refreshKey],
     queryFn: async () => {
+      console.log('🔍 [CASE_SKINS] Fetching case skins for:', caseId);
       const { data, error } = await supabase
         .from('case_skins')
         .select(`
@@ -46,14 +48,19 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         `)
         .eq('case_id', caseId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [CASE_SKINS] Fetch error:', error);
+        throw error;
+      }
+      
+      console.log('✅ [CASE_SKINS] Fetched successfully:', data?.length, 'items');
       return data || [];
     }
   });
 
   // Загружаем все доступные скины
   const { data: allSkins } = useQuery({
-    queryKey: ['all_skins'],
+    queryKey: ['all_skins', refreshKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('skins')
@@ -91,6 +98,22 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
   });
 
+  // Принудительное обновление данных
+  const handleForceRefresh = async () => {
+    console.log('🔄 [FORCE_REFRESH] Refreshing all data...');
+    setRefreshKey(prev => prev + 1);
+    
+    // Инвалидируем все связанные кэши
+    await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+    await queryClient.invalidateQueries({ queryKey: ['all_skins'] });
+    await queryClient.invalidateQueries({ queryKey: ['skins'] });
+    
+    // Принудительно перезагружаем данные
+    await refetchCaseSkins();
+    
+    toast({ title: "Данные обновлены" });
+  };
+
   const totalProbability = caseSkins?.reduce((sum, item) => {
     return sum + (item.custom_probability || item.probability || 0);
   }, 0) || 0;
@@ -98,6 +121,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   const isProbabilityValid = totalProbability <= 100;
 
   const handleEditItem = (item: any) => {
+    console.log('✏️ [EDIT_ITEM] Starting edit for:', item.id);
     setEditingItemId(item.id);
     setEditData({
       probability: item.probability,
@@ -108,6 +132,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
   const handleSaveItem = async () => {
     try {
+      console.log('💾 [SAVE_ITEM] Saving changes:', { itemId: editingItemId, editData });
+      
       const { error } = await supabase
         .from('case_skins')
         .update(editData)
@@ -116,9 +142,13 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       if (error) throw error;
       
       setEditingItemId(null);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      // Принудительно обновляем данные
+      await handleForceRefresh();
+      
       toast({ title: "Параметры скина обновлены" });
     } catch (error: any) {
+      console.error('❌ [SAVE_ITEM] Save error:', error);
       toast({ 
         title: "Ошибка", 
         description: error.message,
@@ -131,6 +161,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     if (!confirm('Удалить этот предмет из кейса?')) return;
 
     try {
+      console.log('🗑️ [DELETE_ITEM] Deleting item:', itemId);
+      
       const { error } = await supabase
         .from('case_skins')
         .delete()
@@ -138,9 +170,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       
       if (error) throw error;
       
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      await handleForceRefresh();
+      
       toast({ title: "Предмет удален из кейса" });
     } catch (error: any) {
+      console.error('❌ [DELETE_ITEM] Delete error:', error);
       toast({ 
         title: "Ошибка", 
         description: error.message,
@@ -160,6 +194,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
 
     try {
+      console.log('➕ [ADD_SKIN] Adding new skin to case:', newSkinData);
+      
       const insertData: any = {
         case_id: caseId,
         reward_type: newSkinData.reward_type,
@@ -189,9 +225,12 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         custom_probability: null
       });
       setShowAddForm(false);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      await handleForceRefresh();
+      
       toast({ title: "Предмет добавлен в кейс" });
     } catch (error: any) {
+      console.error('❌ [ADD_SKIN] Add error:', error);
       toast({ 
         title: "Ошибка", 
         description: error.message,
@@ -207,6 +246,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
 
     try {
+      console.log('📋 [CLONE_CASE] Cloning case:', { from: cloneFromCase, to: caseId });
+      
       // Получаем скины из исходного кейса
       const { data: sourceSkns, error: fetchError } = await supabase
         .from('case_skins')
@@ -238,9 +279,12 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       if (insertError) throw insertError;
 
       setCloneFromCase('');
-      queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
+      
+      await handleForceRefresh();
+      
       toast({ title: `Скопировано ${itemsToInsert.length} предметов` });
     } catch (error: any) {
+      console.error('❌ [CLONE_CASE] Clone error:', error);
       toast({ 
         title: "Ошибка клонирования", 
         description: error.message,
@@ -259,9 +303,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         <h4 className="text-xl font-bold text-white">
           Управление скинами: {caseName}
         </h4>
-        <Button onClick={onClose} variant="outline" size="sm">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleForceRefresh} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Обновить
+          </Button>
+          <Button onClick={onClose} variant="outline" size="sm">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Статистика кейса */}
@@ -450,7 +500,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         </div>
       )}
 
-      {/* Список скинов */}
+      {/* Список скинов с улучшенным отображением изображений */}
       <div className="space-y-3">
         {caseSkins?.map((item: any) => (
           <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
@@ -458,24 +508,32 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <div className="flex items-center space-x-4">
                 {item.reward_type === 'skin' ? (
                   <>
-                    {item.skins?.image_url && (
-                      <img 
-                        src={item.skins.image_url} 
-                        alt={item.skins.name}
-                        className="w-12 h-12 object-cover rounded"
+                    <div className="w-16 h-16 rounded overflow-hidden bg-gray-600">
+                      <InstantImage 
+                        src={item.skins?.image_url} 
+                        alt={item.skins?.name || 'Скин'}
+                        className="w-full h-full object-cover"
+                        fallback={
+                          <div className="w-full h-full flex items-center justify-center bg-gray-600 text-gray-400">
+                            <span className="text-2xl">🎯</span>
+                          </div>
+                        }
                       />
-                    )}
+                    </div>
                     <div>
                       <h6 className="text-white font-medium">{item.skins?.name}</h6>
                       <p className="text-gray-400 text-sm">
                         {item.skins?.weapon_type} • {item.skins?.price} монет
                       </p>
+                      <p className="text-gray-500 text-xs">
+                        ID: {item.skins?.id}
+                      </p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="w-12 h-12 bg-yellow-500 rounded flex items-center justify-center">
-                      <span className="text-white text-xl">🪙</span>
+                    <div className="w-16 h-16 bg-yellow-500 rounded flex items-center justify-center">
+                      <span className="text-white text-2xl">🪙</span>
                     </div>
                     <div>
                       <h6 className="text-white font-medium">{item.coin_rewards?.name}</h6>
