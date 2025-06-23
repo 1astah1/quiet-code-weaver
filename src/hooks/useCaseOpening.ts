@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +40,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         const { data, error } = await supabase
-          .from('case_skins' as any)
+          .from('case_skins')
           .select(`
             id,
             probability,
@@ -57,7 +58,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         }
         
         console.log('✅ [CASE_OPENING] Case skins loaded:', data?.length || 0);
-        setCaseSkins((data || []) as CaseSkin[]);
+        setCaseSkins((data as CaseSkin[]) || []);
         
         await logCaseOpening({
           user_id: currentUser.id,
@@ -163,7 +164,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         // Записываем в recent_wins
         await supabase
-          .from('recent_wins' as any)
+          .from('recent_wins')
           .insert({
             user_id: currentUser.id,
             case_id: caseItem.id,
@@ -190,7 +191,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         // Записываем в recent_wins
         await supabase
-          .from('recent_wins' as any)
+          .from('recent_wins')
           .insert({
             user_id: currentUser.id,
             case_id: caseItem.id,
@@ -254,7 +255,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         // Записываем в recent_wins
         await supabase
-          .from('recent_wins' as any)
+          .from('recent_wins')
           .insert({
             user_id: currentUser.id,
             case_id: caseItem.id,
@@ -274,7 +275,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         // Добавляем скин в инвентарь
         const { error } = await supabase
-          .from('user_inventory' as any)
+          .from('user_inventory')
           .insert({
             user_id: currentUser.id,
             skin_id: reward.skin.id
@@ -289,7 +290,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         
         // Записываем в recent_wins
         await supabase
-          .from('recent_wins' as any)
+          .from('recent_wins')
           .insert({
             user_id: currentUser.id,
             case_id: caseItem.id,
@@ -304,7 +305,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       console.log('⏰ [CASE_OPENING] Updating individual case opening time');
       
       const { error: openingError } = await supabase
-        .from('user_free_case_openings' as any)
+        .from('user_free_case_openings')
         .upsert({
           user_id: currentUser.id,
           case_id: caseItem.id,

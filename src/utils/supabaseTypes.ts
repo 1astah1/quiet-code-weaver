@@ -54,4 +54,50 @@ export interface RecentWin {
   case_id?: string;
   skin_id?: string;
   won_at?: string;
+  reward_type?: string;
+  reward_data?: any;
+  users?: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface ExtendedUser {
+  id: string;
+  username: string;
+  email?: string;
+  coins?: number;
+  auth_id?: string;
+  created_at?: string;
+  daily_streak?: number;
+  is_admin?: boolean;
+  last_ad_life_restore?: string;
+  last_daily_login?: string;
+  last_free_case_notification?: string;
+  last_life_restore?: string;
+  last_quiz_date?: string;
+  most_expensive_skin_value?: number;
+  premium_until?: string;
+  profile_private?: boolean;
+  quiz_lives?: number;
+  quiz_streak?: number;
+  referral_code?: string;
+  referred_by?: string;
+  steam_connected?: boolean;
+  total_cases_opened?: number;
+  total_spent?: number;
+  language_code?: string;
+  sound_enabled?: boolean;
+  vibration_enabled?: boolean;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  reward_coins: number;
+  task_url?: string;
+  is_active?: boolean;
+  created_at?: string;
+  image_url?: string;
 }

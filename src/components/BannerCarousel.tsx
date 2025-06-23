@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +13,7 @@ const BannerCarousel = () => {
     const fetchBanners = async () => {
       try {
         const { data, error } = await supabase
-          .from('banners' as any)
+          .from('banners')
           .select('*')
           .eq('is_active', true)
           .order('order_index', { ascending: true });
@@ -22,7 +23,7 @@ const BannerCarousel = () => {
           return;
         }
 
-        setBanners(data as Banner[] || []);
+        setBanners((data as Banner[]) || []);
       } catch (error) {
         console.error('Unexpected error fetching banners:', error);
       } finally {

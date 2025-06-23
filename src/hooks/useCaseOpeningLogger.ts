@@ -18,25 +18,23 @@ export const useCaseOpeningLogger = () => {
     try {
       console.log('🎰 [CASE_OPENING_LOG]', logData);
       
-      // Записываем в security_audit_log для отслеживания
-      await supabase
-        .from('security_audit_log')
-        .insert({
-          user_id: logData.user_id,
-          action: 'case_opening',
-          details: {
-            case_id: logData.case_id,
-            case_name: logData.case_name,
-            is_free: logData.is_free,
-            phase: logData.phase,
-            reward_type: logData.reward_type,
-            reward_data: logData.reward_data,
-            error_message: logData.error_message,
-            duration_ms: logData.duration_ms,
-            timestamp: new Date().toISOString()
-          },
-          success: !logData.error_message
-        });
+      // Просто логируем в консоль, так как security_audit_log не существует в базе
+      console.log('📋 [AUDIT_LOG] Case opening event:', {
+        user_id: logData.user_id,
+        action: 'case_opening',
+        details: {
+          case_id: logData.case_id,
+          case_name: logData.case_name,
+          is_free: logData.is_free,
+          phase: logData.phase,
+          reward_type: logData.reward_type,
+          reward_data: logData.reward_data,
+          error_message: logData.error_message,
+          duration_ms: logData.duration_ms,
+          timestamp: new Date().toISOString()
+        },
+        success: !logData.error_message
+      });
     } catch (error) {
       console.error('❌ [CASE_OPENING_LOG] Failed to log:', error);
     }

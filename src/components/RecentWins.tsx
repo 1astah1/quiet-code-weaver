@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/hooks/useTranslation";
 import LazyImage from "@/components/ui/LazyImage";
+import type { RecentWin } from "@/utils/supabaseTypes";
 
 interface RecentWinsProps {
   currentLanguage?: string;
@@ -56,19 +57,21 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
         }
 
         // Обогащаем данные о победах информацией о пользователях
-        const enrichedWins = winsData?.map((win, index) => {
+        const enrichedWins: RecentWin[] = winsData?.map((win, index) => {
           const user = usersData?.find(user => user.id === win.user_id);
           console.log(`🎯 [RECENT_WINS] Processing win ${index + 1}:`, {
             winId: win.id,
             userId: win.user_id,
             foundUser: !!user,
             username: user?.username,
-            rewardType: win.reward_type,
+            rewardType: win.reward_type || 'skin', // По умолчанию скин если не указано
             rewardData: win.reward_data
           });
           
           return {
             ...win,
+            reward_type: win.reward_type || 'skin', // Добавляем значение по умолчанию
+            reward_data: win.reward_data || {},
             users: user || null
           };
         }) || [];
@@ -126,7 +129,7 @@ const RecentWins = ({ currentLanguage = 'ru' }: RecentWinsProps) => {
     return color;
   };
 
-  const getWinDisplayData = (win: any) => {
+  const getWinDisplayData = (win: RecentWin) => {
     if (win.reward_type === 'coins') {
       return {
         name: `${win.reward_data?.amount || 0} монет`,

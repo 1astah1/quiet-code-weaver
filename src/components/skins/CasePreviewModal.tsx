@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
@@ -23,7 +24,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
     queryFn: async () => {
       try {
         const { data, error } = await supabase
-          .from('case_skins' as any)
+          .from('case_skins')
           .select(`
             probability,
             custom_probability,
@@ -45,7 +46,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
           throw error;
         }
         
-        return (data || []) as CaseSkin[];
+        return (data as CaseSkin[]) || [];
       } catch (error) {
         console.error('Case skins query error:', error);
         return [];
