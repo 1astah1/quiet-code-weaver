@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -206,17 +205,18 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       console.log('📊 [CASE_OPENING] RPC parameters:', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
-        p_is_free: caseItem.is_free || false
+        p_is_free: caseItem.is_free || false,
+        p_ad_watched: false
       });
       
-      // Вызываем RPC функцию БЕЗ указания конкретного скина
-      // Сервер сам выберет случайную награду
+      // Вызываем RPC функцию с корректными параметрами
       const { data, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
-        p_skin_id: null, // Пусть сервер выбирает сам
-        p_coin_reward_id: null, // Пусть сервер выбирает сам
-        p_is_free: caseItem.is_free || false
+        p_skin_id: null,
+        p_coin_reward_id: null,
+        p_is_free: caseItem.is_free || false,
+        p_ad_watched: false // Для обычных кейсов всегда false
       });
 
       console.log('📋 [CASE_OPENING] Raw RPC response:', { data, error });

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import InstantImage from "@/components/ui/InstantImage";
 import type { Banner } from "@/utils/supabaseTypes";
@@ -13,11 +13,13 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchBanners = async () => {
       try {
         console.log('🎯 [BANNER_CAROUSEL] Fetching banners...');
+        setIsLoading(true);
         const { data, error } = await supabase
           .from('banners')
           .select('*')
@@ -32,51 +34,52 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
         console.log('✅ [BANNER_CAROUSEL] Banners loaded:', data?.length || 0);
         if (data && Array.isArray(data)) {
           setBanners(data);
-          // Сбрасываем currentIndex при загрузке новых данных
           setCurrentIndex(0);
         }
       } catch (error) {
         console.error('❌ [BANNER_CAROUSEL] Unexpected error:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchBanners();
   }, []);
 
-  // Валидация currentIndex при изменении banners
-  useEffect(() => {
-    if (banners.length > 0 && currentIndex >= banners.length) {
-      console.log('🔧 [BANNER_CAROUSEL] Resetting currentIndex due to invalid value');
-      setCurrentIndex(0);
-    }
-  }, [banners.length, currentIndex]);
-
-  const nextSlide = () => {
-    if (banners.length === 0) return;
+  // Безопасные функции навигации
+  const nextSlide = useCallback(() => {
+    if (banners.length <= 1) return;
     
     setCurrentIndex((prevIndex) => {
-      const newIndex = prevIndex === banners.length - 1 ? 0 : prevIndex + 1;
+      const newIndex = prevIndex >= banners.length - 1 ? 0 : prevIndex + 1;
       console.log('➡️ [BANNER_CAROUSEL] Next slide:', prevIndex, '->', newIndex);
       return newIndex;
     });
-  };
+  }, [banners.length]);
 
-  const prevSlide = () => {
-    if (banners.length === 0) return;
+  const prevSlide = useCallback(() => {
+    if (banners.length <= 1) return;
     
     setCurrentIndex((prevIndex) => {
-      const newIndex = prevIndex === 0 ? banners.length - 1 : prevIndex - 1;
+      const newIndex = prevIndex <= 0 ? banners.length - 1 : prevIndex - 1;
       console.log('⬅️ [BANNER_CAROUSEL] Previous slide:', prevIndex, '->', newIndex);
       return newIndex;
     });
-  };
+  }, [banners.length]);
 
+  const goToSlide = useCallback((index: number) => {
+    if (index < 0 || index >= banners.length) return;
+    console.log('🎯 [BANNER_CAROUSEL] Manual slide change:', index);
+    setCurrentIndex(index);
+  }, [banners.length]);
+
+  // Автоматическое переключение слайдов
   useEffect(() => {
     if (banners.length <= 1) return;
 
     const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners.length, nextSlide]);
 
   // Touch handlers for swipe
   const onTouchStart = (e: React.TouchEvent) => {
@@ -102,7 +105,20 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     }
   };
 
-  // Show default banner immediately if no banners
+  // Загрузка
+  if (isLoading) {
+    return (
+      <div className="relative w-full h-48 sm:h-64 md:h-80 bg-gradient-to-r from-gray-600 to-gray-700 rounded-xl animate-pulse">
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="relative z-10 flex flex-col justify-center items-center h-full p-6 sm:p-8 md:p-12 text-center">
+          <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-white/90">Загрузка баннеров...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Показываем баннер по умолчанию если нет данных
   if (banners.length === 0) {
     console.log('⚠️ [BANNER_CAROUSEL] No banners found, showing default');
     return (
@@ -126,16 +142,38 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
     );
   }
 
-  // Дополнительная валидация перед рендером
+  // Безопасное получение текущего баннера
   const safeCurrentIndex = Math.max(0, Math.min(currentIndex, banners.length - 1));
   const currentBanner = banners[safeCurrentIndex];
 
   if (!currentBanner) {
-    console.error('❌ [BANNER_CAROUSEL] Current banner is undefined:', { currentIndex, safeCurrentIndex, bannersLength: banners.length });
-    return null;
+    console.error('❌ [BANNER_CAROUSEL] Current banner is undefined, showing default');
+    return (
+      <div className="relative w-full h-48 sm:h-64 md:h-80 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl">
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="relative z-10 flex flex-col justify-center items-center h-full p-6 sm:p-8 md:p-12 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 sm:mb-4">
+            FastMarket CASE CS2
+          </h2>
+          <p className="text-sm sm:text-base md:text-lg text-white/90 mb-4 sm:mb-6">
+            Открывай кейсы, получай скины!
+          </p>
+          <button 
+            onClick={() => onBannerAction?.('cases')}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base"
+          >
+            Открыть кейсы 🎁
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  console.log('🎨 [BANNER_CAROUSEL] Rendering banner:', { currentIndex, safeCurrentIndex, bannerTitle: currentBanner.title });
+  console.log('🎨 [BANNER_CAROUSEL] Rendering banner:', { 
+    currentIndex: safeCurrentIndex, 
+    bannerTitle: currentBanner.title,
+    totalBanners: banners.length 
+  });
 
   const BannerImageFallback = () => (
     <div className="w-full h-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
@@ -180,19 +218,37 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
         </button>
       </div>
 
-      {/* Indicators */}
+      {/* Navigation arrows - только если больше одного баннера */}
+      {banners.length > 1 && (
+        <>
+          <button
+            onClick={prevSlide}
+            className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="Предыдущий слайд"
+          >
+            ←
+          </button>
+          <button
+            onClick={nextSlide}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="Следующий слайд"
+          >
+            →
+          </button>
+        </>
+      )}
+
+      {/* Indicators - только если больше одного баннера */}
       {banners.length > 1 && (
         <div className="absolute bottom-3 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
           {banners.map((_, index) => (
             <button
               key={index}
-              onClick={() => {
-                console.log('🎯 [BANNER_CAROUSEL] Manual slide change:', index);
-                setCurrentIndex(index);
-              }}
+              onClick={() => goToSlide(index)}
               className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all ${
                 index === safeCurrentIndex ? 'bg-white' : 'bg-white/50'
               }`}
+              aria-label={`Слайд ${index + 1}`}
             />
           ))}
         </div>
