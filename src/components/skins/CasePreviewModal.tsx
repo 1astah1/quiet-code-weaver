@@ -128,7 +128,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                     className={`rounded-lg p-3 border-2 ${
                       isCoinsReward 
                         ? 'border-yellow-400 bg-yellow-900/50' 
-                        : getRarityColor(itemData.rarity)
+                        : getRarityColor(itemData.rarity || '')
                     } hover:scale-105 transition-transform`}
                   >
                     <div className="aspect-square mb-2 bg-gray-800 rounded-lg overflow-hidden">
@@ -158,7 +158,7 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                       {itemData.name}
                     </h3>
                     
-                    {!isCoinsReward && (
+                    {!isCoinsReward && 'weapon_type' in itemData && (
                       <p className="text-gray-400 text-xs mb-2">
                         {itemData.weapon_type}
                       </p>
@@ -166,7 +166,8 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                     
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-orange-400 font-bold">
-                        {isCoinsReward ? `${itemData.amount} монет` : `${itemData.price} ₽`}
+                        {isCoinsReward && 'amount' in itemData ? `${itemData.amount} монет` : 
+                         !isCoinsReward && 'price' in itemData ? `${itemData.price} ₽` : 'N/A'}
                       </span>
                       <span className="text-blue-400">
                         {percentage}%
@@ -175,7 +176,8 @@ const CasePreviewModal = ({ caseItem, onClose }: CasePreviewModalProps) => {
                     
                     <div className="mt-2">
                       <span className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300">
-                        {isCoinsReward ? 'Монеты' : itemData.rarity}
+                        {isCoinsReward ? 'Монеты' : 
+                         !isCoinsReward && 'rarity' in itemData ? itemData.rarity : 'Предмет'}
                       </span>
                     </div>
                   </div>
