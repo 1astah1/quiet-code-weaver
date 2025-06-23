@@ -2,51 +2,60 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-export const ensureBucketExists = async (bucketName: string) => {
-  try {
-    console.log(`🪣 [BUCKET_CHECK] Checking bucket: ${bucketName}`);
-    
-    // Простая попытка загрузки тестового файла для проверки bucket
-    const testFileName = `test_${Date.now()}.txt`;
-    const { error: testError } = await supabase.storage
-      .from(bucketName)
-      .upload(testFileName, new Blob(['test']), { upsert: false });
-    
-    if (testError) {
-      if (testError.message.includes('Bucket not found')) {
-        console.log(`🆕 [BUCKET_CREATE] Creating bucket: ${bucketName}`);
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: ['image/*'],
-          fileSizeLimit: 5242880 // 5MB
-        });
-        
-        if (createError && !createError.message.includes('already exists')) {
-          console.error('❌ [BUCKET_CREATE] Error creating bucket:', createError);
-          throw createError;
-        }
-        
-        console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} created successfully`);
-      } else {
-        // Удаляем тестовый файл если bucket существует
-        await supabase.storage.from(bucketName).remove([testFileName]);
+export const ensureBucketExists = async (bucketName: string, retries: number = 3): Promise<boolean> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🪣 [BUCKET_CHECK] Attempt ${attempt}/${retries} - Checking bucket: ${bucketName}`);
+      
+      // Проверяем bucket через получение публичного URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl('test');
+      
+      if (publicUrl) {
         console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} exists and accessible`);
+        return true;
       }
-    } else {
-      // Удаляем тестовый файл
-      await supabase.storage.from(bucketName).remove([testFileName]);
-      console.log(`✅ [BUCKET_CHECK] Bucket ${bucketName} exists and accessible`);
+      
+      // Если publicUrl недоступен, пытаемся создать bucket
+      console.log(`🆕 [BUCKET_CREATE] Creating bucket: ${bucketName}`);
+      const { error: createError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        allowedMimeTypes: ['image/*'],
+        fileSizeLimit: 5242880 // 5MB
+      });
+      
+      if (createError) {
+        if (createError.message.includes('already exists')) {
+          console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} already exists`);
+          return true;
+        } else {
+          console.error(`❌ [BUCKET_CREATE] Attempt ${attempt} failed:`, createError);
+          if (attempt === retries) throw createError;
+          continue;
+        }
+      }
+      
+      console.log(`✅ [BUCKET_CREATE] Bucket ${bucketName} created successfully`);
+      return true;
+      
+    } catch (error: any) {
+      console.error(`❌ [BUCKET_ERROR] Attempt ${attempt}/${retries} failed:`, error);
+      if (attempt === retries) {
+        throw new Error(`Не удалось создать/проверить bucket ${bucketName}: ${error.message}`);
+      }
+      // Ждем перед повторной попыткой
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    return true;
-  } catch (error: any) {
-    console.error(`❌ [BUCKET_ERROR] Error with bucket ${bucketName}:`, error);
-    throw new Error(`Ошибка с bucket ${bucketName}: ${error.message}`);
   }
+  
+  return false;
 };
 
 export const uploadBannerImage = async (file: File): Promise<string> => {
   if (!file) throw new Error('Файл не выбран');
+  
+  const uploadTimeout = 30000; // 30 секунд timeout
   
   try {
     console.log('🖼️ [BANNER_UPLOAD] Starting banner image upload:', { 
@@ -64,7 +73,8 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       throw new Error('Файл должен быть изображением');
     }
 
-    // Проверяем/создаем bucket
+    // Проверяем/создаем bucket с retry логикой
+    console.log('🔍 [BANNER_UPLOAD] Ensuring bucket exists...');
     await ensureBucketExists('banner-images');
 
     // Генерируем имя файла
@@ -76,13 +86,20 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
 
     console.log('📁 [BANNER_UPLOAD] Upload details:', { fileName, filePath });
 
-    // Загружаем файл
-    const { error: uploadError } = await supabase.storage
+    // Создаем Promise с timeout
+    const uploadPromise = supabase.storage
       .from('banner-images')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Время загрузки истекло')), uploadTimeout);
+    });
+
+    // Загружаем файл с timeout
+    const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
 
     if (uploadError) {
       console.error('❌ [BANNER_UPLOAD] Upload error:', uploadError);
@@ -94,15 +111,31 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
       .from('banner-images')
       .getPublicUrl(filePath);
 
+    if (!publicUrl) {
+      throw new Error('Не удалось получить публичный URL');
+    }
+
     console.log('✅ [BANNER_UPLOAD] Upload successful:', publicUrl);
 
     toast({ title: "Изображение баннера загружено успешно" });
     return publicUrl;
   } catch (error: any) {
     console.error('❌ [BANNER_UPLOAD] Upload failed:', error);
+    
+    let errorMessage = "Неизвестная ошибка";
+    if (error.message.includes('timeout') || error.message.includes('Время загрузки истекло')) {
+      errorMessage = "Время загрузки истекло. Попробуйте еще раз";
+    } else if (error.message.includes('слишком большой')) {
+      errorMessage = "Файл слишком большой. Максимальный размер: 5MB";
+    } else if (error.message.includes('должен быть изображением')) {
+      errorMessage = "Поддерживаются только изображения";
+    } else {
+      errorMessage = error.message || "Ошибка загрузки";
+    }
+    
     toast({ 
       title: "Ошибка загрузки", 
-      description: error.message || "Неизвестная ошибка",
+      description: errorMessage,
       variant: "destructive" 
     });
     throw error;

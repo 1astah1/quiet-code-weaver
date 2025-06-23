@@ -17,7 +17,8 @@ const BannerManagement = () => {
     handleEdit,
     handleDelete,
     handleCancel,
-    startCreating
+    startCreating,
+    isSaving
   } = useBannerManagement();
 
   const handleImageUpload = async (file: File): Promise<string> => {
@@ -39,7 +40,8 @@ const BannerManagement = () => {
         <h2 className="text-xl font-bold text-white">Управление баннерами</h2>
         <button
           onClick={startCreating}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+          disabled={isCreating || isSaving}
+          className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center space-x-2"
         >
           <Plus className="w-4 h-4" />
           <span>Добавить баннер</span>
@@ -53,6 +55,7 @@ const BannerManagement = () => {
           onCancel={handleCancel}
           onImageUpload={handleImageUpload}
           uploadingImage={uploadingImage}
+          isSaving={isSaving}
         />
       )}
 
