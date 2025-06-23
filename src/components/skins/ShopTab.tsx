@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,10 +97,11 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           throw new Error(error.message || 'Не удалось совершить покупку');
         }
 
-        const response = data as SafePurchaseSkinResponse;
+        // Безопасно приводим тип через unknown
+        const response = data as unknown as SafePurchaseSkinResponse;
         
-        if (!response.success) {
-          throw new Error(response.error || 'Покупка не удалась');
+        if (!response?.success) {
+          throw new Error(response?.error || 'Покупка не удалась');
         }
 
         console.log('✅ [SHOP] Purchase successful:', {
