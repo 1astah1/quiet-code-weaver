@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SecurityRateLimiter, auditLog } from "@/utils/security";
 import { isValidUUID } from "@/utils/uuid";
+import type { SafeOpenCaseResponse } from "@/types/rpc";
 
 interface CaseOpeningParams {
   userId: string;
@@ -69,19 +70,22 @@ export const useSecureCaseOpening = () => {
           throw new Error(error.message || 'Не удалось открыть кейс');
         }
 
+        // Типизируем ответ от RPC функции
+        const result = data as SafeOpenCaseResponse;
+        
         console.log('✅ [SECURE_CASE_OPENING] Case opened successfully:', {
-          success: data?.success,
-          skinName: data?.skin?.name,
-          skinRarity: data?.skin?.rarity,
-          inventoryId: data?.inventory_id
+          success: result?.success,
+          skinName: result?.skin?.name,
+          skinRarity: result?.skin?.rarity,
+          inventoryId: result?.inventory_id
         });
         
-        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: data?.skin });
+        await auditLog(userId, 'case_open_success', { caseId, skinId, isFree, wonSkin: result?.skin });
         
         return {
-          success: data?.success || false,
-          skin: data?.skin,
-          inventory_id: data?.inventory_id
+          success: result?.success || false,
+          skin: result?.skin,
+          inventory_id: result?.inventory_id
         } as CaseOpeningResult;
       } catch (error) {
         console.error('💥 [SECURE_CASE_OPENING] Unexpected error:', error);

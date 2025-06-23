@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { SafeSellSkinResponse } from '@/types/rpc';
 
 export const useSecureInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,8 +26,11 @@ export const useSecureInventory = () => {
         throw new Error(sellError.message || 'Не удалось продать скин');
       }
 
-      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', data);
-      return { success: true, newBalance: data?.new_balance };
+      // Типизируем ответ от RPC функции
+      const result = data as SafeSellSkinResponse;
+
+      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', result);
+      return { success: true, newBalance: result?.new_balance };
     } catch (err) {
       console.error('💥 [SECURE_INVENTORY] Error selling skin:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

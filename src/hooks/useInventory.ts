@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateUUID, isValidUUID } from "@/utils/uuid";
+import type { SafeSellSkinResponse } from "@/types/rpc";
 
 export interface InventoryItem {
   id: string;
@@ -143,14 +144,17 @@ export const useSellSkin = () => {
           throw new Error(error.message || 'Не удалось продать скин');
         }
 
+        // Типизируем ответ от RPC функции
+        const result = data as SafeSellSkinResponse;
+
         const duration = Date.now() - startTime;
         console.log(`🎉 [SELL] Sale completed successfully in ${duration}ms:`, {
           inventoryId,
           sellPrice,
-          newBalance: data?.new_balance
+          newBalance: result?.new_balance
         });
         
-        return { newCoins: data?.new_balance || 0 };
+        return { newCoins: result?.new_balance || 0 };
       } catch (error) {
         console.error('💥 [SELL] Sell operation failed:', error);
         throw error;
