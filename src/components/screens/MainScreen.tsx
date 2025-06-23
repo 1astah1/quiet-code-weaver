@@ -59,8 +59,38 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
   });
 
   const handleBannerAction = (action: string) => {
-    if (action === 'skins' || action === 'quiz' || action === 'tasks' || action === 'inventory') {
-      onScreenChange(action as Screen);
+    console.log('🎯 [MAIN_SCREEN] Banner action triggered:', action);
+    
+    switch (action) {
+      case 'cases':
+        console.log('📦 [MAIN_SCREEN] Navigating to cases (skins screen)');
+        onScreenChange('skins');
+        break;
+      case 'shop':
+        console.log('🛍️ [MAIN_SCREEN] Navigating to shop (skins screen)');
+        onScreenChange('skins');
+        break;
+      case 'skins':
+        console.log('🎨 [MAIN_SCREEN] Navigating to skins screen');
+        onScreenChange('skins');
+        break;
+      case 'tasks':
+        console.log('📋 [MAIN_SCREEN] Navigating to tasks screen');
+        onScreenChange('tasks');
+        break;
+      case 'quiz':
+        console.log('🧠 [MAIN_SCREEN] Navigating to quiz screen');
+        onScreenChange('quiz');
+        break;
+      case 'inventory':
+        console.log('🎒 [MAIN_SCREEN] Navigating to inventory screen');
+        onScreenChange('inventory');
+        break;
+      default:
+        console.warn('⚠️ [MAIN_SCREEN] Unknown banner action:', action);
+        // Default to skins screen for unknown actions
+        onScreenChange('skins');
+        break;
     }
   };
 

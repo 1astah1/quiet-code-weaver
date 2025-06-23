@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import InstantImage from "@/components/ui/InstantImage";
@@ -45,6 +44,15 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
 
     fetchBanners();
   }, []);
+
+  const handleBannerClick = (action: string) => {
+    console.log('🎯 [BANNER_CAROUSEL] Banner button clicked with action:', action);
+    if (onBannerAction) {
+      onBannerAction(action);
+    } else {
+      console.warn('⚠️ [BANNER_CAROUSEL] No onBannerAction handler provided');
+    }
+  };
 
   // Безопасные функции навигации
   const nextSlide = useCallback(() => {
@@ -211,7 +219,7 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
           {currentBanner.description}
         </p>
         <button 
-          onClick={() => onBannerAction?.(currentBanner.button_action)}
+          onClick={() => handleBannerClick(currentBanner.button_action)}
           className="bg-orange-500 hover:bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base"
         >
           {currentBanner.button_text}
