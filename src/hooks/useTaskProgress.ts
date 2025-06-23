@@ -56,7 +56,13 @@ export const useTaskProgress = (userId: string) => {
         throw new Error(error.message);
       }
 
-      const response = data as SafeCompleteTaskResponse;
+      // Безопасное приведение типа с проверкой
+      const response = data as unknown as SafeCompleteTaskResponse;
+      
+      if (!response || typeof response !== 'object' || !('success' in response)) {
+        console.error('❌ Invalid response format from safe_complete_task:', data);
+        throw new Error('Invalid response format');
+      }
       
       if (!response.success) {
         console.error('❌ Task completion failed:', response.error);
@@ -98,7 +104,13 @@ export const useTaskProgress = (userId: string) => {
         throw new Error(error.message);
       }
 
-      const response = data as SafeClaimTaskRewardResponse;
+      // Безопасное приведение типа с проверкой
+      const response = data as unknown as SafeClaimTaskRewardResponse;
+
+      if (!response || typeof response !== 'object' || !('success' in response)) {
+        console.error('❌ Invalid response format from safe_claim_task_reward:', data);
+        throw new Error('Invalid response format');
+      }
 
       if (!response.success) {
         console.error('❌ Reward claim failed:', response.error);
