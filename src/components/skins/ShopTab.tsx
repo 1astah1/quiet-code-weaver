@@ -1,11 +1,8 @@
-
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { generateUUID, isValidUUID } from "@/utils/uuid";
-import { purchaseLimiter } from "@/utils/rateLimiter";
-import { SafePurchaseSkinResponse } from "@/types/rpc";
+import { useSecureShop } from "@/hooks/useSecureShop";
+import { enhancedValidation, SecurityMonitor } from "@/utils/securityEnhanced";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
@@ -44,120 +41,62 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     item: Skin | null;
   }>({ isOpen: false, item: null });
   
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { purchaseMutation, isPurchasing } = useSecureShop(currentUser);
 
+  // ИСПРАВЛЕНО: Безопасная загрузка скинов с валидацией
   const { data: skins, isLoading } = useQuery({
     queryKey: ['shop-skins'],
     queryFn: async () => {
+      console.log('🔄 [SHOP] Loading skins...');
+      
       const { data, error } = await supabase
         .from('skins')
         .select('*')
-        .order('price', { ascending: true });
+        .order('price', { ascending: true }); // ИСПРАВЛЕНО: Корректная сортировка
       
       if (error) {
-        console.error('Error loading skins:', error);
+        console.error('❌ [SHOP] Error loading skins:', error);
         throw error;
       }
-      return data as Skin[];
+      
+      // Валидация и санитизация данных скинов
+      const validatedSkins = (data || []).filter(skin => {
+        return (
+          enhancedValidation.uuid(skin.id) &&
+          skin.name && 
+          typeof skin.name === 'string' &&
+          skin.name.length > 0 &&
+          enhancedValidation.skinPrice(skin.price) &&
+          enhancedValidation.checkSqlInjection(skin.name)
+        );
+      }).map(skin => ({
+        ...skin,
+        name: enhancedValidation.sanitizeString(skin.name),
+        weapon_type: enhancedValidation.sanitizeString(skin.weapon_type || ''),
+        rarity: enhancedValidation.sanitizeString(skin.rarity || ''),
+        price: Math.max(0, Math.min(1000000, Math.floor(skin.price)))
+      }));
+      
+      console.log('✅ [SHOP] Loaded and validated skins:', validatedSkins.length);
+      return validatedSkins as Skin[];
+    },
+    retry: (failureCount, error) => {
+      console.log(`🔄 [SHOP] Retry attempt ${failureCount}:`, error);
+      return failureCount < 2;
     }
   });
 
-  const purchaseMutation = useMutation({
-    mutationFn: async (skin: Skin) => {
-      try {
-        if (!purchaseLimiter.isAllowed(currentUser.id)) {
-          throw new Error('Слишком много покупок. Подождите немного.');
-        }
-
-        console.log('💰 [SHOP] Starting purchase:', { 
-          skinName: skin.name, 
-          skinPrice: skin.price, 
-          userCoins: currentUser.coins, 
-          userId: currentUser.id 
-        });
-
-        if (!isValidUUID(currentUser.id)) {
-          throw new Error('Ошибка пользователя. Пожалуйста, перезагрузите страницу.');
-        }
-
-        if (currentUser.coins < skin.price) {
-          throw new Error(`Недостаточно монет. Нужно ${skin.price}, у вас ${currentUser.coins}`);
-        }
-
-        // Используем RPC функцию для безопасной покупки
-        const { data, error } = await supabase.rpc('safe_purchase_skin', {
-          p_user_id: currentUser.id,
-          p_skin_id: skin.id,
-          p_skin_price: skin.price
-        });
-
-        if (error) {
-          console.error('❌ [SHOP] RPC purchase error:', error);
-          throw new Error(error.message || 'Не удалось совершить покупку');
-        }
-
-        // Безопасно приводим тип через unknown
-        const response = data as unknown as SafePurchaseSkinResponse;
-        
-        if (!response?.success) {
-          throw new Error(response?.error || 'Покупка не удалась');
-        }
-
-        console.log('✅ [SHOP] Purchase successful:', {
-          newBalance: response.new_balance,
-          inventoryId: response.inventory_id
-        });
-
-        return { 
-          newCoins: response.new_balance!, 
-          purchasedSkin: skin,
-          inventoryId: response.inventory_id!
-        };
-      } catch (error) {
-        console.error('💥 [SHOP] Purchase error:', error);
-        throw error;
-      }
-    },
-    onSuccess: async (data) => {
-      console.log('🎉 [SHOP] Purchase completed, updating UI...');
-      
-      // Обновляем баланс пользователя
-      onCoinsUpdate(data.newCoins);
-      
-      // Инвалидируем кэш инвентаря
-      await queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
-      await queryClient.refetchQueries({ queryKey: ['user-inventory', currentUser.id] });
-      
-      console.log('✅ [SHOP] Inventory cache invalidated');
-      
-      setPurchaseSuccessModal({
-        isOpen: true,
-        item: data.purchasedSkin
-      });
-      
-      toast({
-        title: "Покупка успешна!",
-        description: `${data.purchasedSkin.name} добавлен в инвентарь`,
-      });
-    },
-    onError: (error: any) => {
-      console.error('🚨 [SHOP] Purchase mutation error:', error);
-      toast({
-        title: "Ошибка покупки",
-        description: error.message || "Не удалось совершить покупку",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Фильтрация и сортировка скинов
+  // ИСПРАВЛЕНО: Безопасная фильтрация и сортировка
   const filteredAndSortedSkins = skins?.filter(skin => {
+    // Дополнительная валидация на фронтенде
+    if (!skin || !enhancedValidation.uuid(skin.id)) return false;
+    
     const rarityMatch = selectedRarity === "all" || skin.rarity === selectedRarity;
     const weaponMatch = selectedWeapon === "all" || skin.weapon_type === selectedWeapon;
     const priceMatch = skin.price >= priceRange.min && skin.price <= priceRange.max;
+    
     return rarityMatch && weaponMatch && priceMatch;
-  }).sort((a, b) => {
+  })?.sort((a, b) => {
     switch (sortBy) {
       case 'price-asc':
         return a.price - b.price;
@@ -184,39 +123,70 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentSkins = filteredAndSortedSkins.slice(startIndex, endIndex);
 
-  const handlePurchase = (skin: Skin) => {
+  const handlePurchase = async (skin: Skin) => {
     console.log('🛒 [SHOP] Handle purchase clicked for:', skin.name);
     
-    const remaining = purchaseLimiter.getRemainingRequests(currentUser.id);
-    if (remaining === 0) {
-      toast({
-        title: "Слишком много покупок",
-        description: "Подождите немного перед следующей покупкой",
-        variant: "destructive",
+    try {
+      // Дополнительные проверки безопасности
+      if (!enhancedValidation.uuid(skin.id)) {
+        throw new Error('Некорректный ID скина');
+      }
+      
+      if (isPurchasing) {
+        console.log('⏳ [SHOP] Purchase already in progress, ignoring click');
+        return;
+      }
+      
+      // Проверяем rate limiting на клиенте
+      if (!SecurityMonitor.checkClientRateLimit(currentUser.id, 'purchase_click', 5)) {
+        throw new Error('Слишком много попыток покупки. Подождите немного.');
+      }
+      
+      const result = await purchaseMutation.mutateAsync(skin);
+      
+      // Обновляем баланс пользователя
+      onCoinsUpdate(result.newCoins);
+      
+      // Показываем модальное окно успеха
+      setPurchaseSuccessModal({
+        isOpen: true,
+        item: result.purchasedSkin
       });
-      return;
+      
+    } catch (error) {
+      console.error('💥 [SHOP] Purchase handling error:', error);
+      
+      // Логируем подозрительную активность при ошибках
+      await SecurityMonitor.logSuspiciousActivity(
+        currentUser.id, 
+        'purchase_click_error', 
+        { error: error instanceof Error ? error.message : 'Unknown error', skinId: skin.id },
+        'low'
+      );
     }
-    
-    if (purchaseMutation.isPending) {
-      console.log('⏳ [SHOP] Purchase already in progress, ignoring click');
-      return;
-    }
-    
-    purchaseMutation.mutate(skin);
   };
 
   const handlePriceRangeChange = (min: number, max: number) => {
-    setPriceRange({ min, max });
+    // Валидация диапазона цен
+    const validMin = Math.max(0, Math.min(999999, Math.floor(min)));
+    const validMax = Math.max(validMin, Math.min(999999, Math.floor(max)));
+    
+    setPriceRange({ min: validMin, max: validMax });
     setCurrentPage(1);
   };
 
   const handleSortChange = (sort: string) => {
-    setSortBy(sort);
-    setCurrentPage(1);
+    // Валидация типа сортировки
+    const allowedSorts = ['price-asc', 'price-desc', 'name-asc', 'name-desc', 'rarity-desc', 'rarity-asc'];
+    if (allowedSorts.includes(sort)) {
+      setSortBy(sort);
+      setCurrentPage(1);
+    }
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    const validPage = Math.max(1, Math.min(totalPages, Math.floor(page)));
+    setCurrentPage(validPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -227,12 +197,16 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   };
 
   const handleRarityChange = (rarity: string) => {
-    setSelectedRarity(rarity);
+    // Санитизация выбора редкости
+    const sanitizedRarity = enhancedValidation.sanitizeString(rarity);
+    setSelectedRarity(sanitizedRarity);
     setCurrentPage(1);
   };
 
   const handleWeaponChange = (weapon: string) => {
-    setSelectedWeapon(weapon);
+    // Санитизация выбора оружия
+    const sanitizedWeapon = enhancedValidation.sanitizeString(weapon);
+    setSelectedWeapon(sanitizedWeapon);
     setCurrentPage(1);
   };
 
@@ -280,7 +254,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
             skin={skin}
             canAfford={currentUser.coins >= skin.price}
             onPurchase={handlePurchase}
-            isPurchasing={purchaseMutation.isPending}
+            isPurchasing={isPurchasing}
           />
         ))}
       </div>
