@@ -45,6 +45,39 @@ export type Database = {
         }
         Relationships: []
       }
+      case_opening_sessions: {
+        Row: {
+          case_id: string
+          coins_debited: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          session_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          coins_debited?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          session_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          coins_debited?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       case_skins: {
         Row: {
           case_id: string | null
@@ -918,6 +951,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_old_case_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       is_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -951,6 +988,18 @@ export type Database = {
               p_is_free?: boolean
               p_ad_watched?: boolean
             }
+        Returns: Json
+      }
+      safe_open_case_with_session: {
+        Args: {
+          p_user_id: string
+          p_case_id: string
+          p_session_id: string
+          p_skin_id?: string
+          p_coin_reward_id?: string
+          p_is_free?: boolean
+          p_ad_watched?: boolean
+        }
         Returns: Json
       }
       safe_purchase_skin: {

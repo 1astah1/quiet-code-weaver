@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
-import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import CaseOpeningAnimationSafe from "@/components/CaseOpeningAnimationSafe";
 
 interface CasesTabProps {
   currentUser: {
@@ -50,7 +50,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       console.error('Invalid case data or user for opening');
       return;
     }
-    console.log('Opening case:', caseData.name);
+    console.log('🎯 [CASES_TAB] Opening case with safe animation:', caseData.name);
     setOpeningCase(caseData);
   };
 
@@ -139,7 +139,7 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       )}
 
       {openingCase && currentUser && (
-        <CaseOpeningAnimation
+        <CaseOpeningAnimationSafe
           caseItem={openingCase}
           onClose={() => setOpeningCase(null)}
           currentUser={currentUser}
