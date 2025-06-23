@@ -26,6 +26,16 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
   const startTime = Date.now();
 
+  // Сброс состояния при смене кейса
+  useEffect(() => {
+    setWonSkin(null);
+    setWonCoins(0);
+    setIsComplete(false);
+    setAnimationPhase('loading');
+    setIsProcessing(false);
+    setCaseSkins([]);
+  }, [caseItem?.id]);
+
   // Загружаем содержимое кейса
   useEffect(() => {
     const loadCaseSkins = async () => {
@@ -131,6 +141,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         throw new Error('Не удалось выбрать награду');
       }
 
+      setIsProcessing(true);
+
       // Для бесплатных кейсов проверяем доступность
       if (caseItem.is_free) {
         // Проверяем когда последний раз открывали этот бесплатный кейс
@@ -157,7 +169,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
           throw new Error('Недостаточно монет для открытия кейса');
         }
 
-        const { error: coinsError } = await supabase.rpc('safe_update_coins', {
+        const { error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
           p_user_id: currentUser.id,
           p_coin_change: -caseItem.price,
           p_operation_type: 'case_open'
@@ -174,7 +186,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       if (selectedReward.reward_type === 'coin_reward' && selectedReward.coin_rewards) {
         console.log('🪙 [CASE_OPENING] Processing coin reward');
         
-        const { error: addCoinsError } = await supabase.rpc('safe_update_coins', {
+        const { error: addCoinsError } = await supabase.rpc('safe_update_coins_v2', {
           p_user_id: currentUser.id,
           p_coin_change: selectedReward.coin_rewards.amount,
           p_operation_type: 'coin_reward'
@@ -279,6 +291,8 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -304,7 +318,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
       if (removeError) throw removeError;
 
       // Добавляем монеты
-      const { error: coinsError } = await supabase.rpc('safe_update_coins', {
+      const { error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
         p_user_id: currentUser.id,
         p_coin_change: wonSkin.price,
         p_operation_type: 'skin_sell'

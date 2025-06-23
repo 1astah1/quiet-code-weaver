@@ -44,50 +44,21 @@ export const useSellAllSkins = () => {
         const totalValue = inventoryItems.reduce((sum, item) => sum + (item.skins?.price || 0), 0);
         console.log('💰 [SELL_ALL] Total value:', totalValue);
 
-        // Помечаем все скины как проданные (обрабатываем каждый по отдельности для правильной цены)
-        for (const item of inventoryItems) {
-          const { error: sellError } = await supabase
-            .from('user_inventory')
-            .update({
-              is_sold: true,
-              sold_at: new Date().toISOString(),
-              sold_price: item.skins?.price || 0
-            })
-            .eq('id', item.id)
-            .eq('user_id', userId)
-            .eq('is_sold', false);
-
-          if (sellError) {
-            console.error('❌ [SELL_ALL] Error marking item as sold:', sellError);
-            throw new Error('Не удалось продать предметы');
-          }
-        }
-
-        // Обновляем баланс пользователя с помощью правильной функции
-        const { data: updateResult, error: coinsError } = await supabase.rpc('safe_update_coins_v2', {
-          p_user_id: userId,
-          p_coin_change: totalValue,
-          p_operation_type: 'sell_all_skins'
+        // Используем транзакцию через RPC функцию
+        const { data: sellResult, error: sellError } = await supabase.rpc('sell_all_user_skins', {
+          p_user_id: userId
         });
 
-        if (coinsError) {
-          console.error('❌ [SELL_ALL] Error updating coins:', coinsError);
-          // Откатываем продажу предметов
-          const inventoryIds = inventoryItems.map(item => item.id);
-          await supabase
-            .from('user_inventory')
-            .update({
-              is_sold: false,
-              sold_at: null,
-              sold_price: null
-            })
-            .in('id', inventoryIds);
-          
-          throw new Error('Не удалось обновить баланс');
+        if (sellError) {
+          console.error('❌ [SELL_ALL] RPC error:', sellError);
+          throw new Error('Не удалось продать предметы: ' + sellError.message);
         }
 
-        console.log('✅ [SELL_ALL] All items sold successfully');
-        return { totalValue, itemCount: inventoryItems.length };
+        console.log('✅ [SELL_ALL] All items sold successfully:', sellResult);
+        return { 
+          totalValue: sellResult.total_earned || totalValue, 
+          itemCount: sellResult.items_sold || inventoryItems.length 
+        };
       } catch (error) {
         console.error('💥 [SELL_ALL] Sell all operation failed:', error);
         throw error;
