@@ -47,12 +47,27 @@ const UnifiedCaseRoulette = ({
     const startTimer = setTimeout(() => {
       setIsSpinning(true);
       
-      // Вычисляем финальную позицию для центровки победителя
+      // Исправленный расчет позиционирования
       const itemWidth = 128; // ширина одного элемента (w-32)
+      const itemMargin = 4; // margin (mx-1 = 4px с каждой стороны)
+      const totalItemWidth = itemWidth + itemMargin * 2; // полная ширина с отступами
       const containerCenter = window.innerWidth / 2;
-      const finalPosition = -(winnerPosition * itemWidth - containerCenter + itemWidth / 2);
       
-      console.log('🎯 [ROULETTE] Final position:', finalPosition);
+      // Используем средний набор (второй из трех дубликатов)
+      // Позиция в среднем наборе = originalLength + winnerPosition
+      const targetPosition = rouletteItems.length + winnerPosition;
+      
+      // Вычисляем финальную позицию для точного центрирования
+      const finalPosition = -(targetPosition * totalItemWidth - containerCenter + totalItemWidth / 2);
+      
+      console.log('🎯 [ROULETTE] Calculated position:', {
+        itemWidth,
+        itemMargin,
+        totalItemWidth,
+        targetPosition,
+        finalPosition
+      });
+      
       setTranslateX(finalPosition);
     }, 500);
 
@@ -101,9 +116,10 @@ const UnifiedCaseRoulette = ({
       <h2 className="text-3xl font-bold text-white text-center">Крутим рулетку!</h2>
       
       <div className="relative overflow-hidden bg-slate-800 rounded-lg border-2 border-orange-500/50 h-40">
-        {/* Указатель победителя */}
+        {/* Улучшенный указатель победителя */}
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="w-0 h-0 border-l-[15px] border-r-[15px] border-b-[20px] border-l-transparent border-r-transparent border-b-orange-500"></div>
+          <div className="w-0 h-0 border-l-[20px] border-r-[20px] border-b-[25px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
+          <div className="w-1 h-2 bg-orange-500 mx-auto"></div>
         </div>
         
         {/* Рулетка */}
@@ -150,14 +166,6 @@ const UnifiedCaseRoulette = ({
         <p className="text-yellow-400 text-xl font-semibold animate-pulse">
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
-        {/* Отладочная информация */}
-        <div className="mt-4 text-sm text-gray-400">
-          <p>Позиция победителя: {winnerPosition}</p>
-          <p>Общее количество элементов: {rouletteItems.length}</p>
-          {rouletteItems[winnerPosition] && (
-            <p>Предмет победителя: {rouletteItems[winnerPosition].name}</p>
-          )}
-        </div>
       </div>
     </div>
   );
