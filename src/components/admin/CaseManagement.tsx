@@ -200,6 +200,7 @@ const CaseManagement = ({
     }
   };
 
+  // handleImageUpload function
   const handleImageUpload = async (file: File, fieldName: string) => {
     if (!file) return;
     
@@ -684,10 +685,10 @@ const CaseManagement = ({
             </h4>
             <Button
               onClick={handleAutoSelectSkins}
-              disabled={isAutoSelectingSkins}
+              disabled={isAutoSelectingSkns}
               className="bg-purple-600 hover:bg-purple-700 px-3 py-2 text-sm"
             >
-              {isAutoSelectingSkins ? (
+              {isAutoSelectingSkns ? (
                 <>
                   <Upload className="w-4 h-4 mr-2 animate-spin" />
                   Подбираем...
