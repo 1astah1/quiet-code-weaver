@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,12 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
   const [nextLifeTime, setNextLifeTime] = useState<Date | null>(null);
   const [quizBlocked, setQuizBlocked] = useState(false);
   const [nextQuizTime, setNextQuizTime] = useState<Date | null>(null);
+  const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  
+  // Refs for timeout management
+  const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lifeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { checkQuizAvailability, updateQuizProgress } = useSecureQuiz();
@@ -62,31 +68,35 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     }
   });
 
-  // Проверяем доступность викторины при загрузке
+  // Check quiz availability on load
   useEffect(() => {
     const checkQuizAccess = async () => {
-      const result = await checkQuizAvailability(currentUser.id);
-      
-      if (!result.canTakeQuiz) {
-        setQuizBlocked(true);
-        if (result.nextAvailable) {
-          setNextQuizTime(result.nextAvailable);
-        }
+      try {
+        const result = await checkQuizAvailability(currentUser.id);
         
-        if (result.reason === '24h_cooldown') {
-          toast({
-            title: "Викторина недоступна",
-            description: "Вы уже проходили викторину сегодня. Приходите завтра!",
-            variant: "destructive",
-          });
+        if (!result.canTakeQuiz) {
+          setQuizBlocked(true);
+          if (result.nextAvailable) {
+            setNextQuizTime(result.nextAvailable);
+          }
+          
+          if (result.reason === '24h_cooldown') {
+            toast({
+              title: "Викторина недоступна",
+              description: "Вы уже проходили викторину сегодня. Приходите завтра!",
+              variant: "destructive",
+            });
+          }
         }
+      } catch (error) {
+        console.error('Error checking quiz access:', error);
       }
     };
 
     checkQuizAccess();
   }, [currentUser.id, checkQuizAvailability, toast]);
 
-  // Проверяем время восстановления жизней (изменено на 8 часов)
+  // Check life restoration with interval management
   useEffect(() => {
     const checkLifeRestoration = async () => {
       try {
@@ -102,7 +112,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
         const lastRestore = data.last_life_restore ? new Date(data.last_life_restore) : null;
         const lastAdRestore = data.last_ad_life_restore ? new Date(data.last_ad_life_restore) : null;
 
-        // Проверяем восстановление жизней (1 жизнь каждые 8 часов)
+        // Check life restoration (1 life every 8 hours)
         if (data.quiz_lives < 3 && lastRestore) {
           const eightHours = 8 * 60 * 60 * 1000;
           const timeSinceRestore = now.getTime() - lastRestore.getTime();
@@ -121,13 +131,12 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
             setLivesLeft(newLives);
             onLivesUpdate(newLives);
           } else {
-            // Вычисляем время до следующего восстановления
             const nextRestore = new Date(lastRestore.getTime() + eightHours);
             setNextLifeTime(nextRestore);
           }
         }
 
-        // Проверяем возможность восстановления за рекламу (изменено на 8 часов)
+        // Check ad restoration availability
         if (lastAdRestore) {
           const eightHours = 8 * 60 * 60 * 1000;
           const timeSinceAdRestore = now.getTime() - lastAdRestore.getTime();
@@ -143,10 +152,26 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     };
 
     checkLifeRestoration();
-    const interval = setInterval(checkLifeRestoration, 60000); // Проверяем каждую минуту
+    lifeCheckIntervalRef.current = setInterval(checkLifeRestoration, 60000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (lifeCheckIntervalRef.current) {
+        clearInterval(lifeCheckIntervalRef.current);
+      }
+    };
   }, [currentUser.id, onLivesUpdate]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      if (lifeCheckIntervalRef.current) {
+        clearInterval(lifeCheckIntervalRef.current);
+      }
+    };
+  }, []);
 
   const updateUserStatsMutation = useMutation({
     mutationFn: async ({ lives, streak, coins }: { lives: number; streak: number; coins: number }) => {
@@ -194,73 +219,108 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     }
   });
 
-  const handleAnswerSelect = (answer: string) => {
-    setSelectedAnswer(answer);
-  };
+  const handleAnswerSelect = useCallback((answer: string) => {
+    if (!isProcessingAnswer && !showResult) {
+      setSelectedAnswer(answer);
+    }
+  }, [isProcessingAnswer, showResult]);
 
-  const handleNextQuestion = async () => {
-    if (!selectedAnswer || !questions) return;
-
-    const newAnswers = [...userAnswers, selectedAnswer];
-    setUserAnswers(newAnswers);
-
-    const currentQuestion = questions[currentQuestionIndex];
-    const isCorrect = selectedAnswer === currentQuestion.correct_answer;
-    
-    setLastAnswerCorrect(isCorrect);
-    setShowResult(true);
-
-    if (isCorrect) {
-      setCorrectAnswersCount(prev => prev + 1);
-    } else {
-      // Неправильный ответ - отнимаем жизнь
-      const newLives = Math.max(0, livesLeft - 1);
-      setLivesLeft(newLives);
-      
-      try {
-        await supabase
-          .from('users')
-          .update({ 
-            quiz_lives: newLives,
-            last_life_restore: new Date().toISOString()
-          })
-          .eq('id', currentUser.id);
-
-        onLivesUpdate(newLives);
-
-        if (newLives === 0) {
-          toast({
-            title: "Жизни закончились!",
-            description: "Приходите позже или восстановите жизнь за рекламу",
-            variant: "destructive",
-          });
-          setTimeout(() => {
-            onBack();
-          }, 2000);
-          return;
-        }
-      } catch (error) {
-        console.error('Error updating lives:', error);
-      }
+  const handleNextQuestion = useCallback(async () => {
+    if (!selectedAnswer || !questions || isProcessingAnswer || showResult) {
+      console.log('🚫 [QUIZ] Blocked answer processing:', { 
+        hasAnswer: !!selectedAnswer, 
+        hasQuestions: !!questions, 
+        isProcessing: isProcessingAnswer, 
+        showingResult: showResult 
+      });
+      return;
     }
 
-    // Продолжаем через 2 секунды
-    setTimeout(() => {
+    console.log('⚡ [QUIZ] Processing answer:', selectedAnswer);
+    setIsProcessingAnswer(true);
+
+    try {
+      const newAnswers = [...userAnswers, selectedAnswer];
+      setUserAnswers(newAnswers);
+
+      const currentQuestion = questions[currentQuestionIndex];
+      const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+      
+      setLastAnswerCorrect(isCorrect);
+      setShowResult(true);
+
+      if (isCorrect) {
+        setCorrectAnswersCount(prev => prev + 1);
+      } else {
+        // Wrong answer - lose a life
+        const newLives = Math.max(0, livesLeft - 1);
+        setLivesLeft(newLives);
+        
+        try {
+          await supabase
+            .from('users')
+            .update({ 
+              quiz_lives: newLives,
+              last_life_restore: new Date().toISOString()
+            })
+            .eq('id', currentUser.id);
+
+          onLivesUpdate(newLives);
+
+          if (newLives === 0) {
+            toast({
+              title: "Жизни закончились!",
+              description: "Приходите позже или восстановите жизнь за рекламу",
+              variant: "destructive",
+            });
+            
+            // Clear any existing timeout
+            if (resultTimeoutRef.current) {
+              clearTimeout(resultTimeoutRef.current);
+            }
+            
+            resultTimeoutRef.current = setTimeout(() => {
+              setIsProcessingAnswer(false);
+              onBack();
+            }, 2000);
+            return;
+          }
+        } catch (error) {
+          console.error('Error updating lives:', error);
+        }
+      }
+
+      // Clear any existing timeout
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+
+      // Continue after 2 seconds
+      resultTimeoutRef.current = setTimeout(() => {
+        setShowResult(false);
+        setLastAnswerCorrect(null);
+        setIsProcessingAnswer(false);
+        
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+          setSelectedAnswer('');
+        } else {
+          // Complete quiz
+          const finalCorrectCount = isCorrect ? correctAnswersCount + 1 : correctAnswersCount;
+          completeQuiz(finalCorrectCount, questions.length);
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('🚫 [QUIZ] Error processing answer:', error);
+      setIsProcessingAnswer(false);
       setShowResult(false);
       setLastAnswerCorrect(null);
-      
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-        setSelectedAnswer('');
-      } else {
-        // Завершение викторины
-        const finalCorrectCount = isCorrect ? correctAnswersCount + 1 : correctAnswersCount;
-        completeQuiz(finalCorrectCount, questions.length);
-      }
-    }, 2000);
-  };
+    }
+  }, [selectedAnswer, questions, isProcessingAnswer, showResult, userAnswers, currentQuestionIndex, livesLeft, correctAnswersCount, onLivesUpdate, toast, onBack]);
 
   const completeQuiz = async (correctCount: number, totalQuestions: number) => {
+    console.log('🏁 [QUIZ] Completing quiz:', { correctCount, totalQuestions });
     setQuizCompleted(true);
     
     let newStreak = currentUser.quiz_streak;
@@ -275,7 +335,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
 
     const newCoins = currentUser.coins + coinsEarned;
 
-    // Обновляем прогресс викторины с новой системой
+    // Update quiz progress
     await updateQuizProgress(currentUser.id, correctCount, totalQuestions);
 
     await updateUserStatsMutation.mutateAsync({
@@ -299,8 +359,6 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
   };
 
   const handleRestoreLife = () => {
-    // Здесь будет логика показа рекламы
-    // Пока просто восстанавливаем жизнь
     restoreLifeWithAdMutation.mutate();
   };
 
@@ -341,7 +399,6 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
     );
   }
 
-  // Новый экран блокировки викторины на 24 часа
   if (quizBlocked) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
@@ -455,6 +512,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
             variant="ghost" 
             onClick={onBack}
             className="text-gray-400 hover:text-white"
+            disabled={isProcessingAnswer}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Назад
@@ -476,6 +534,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
                 onClick={handleRestoreLife}
                 size="sm"
                 className="bg-green-500 hover:bg-green-600 text-xs"
+                disabled={restoreLifeWithAdMutation.isPending}
               >
                 +❤️
               </Button>
@@ -542,12 +601,12 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
                 <button
                   key={option}
                   onClick={() => handleAnswerSelect(option)}
-                  disabled={showResult}
+                  disabled={showResult || isProcessingAnswer}
                   className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
                     selectedAnswer === option
                       ? 'border-orange-500 bg-orange-500/20 text-white'
                       : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500 hover:bg-gray-700'
-                  } ${showResult ? 'cursor-not-allowed opacity-50' : ''}`}
+                  } ${(showResult || isProcessingAnswer) ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   <span className="font-medium mr-3">{option}.</span>
                   {optionText}
@@ -560,10 +619,15 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
         {/* Submit Button */}
         <Button
           onClick={handleNextQuestion}
-          disabled={!selectedAnswer || showResult}
+          disabled={!selectedAnswer || showResult || isProcessingAnswer}
           className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-400 py-3 text-lg"
         >
-          {currentQuestionIndex === questions.length - 1 ? 'Завершить викторину' : 'Следующий вопрос'}
+          {isProcessingAnswer 
+            ? 'Обработка...' 
+            : currentQuestionIndex === questions.length - 1 
+              ? 'Завершить викторину' 
+              : 'Следующий вопрос'
+          }
         </Button>
       </div>
     </div>

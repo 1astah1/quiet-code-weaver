@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +39,6 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
     winnerPosition: number;
   } | null>(null);
   
-  // Добавляем флаг для предотвращения повторных запусков
   const [hasStarted, setHasStarted] = useState(false);
   const isProcessingRef = useRef(false);
   
@@ -203,32 +201,20 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const openCaseWithRPC = async () => {
     try {
       console.log('📡 [CASE_OPENING] Calling RPC function safe_open_case');
-      console.log('📊 [CASE_OPENING] RPC parameters:', {
-        p_user_id: currentUser.id,
-        p_case_id: caseItem.id,
-        p_is_free: caseItem.is_free || false,
-        p_ad_watched: false
-      });
       
-      // Вызываем RPC функцию с корректными параметрами
       const { data, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
         p_skin_id: null,
         p_coin_reward_id: null,
         p_is_free: caseItem.is_free || false,
-        p_ad_watched: false // Для обычных кейсов всегда false
+        p_ad_watched: false
       });
 
       console.log('📋 [CASE_OPENING] Raw RPC response:', { data, error });
 
       if (error) {
-        console.error('❌ [CASE_OPENING] RPC error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
+        console.error('❌ [CASE_OPENING] RPC error details:', error);
         throw new Error(`Ошибка сервера: ${error.message}`);
       }
 
@@ -250,20 +236,26 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
 
       console.log('✅ [CASE_OPENING] Case opened successfully');
       console.log('🎁 [CASE_OPENING] Reward received:', response.reward);
-      console.log('🎰 [CASE_OPENING] Roulette data:', {
-        itemsCount: response.roulette_items?.length,
-        winnerPosition: response.winner_position
-      });
       
-      // Обновляем баланс пользователя
+      // Update user balance
       if (response.new_balance !== undefined) {
         onCoinsUpdate(response.new_balance);
         console.log('💰 [CASE_OPENING] Balance updated to:', response.new_balance);
       }
       
-      // Устанавливаем данные рулетки и запускаем анимацию
+      // Set roulette data and start roulette animation
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [CASE_OPENING] Setting roulette data and starting roulette phase');
+        console.log('🎰 [CASE_OPENING] Setting roulette data:', {
+          itemsCount: response.roulette_items.length,
+          winnerPosition: response.winner_position,
+          winnerItem: response.roulette_items[response.winner_position]
+        });
+        
+        // Ensure the winner item matches the actual reward
+        const actualWinner = response.roulette_items[response.winner_position];
+        console.log('🎯 [CASE_OPENING] Winner from roulette:', actualWinner);
+        console.log('🎁 [CASE_OPENING] Actual reward:', response.reward);
+        
         setRouletteData({
           items: response.roulette_items,
           winnerPosition: response.winner_position
@@ -271,11 +263,10 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
         setAnimationPhase('roulette');
       } else {
         console.log('⚡ [CASE_OPENING] No roulette data, showing direct result');
-        // Если нет данных рулетки, сразу показываем результат
         handleDirectResult(response.reward);
       }
       
-      // Логируем успешное открытие
+      // Log successful opening
       await logCaseOpening({
         user_id: currentUser.id,
         case_id: caseItem.id,
@@ -325,6 +316,7 @@ export const useCaseOpening = ({ caseItem, currentUser, onCoinsUpdate }: UseCase
   const handleRouletteComplete = (winnerItem: RouletteItem) => {
     console.log('🏆 [CASE_OPENING] Roulette complete, winner:', winnerItem);
     
+    // Use the winner from roulette animation
     if (winnerItem.type === 'skin') {
       console.log('🎨 [CASE_OPENING] Winner is skin:', winnerItem.name);
       setWonSkin(winnerItem);

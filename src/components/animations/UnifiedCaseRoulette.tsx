@@ -37,33 +37,34 @@ const UnifiedCaseRoulette = ({
     console.log('🎯 [ROULETTE] Winner position:', winnerPosition);
     console.log('🏆 [ROULETTE] Winner item:', rouletteItems[winnerPosition]);
 
-    // Проверяем корректность данных
+    // Validate winner position
     if (winnerPosition < 0 || winnerPosition >= rouletteItems.length) {
       console.error('❌ [ROULETTE] Invalid winner position:', winnerPosition);
       return;
     }
 
-    // Небольшая задержка перед началом анимации
+    // Start animation after a short delay
     const startTimer = setTimeout(() => {
       setIsSpinning(true);
       
-      // Исправленный расчет позиционирования
-      const itemWidth = 128; // ширина одного элемента (w-32)
-      const itemMargin = 4; // margin (mx-1 = 4px с каждой стороны)
-      const totalItemWidth = itemWidth + itemMargin * 2; // полная ширина с отступами
+      // Fixed calculation for precise positioning
+      const itemWidth = 128; // w-32 (128px)
+      const itemMargin = 8; // mx-1 = 4px on each side = 8px total
+      const totalItemWidth = itemWidth + itemMargin;
       const containerCenter = window.innerWidth / 2;
       
-      // Используем средний набор (второй из трех дубликатов)
-      // Позиция в среднем наборе = originalLength + winnerPosition
+      // Position in the middle set (second of three duplicates)
+      // This ensures smooth animation without jumps
       const targetPosition = rouletteItems.length + winnerPosition;
       
-      // Вычисляем финальную позицию для точного центрирования
+      // Calculate final position to center the winner
       const finalPosition = -(targetPosition * totalItemWidth - containerCenter + totalItemWidth / 2);
       
-      console.log('🎯 [ROULETTE] Calculated position:', {
+      console.log('🎯 [ROULETTE] Animation calculation:', {
         itemWidth,
         itemMargin,
         totalItemWidth,
+        containerCenter,
         targetPosition,
         finalPosition
       });
@@ -71,7 +72,7 @@ const UnifiedCaseRoulette = ({
       setTranslateX(finalPosition);
     }, 500);
 
-    // Завершаем анимацию через 4 секунды
+    // Complete animation after 4 seconds
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
       const winnerItem = rouletteItems[winnerPosition];
@@ -116,13 +117,13 @@ const UnifiedCaseRoulette = ({
       <h2 className="text-3xl font-bold text-white text-center">Крутим рулетку!</h2>
       
       <div className="relative overflow-hidden bg-slate-800 rounded-lg border-2 border-orange-500/50 h-40">
-        {/* Улучшенный указатель победителя */}
+        {/* Winner indicator */}
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
           <div className="w-0 h-0 border-l-[20px] border-r-[20px] border-b-[25px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
           <div className="w-1 h-2 bg-orange-500 mx-auto"></div>
         </div>
         
-        {/* Рулетка */}
+        {/* Roulette items */}
         <div 
           className="flex transition-transform duration-3000 ease-out"
           style={{ 
@@ -130,7 +131,7 @@ const UnifiedCaseRoulette = ({
             transition: isSpinning ? 'transform 3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none'
           }}
         >
-          {/* Дублируем элементы для бесшовной прокрутки */}
+          {/* Triple the items for smooth scrolling */}
           {[...rouletteItems, ...rouletteItems, ...rouletteItems].map((item, index) => (
             <div 
               key={`${item.id}-${index}`} 
