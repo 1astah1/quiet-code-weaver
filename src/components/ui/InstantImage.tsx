@@ -17,48 +17,28 @@ const InstantImage: React.FC<InstantImageProps> = ({
   onError
 }) => {
   const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(!!src);
 
-  console.log('🖼️ [INSTANT_IMAGE] Rendering:', { 
-    src, 
-    alt, 
-    hasError, 
-    isLoading 
-  });
-
-  // Reset states when src changes
+  // Reset error state when src changes
   useEffect(() => {
-    console.log('🔄 [INSTANT_IMAGE] Source changed:', { src, alt });
-    
     if (src) {
+      console.log('🖼️ [INSTANT_IMAGE] Source changed, resetting error state:', src);
       setHasError(false);
-      setIsLoading(true);
-    } else {
-      setHasError(false);
-      setIsLoading(false);
     }
-  }, [src, alt]);
+  }, [src]);
 
   const handleError = () => {
-    console.log('❌ [INSTANT_IMAGE] Image failed to load:', { src, alt });
+    console.log('❌ [INSTANT_IMAGE] Image failed to load:', src);
     setHasError(true);
-    setIsLoading(false);
     onError?.();
   };
 
   const handleLoad = () => {
-    console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', { src, alt });
-    setIsLoading(false);
-    setHasError(false);
+    console.log('✅ [INSTANT_IMAGE] Image loaded successfully:', src);
   };
 
-  // Show fallback if no src, error, or loading failed
+  // Show fallback immediately if no src or if error occurred
   if (!src || hasError) {
-    console.log('🔄 [INSTANT_IMAGE] Showing fallback:', { 
-      src, 
-      hasError, 
-      alt 
-    });
+    console.log('🔄 [INSTANT_IMAGE] Showing fallback for:', src, 'hasError:', hasError);
     return (
       <div className={`flex items-center justify-center ${className}`}>
         {fallback || (
@@ -71,19 +51,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
     );
   }
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className={`flex items-center justify-center ${className}`}>
-        <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300">
-          <div className="text-2xl mb-1 animate-pulse">⏳</div>
-          <div className="text-xs font-medium">Загрузка...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show image
+  // Show image immediately
   return (
     <img
       src={src}
@@ -92,7 +60,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
       onError={handleError}
       onLoad={handleLoad}
       loading="eager"
-      decoding="async"
+      decoding="sync"
     />
   );
 };
