@@ -7,6 +7,16 @@ import { Plus, Edit, Trash2, Save, X, Upload, Image } from "lucide-react";
 import OptimizedImage from "@/components/ui/OptimizedImage";
 import type { Banner } from "@/utils/supabaseTypes";
 
+type BannerInsert = {
+  title: string;
+  description: string;
+  button_text: string;
+  button_action: string;
+  image_url?: string;
+  is_active?: boolean;
+  order_index?: number;
+};
+
 const BannerManagement = () => {
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -27,7 +37,7 @@ const BannerManagement = () => {
   });
 
   const createBannerMutation = useMutation({
-    mutationFn: async (banner: Partial<Banner>) => {
+    mutationFn: async (banner: BannerInsert) => {
       const { data, error } = await supabase
         .from('banners')
         .insert(banner)
@@ -131,8 +141,29 @@ const BannerManagement = () => {
 
   const handleSave = (bannerData: Partial<Banner>) => {
     console.log('💾 [BANNER_SAVE] Saving banner data:', bannerData);
+    
     if (isCreating) {
-      createBannerMutation.mutate(bannerData);
+      // Validate required fields for creation
+      if (!bannerData.title || !bannerData.description || !bannerData.button_text || !bannerData.button_action) {
+        toast({ 
+          title: "Ошибка валидации", 
+          description: "Заполните все обязательные поля",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const insertData: BannerInsert = {
+        title: bannerData.title,
+        description: bannerData.description,
+        button_text: bannerData.button_text,
+        button_action: bannerData.button_action,
+        image_url: bannerData.image_url,
+        is_active: bannerData.is_active,
+        order_index: bannerData.order_index
+      };
+      
+      createBannerMutation.mutate(insertData);
     } else if (editingBanner) {
       updateBannerMutation.mutate({ ...editingBanner, ...bannerData });
     }
