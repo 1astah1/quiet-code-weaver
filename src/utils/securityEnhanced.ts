@@ -243,7 +243,7 @@ export const securityFilters = {
   },
   
   // Проверка на NoSQL инъекции
-  checkForNoSqlInjection: (input: any): boolean {
+  checkForNoSqlInjection: (input: any): boolean => {
     if (typeof input === 'object' && input !== null) {
       const dangerous = ['$where', '$ne', '$gt', '$lt', '$regex', '$or', '$and'];
       const inputStr = JSON.stringify(input);
