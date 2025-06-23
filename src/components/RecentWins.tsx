@@ -19,6 +19,17 @@ interface RecentWin {
 }
 
 const RecentWins = () => {
+  // Type guard function to safely check if data is RewardData
+  const isValidRewardData = (data: any): data is RewardData => {
+    return (
+      data &&
+      typeof data === 'object' &&
+      typeof data.name === 'string' &&
+      typeof data.rarity === 'string' &&
+      typeof data.price === 'number'
+    );
+  };
+
   const { data: recentWins = [], isLoading, error } = useQuery({
     queryKey: ['recent-wins'],
     queryFn: async () => {
@@ -50,15 +61,11 @@ const RecentWins = () => {
         const validWins = (data || []).filter(win => {
           if (!win.reward_data || !win.users?.username) return false;
           
-          // Проверяем, что reward_data является объектом с нужными свойствами
-          const rewardData = win.reward_data as any;
-          return rewardData && 
-                 typeof rewardData === 'object' && 
-                 rewardData.name && 
-                 typeof rewardData.name === 'string';
+          // Используем type guard для безопасной проверки
+          return isValidRewardData(win.reward_data);
         }).map(win => ({
           ...win,
-          reward_data: win.reward_data as RewardData
+          reward_data: win.reward_data as unknown as RewardData
         }));
 
         console.log('✅ [RECENT_WINS] Valid wins after filtering:', validWins.length);
@@ -187,6 +194,7 @@ const RecentWins = () => {
                     src={rewardData.image_url}
                     alt={rewardData.name}
                     className="w-full h-full object-cover"
+                    timeout={5000}
                     fallback={
                       <div className="w-full h-full flex items-center justify-center text-slate-400">
                         🎁
