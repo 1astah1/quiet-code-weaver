@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -37,17 +36,11 @@ const MainApp: React.FC = () => {
     }
   }, [isWebView]);
 
+  console.log('🎯 MainApp render state:', { isLoading, hasUser: !!user });
+
   // Показываем экран загрузки только если действительно загружается
   if (isLoading) {
-    return (
-      <LoadingScreen 
-        timeout={8000}
-        onTimeout={() => {
-          console.error('🚨 Loading timeout - reloading page');
-          window.location.reload();
-        }} 
-      />
-    );
+    return <LoadingScreen />;
   }
 
   // Если нет пользователя, показываем экран авторизации

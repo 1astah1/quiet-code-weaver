@@ -21,7 +21,6 @@ interface User {
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
 
   const fetchUserData = async (authUser: any) => {
@@ -178,93 +177,42 @@ export const useAuth = () => {
 
   useEffect(() => {
     console.log('🔄 Auth hook initialized');
-    let mounted = true;
     
-    // Устанавливаем таймаут для предотвращения бесконечной загрузки
-    const timeoutId = setTimeout(() => {
-      if (mounted && isLoading && !isInitialized) {
-        console.warn('⚠️ Auth initialization timeout');
-        setIsLoading(false);
-        setIsInitialized(true);
-      }
-    }, 8000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return;
+        console.log('🔄 Auth state changed:', event);
         
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
-        
-        try {
-          if (event === 'SIGNED_IN' && session?.user) {
-            console.log('✅ User signed in:', session.user.id);
-            // Небольшая задержка для предотвращения дедлоков
-            setTimeout(() => {
-              if (mounted) {
-                fetchUserData(session.user).finally(() => {
-                  if (mounted) {
-                    setIsLoading(false);
-                    setIsInitialized(true);
-                  }
-                });
-              }
-            }, 100);
-          } else if (event === 'SIGNED_OUT') {
-            console.log('👋 User signed out');
-            setUser(null);
-            setIsLoading(false);
-            setIsInitialized(true);
-          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-            console.log('🔄 Token refreshed');
-          }
-        } catch (error) {
-          console.error('🚨 Error in auth state change:', error);
-          if (mounted) {
-            setIsLoading(false);
-            setIsInitialized(true);
-          }
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in:', session.user.id);
+          await fetchUserData(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out');
+          setUser(null);
         }
+        
+        setIsLoading(false);
       }
     );
 
+    // Проверяем существующую сессию
     const getSession = async () => {
       try {
-        console.log('🔍 Checking for existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('❌ Error getting session:', error);
-          if (mounted) {
-            setIsLoading(false);
-            setIsInitialized(true);
-          }
-          return;
-        }
-
-        if (!mounted) return;
-
         if (session?.user) {
-          console.log('🔑 Existing session found for:', session.user.id);
+          console.log('🔑 Existing session found');
           await fetchUserData(session.user);
-        } else {
-          console.log('🚫 No existing session found');
         }
       } catch (error) {
         console.error('🚨 Error getting session:', error);
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-          setIsInitialized(true);
-        }
+        setIsLoading(false);
       }
     };
 
     getSession();
 
     return () => {
-      console.log('🧹 Cleaning up auth subscription');
-      mounted = false;
-      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
