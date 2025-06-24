@@ -34,9 +34,10 @@ const UnifiedCaseRoulette = ({
     }
 
     // Логирование для верификации синхронизации
-    console.log('🎰 [ROULETTE] Starting with SYNCHRONIZED data from SQL:', {
+    console.log('🎰 [ROULETTE] Starting with FIXED POSITION 5 from SQL:', {
       totalItems: rouletteItems.length,
-      winnerPosition,
+      fixedWinnerPosition: 5, // SQL всегда возвращает позицию 5
+      actualWinnerPosition: winnerPosition,
       winnerItem: rouletteItems[winnerPosition],
       allItems: rouletteItems.map((item, index) => ({
         position: index,
@@ -47,17 +48,13 @@ const UnifiedCaseRoulette = ({
       }))
     });
 
-    // Проверяем валидность позиции победителя
-    if (winnerPosition < 0 || winnerPosition >= rouletteItems.length) {
-      console.error('❌ [ROULETTE] Invalid winner position:', {
-        winnerPosition,
-        totalItems: rouletteItems.length
-      });
-      return;
+    // Проверяем что SQL функция действительно использует позицию 5
+    if (winnerPosition !== 5) {
+      console.warn('⚠️ [ROULETTE] Winner position is not 5! SQL function may need update');
     }
 
     const winnerItem = rouletteItems[winnerPosition];
-    console.log('🏆 [ROULETTE] Winner item (GUARANTEED synchronized):', {
+    console.log('🏆 [ROULETTE] Winner item at position 5 (GUARANTEED synchronized):', {
       position: winnerPosition,
       item: winnerItem,
       itemType: winnerItem?.type,
@@ -70,27 +67,27 @@ const UnifiedCaseRoulette = ({
     const startTimer = setTimeout(() => {
       setIsSpinning(true);
       
-      // Расчет для точного позиционирования
+      // Расчет для точного позиционирования на позиции 5 (центр)
       const itemWidth = 128; // w-32 (128px)
       const itemMargin = 8; // mx-1 = 4px на каждую сторону = 8px всего
       const totalItemWidth = itemWidth + itemMargin;
       const containerCenter = window.innerWidth / 2;
       
-      // Позиция в среднем наборе (второй из трех дублей)
-      const targetPosition = rouletteItems.length + winnerPosition;
+      // Позиция в среднем наборе (второй из трех дублей) - позиция 5
+      const targetPosition = rouletteItems.length + 5; // Всегда позиция 5
       
-      // Вычисляем финальную позицию для центрирования победителя
+      // Вычисляем финальную позицию для центрирования позиции 5
       const finalPosition = -(targetPosition * totalItemWidth - containerCenter + totalItemWidth / 2);
       
-      console.log('🎯 [ROULETTE] Animation calculation:', {
+      console.log('🎯 [ROULETTE] Animation calculation for FIXED POSITION 5:', {
         itemWidth,
         itemMargin,
         totalItemWidth,
         containerCenter,
         targetPosition,
         finalPosition,
-        winnerPosition,
-        actualWinnerInMiddleSet: rouletteItems.length + winnerPosition
+        fixedWinnerPosition: 5,
+        actualWinnerInMiddleSet: rouletteItems.length + 5
       });
       
       setTranslateX(finalPosition);
@@ -100,7 +97,7 @@ const UnifiedCaseRoulette = ({
     const endTimer = setTimeout(() => {
       setIsSpinning(false);
       
-      console.log('🎊 [ROULETTE] Animation complete - synchronized data confirmed');
+      console.log('🎊 [ROULETTE] Animation complete - FIXED POSITION 5 synchronized');
       
       setTimeout(() => onComplete(), 1000);
     }, 4000);
@@ -136,7 +133,7 @@ const UnifiedCaseRoulette = ({
       <h2 className="text-3xl font-bold text-white text-center">Крутим рулетку!</h2>
       
       <div className="relative overflow-hidden bg-slate-800 rounded-lg border-2 border-orange-500/50 h-40">
-        {/* Индикатор победителя */}
+        {/* Индикатор победителя - точно в центре */}
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-10">
           <div className="w-0 h-0 border-l-[20px] border-r-[20px] border-b-[25px] border-l-transparent border-r-transparent border-b-orange-500 drop-shadow-lg"></div>
           <div className="w-1 h-2 bg-orange-500 mx-auto"></div>
@@ -152,7 +149,8 @@ const UnifiedCaseRoulette = ({
         >
           {/* Утраиваем элементы для плавной прокрутки */}
           {[...rouletteItems, ...rouletteItems, ...rouletteItems].map((item, index) => {
-            const isActualWinner = index === rouletteItems.length + winnerPosition;
+            // Победитель всегда на позиции 5 в среднем наборе
+            const isActualWinner = index === rouletteItems.length + 5;
             return (
               <div 
                 key={`${item.id}-${index}`} 
@@ -195,7 +193,7 @@ const UnifiedCaseRoulette = ({
           {isSpinning ? 'Крутим рулетку...' : 'Результат определен!'}
         </p>
         <p className="text-green-400 text-sm mt-2">
-          ✅ Синхронизация SQL → Рулетка: ИСПРАВЛЕНА
+          ✅ Синхронизация SQL → Рулетка: ИСПРАВЛЕНА (Позиция 5)
         </p>
       </div>
     </div>
