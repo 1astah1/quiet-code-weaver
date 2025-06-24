@@ -11,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, SortAsc, SortDesc, DollarSign, Package, Gift, Crown, Zap, Star, Flame } from "lucide-react";
-import { useSecureInventory } from "@/hooks/useSecureInventory";
+import { useSecureInventory, useUserInventory } from '@/hooks/useSecureInventory';
+import { inventoryLimiter } from '@/utils/rateLimiter';
+import { Loader2, Coins, Download, ExternalLink } from 'lucide-react';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import WithdrawSkinModal from "./WithdrawSkinModal";
 
 interface InventoryScreenProps {
@@ -25,8 +28,9 @@ interface InventoryScreenProps {
 }
 
 const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
-  const { data: inventory, isLoading, error } = useUserInventory(currentUser.id);
-  const sellSkinMutation = useSellSkin();
+  const queryClient = useQueryClient();
+  const { data: inventory, isLoading, error, refetch } = useUserInventory(currentUser.id);
+  const { sellSkin } = useSecureInventory();
   const { toast } = useToast();
   
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -46,6 +50,16 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
 
   const handleSellSkin = async (inventoryId: string, sellPrice: number) => {
     try {
+      if (!inventory) return;
+      const item = inventory.find((i: any) => i.id === inventoryId);
+      if (!item || item.is_sold) {
+        toast({
+          title: "Ошибка",
+          description: "Этот скин уже продан или не найден.",
+          variant: "destructive",
+        });
+        return;
+      }
       if (!inventoryLimiter.isAllowed(currentUser.id)) {
         toast({
           title: "Слишком много операций",
@@ -54,22 +68,19 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         });
         return;
       }
-
-      console.log('Selling skin from inventory:', inventoryId, 'for', sellPrice);
       if (sellSkinMutation.isPending) {
         console.log('Sell already in progress');
         return;
       }
-      
       const result = await sellSkinMutation.mutateAsync({
         inventoryId,
         userId: currentUser.id,
         sellPrice
       });
-      
-      if (result && result.newCoins !== undefined) {
-        console.log('Skin sold, updating coins to:', result.newCoins);
-        onCoinsUpdate(result.newCoins);
+      if (result && result.newBalance !== undefined) {
+        console.log('Skin sold, updating coins to:', result.newBalance);
+        onCoinsUpdate(result.newBalance);
+        await refetch();
       }
     } catch (error) {
       console.error('Error selling skin:', error);
@@ -79,6 +90,13 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
   const handleWithdrawSkin = (item: any) => {
     setSelectedItem(item);
     setWithdrawModalOpen(true);
+  };
+
+  const sellSkinMutation = {
+    isPending: false,
+    mutateAsync: async ({ inventoryId, userId, sellPrice }: any) => {
+      return await sellSkin(inventoryId, sellPrice, userId);
+    }
   };
 
   if (isLoading) {
@@ -124,15 +142,16 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       ) : (
         <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
           {inventory.map((item) => {
+            if (!item.skins) return null;
             console.log('Rendering inventory item:', item.id, 'skin data:', item.skins);
             return (
               <div
                 key={item.id}
-                className={`bg-slate-800/50 rounded-lg border ${getRarityColor(item.skins.rarity)} p-2 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl`}
+                className={`bg-slate-800/50 rounded-lg border ${getRarityColor(item.skins.rarity || '')} p-2 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl`}
               >
                 {/* Rarity Badge */}
                 <div className="bg-black/60 px-1 py-0.5 rounded text-[10px] sm:text-xs text-white mb-1.5 text-center truncate">
-                  {item.skins.rarity.split(' ')[0]}
+                  {(item.skins.rarity || '').split(' ')[0]}
                 </div>
 
                 {/* Skin Image */}
@@ -159,10 +178,10 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                 {/* Skin Info */}
                 <div className="space-y-1">
                   <div>
-                    <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins.name}>
-                      {item.skins.name}
+                    <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins.name || ''}>
+                      {item.skins.name || ''}
                     </h3>
-                    <p className="text-white/70 text-[9px] sm:text-[10px] truncate">{item.skins.weapon_type}</p>
+                    <p className="text-white/70 text-[9px] sm:text-[10px] truncate">{item.skins.weapon_type || ''}</p>
                   </div>
                   
                   <div className="flex items-center justify-center">
@@ -170,14 +189,14 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                       <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
                         <span className="text-white text-[8px] sm:text-xs font-bold">₽</span>
                       </div>
-                      <span className="text-orange-400 font-bold text-[10px] sm:text-xs">{item.skins.price}</span>
+                      <span className="text-orange-400 font-bold text-[10px] sm:text-xs">{item.skins.price ?? ''}</span>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="space-y-1">
                     <button
-                      onClick={() => handleSellSkin(item.id, item.skins.price)}
+                      onClick={() => handleSellSkin(item.id, item.skins.price ?? 0)}
                       disabled={sellSkinMutation.isPending}
                       className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
                     >
@@ -226,6 +245,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
           skinName={selectedItem.skins.name}
           skinImage={selectedItem.skins.image_url}
           currentTradeUrl={currentUser.steam_trade_url}
+          currentUser={currentUser}
         />
       )}
     </div>
