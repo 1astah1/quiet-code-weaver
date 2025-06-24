@@ -1,3 +1,6 @@
+-- Удаляем старую функцию с параметром p_ad_watched, если она есть
+DROP FUNCTION IF EXISTS public.safe_open_case(uuid, uuid, uuid, uuid, boolean, boolean);
+
 -- Fix roulette winner position mismatch issue
 -- This migration ensures that the winner position is always 5 to match the animation
 

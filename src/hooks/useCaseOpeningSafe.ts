@@ -133,15 +133,6 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Сохраняем выигрышный предмет
-      if (response.reward?.type === 'skin') {
-        setWonSkin(response.reward);
-        setWonCoins(0);
-      } else if (response.reward?.type === 'coin_reward') {
-        setWonSkin(null);
-        setWonCoins(response.reward.amount || 0);
-      }
-
       // Если есть данные рулетки, показываем анимацию
       if (response.roulette_items && response.winner_position !== undefined) {
         console.log('🎰 [CASE_OPENING] Setting up roulette animation');
@@ -181,12 +172,21 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   // Обработка завершения анимации рулетки
   const handleRouletteComplete = useCallback(() => {
     console.log('🎊 [CASE_OPENING] Roulette animation complete');
-    
+    if (rouletteData && rouletteData.items && typeof rouletteData.winnerPosition === 'number') {
+      const winnerItem = rouletteData.items[rouletteData.winnerPosition];
+      if (winnerItem?.type === 'skin') {
+        setWonSkin(winnerItem);
+        setWonCoins(0);
+      } else if (winnerItem?.type === 'coin_reward') {
+        setWonSkin(null);
+        setWonCoins(winnerItem.amount || 0);
+      }
+    }
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
     }, 1000);
-  }, []);
+  }, [rouletteData]);
 
   // Добавление в инвентарь
   const addToInventory = useCallback(async () => {
