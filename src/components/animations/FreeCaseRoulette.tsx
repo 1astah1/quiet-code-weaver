@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useRef } from "react";
-import { useSound } from "@/hooks/useSound";
-import { useVibration } from "@/hooks/useVibration";
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/components/ui/use-translation";
 import LazyImage from "@/components/ui/LazyImage";
 
 interface FreeCaseRouletteProps {
@@ -14,8 +13,8 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { playRouletteSpinSound, playItemRevealSound, playCoinsEarnedSound } = useSound();
-  const { vibrateSuccess, vibrateRare } = useVibration();
+  const { toast } = useToast();
+  const { t } = useTranslation();
 
   console.log('🎰 [FREE_CASE_ROULETTE] Component mounted with caseSkins:', caseSkins?.length);
 
@@ -149,7 +148,6 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
     const timer1 = setTimeout(() => {
       console.log('🎰 [FREE_CASE_ROULETTE] Starting spin animation');
       setIsSpinning(true);
-      playRouletteSpinSound();
       
       if (scrollRef.current) {
         const itemWidth = 140;
@@ -166,20 +164,17 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
       setIsComplete(true);
       
       if (winner.type === 'coins') {
-        playCoinsEarnedSound();
-        vibrateSuccess();
         console.log('🪙 [FREE_CASE_ROULETTE] Calling onComplete with coins:', winner.coins);
         onComplete({ type: 'coins', coins: winner.coins });
       } else {
         const rarity = winner.rarity?.toLowerCase();
         if (rarity === 'legendary' || rarity === 'mythical' || rarity === 'immortal' || rarity === 'covert') {
-          vibrateRare();
+          console.log('🎉 [FREE_CASE_ROULETTE] Calling onComplete with skin:', winner.skin);
+          onComplete({ type: 'skin', skin: winner.skin });
         } else {
-          vibrateSuccess();
+          console.log('🎉 [FREE_CASE_ROULETTE] Calling onComplete with skin:', winner.skin);
+          onComplete({ type: 'skin', skin: winner.skin });
         }
-        playItemRevealSound();
-        console.log('🔫 [FREE_CASE_ROULETTE] Calling onComplete with skin:', winner.skin);
-        onComplete({ type: 'skin', skin: winner.skin });
       }
     }, 5000);
 
@@ -187,7 +182,7 @@ const FreeCaseRoulette = ({ caseSkins, onComplete }: FreeCaseRouletteProps) => {
       clearTimeout(timer1);
       clearTimeout(timer2);
     };
-  }, [caseSkins, onComplete, playRouletteSpinSound, playItemRevealSound, playCoinsEarnedSound, vibrateSuccess, vibrateRare]);
+  }, [caseSkins, onComplete]);
 
   if (!items.length) {
     return (

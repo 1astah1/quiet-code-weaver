@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { useSound } from "@/hooks/useSound";
-import { useVibration } from "@/hooks/useVibration";
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/components/ui/use-translation";
 
 interface BonusMultiplierRouletteProps {
   baseCoins: number;
@@ -15,8 +14,8 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
   const [selectedMultiplier, setSelectedMultiplier] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { playRouletteSpinSound, playMultiplierWinSound } = useSound();
-  const { vibrateSuccess, vibrateRare } = useVibration();
+  const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Множители от 5% до 80% (1.05 до 1.8)
   const multipliers = [
@@ -36,7 +35,6 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
     if (isSpinning) return;
     
     setIsSpinning(true);
-    playRouletteSpinSound();
     
     // Выбираем случайный множитель с весами
     const weights = multipliers.map(m => {
@@ -73,15 +71,6 @@ const BonusMultiplierRoulette = ({ baseCoins, onMultiplierSelected, onSkip }: Bo
       setSelectedMultiplier(winner);
       setIsSpinning(false);
       setShowResult(true);
-      
-      // Звук и вибрация в зависимости от множителя
-      if (winner >= 1.5) {
-        vibrateRare();
-        playMultiplierWinSound();
-      } else {
-        vibrateSuccess();
-        playMultiplierWinSound();
-      }
     }, 3000);
   };
 

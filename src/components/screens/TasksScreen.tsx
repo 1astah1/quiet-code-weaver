@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, CheckCircle, Gift } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import DailyRewardsCalendar from "@/components/DailyRewardsCalendar";
 import { useSecureTaskProgress } from "@/hooks/useSecureTaskProgress";
 import LazyImage from "@/components/ui/LazyImage";

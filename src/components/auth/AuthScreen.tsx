@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useSecureAuth } from "@/hooks/useSecureAuth";
+import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
 import PrivacyPolicyModal from "@/components/settings/PrivacyPolicyModal";
-import { useProcessReferral } from "@/hooks/useReferral";
 
 interface AuthScreenProps {
   onAuthSuccess: (user: any) => void;
@@ -16,7 +16,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { toast } = useToast();
-  const processReferral = useProcessReferral();
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     try {
@@ -76,10 +75,8 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       if (user) {
         console.log('🎁 Применяем реферальный код для пользователя:', user.id);
         
-        await processReferral.mutateAsync({
-          referralCode,
-          newUserId: user.id
-        });
+        // TODO: Implement referral code processing
+        console.log('Referral code processing not implemented yet:', referralCode);
         
         // Удаляем сохраненный код
         localStorage.removeItem('pending_referral_code');

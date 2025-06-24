@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
@@ -11,13 +11,12 @@ import InventoryScreen from "@/components/inventory/InventoryScreen";
 import SettingsScreen from "@/components/settings/SettingsScreen";
 import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
-import CaseOpeningAnimation from "@/components/CaseOpeningAnimation";
+import CaseOpeningAnimationSafe from "@/components/CaseOpeningAnimationSafe";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useCriticalImagePreloader } from "@/hooks/useImagePreloader";
+import { useTranslation } from "@/components/ui/use-translation";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -39,17 +38,14 @@ interface CurrentUser {
 const MainApp = () => {
   console.log('🚀 [MAIN_APP] Component mounting/rendering');
   
-  // Предзагружаем критические изображения
-  useCriticalImagePreloader();
-  
-  const { user, isLoading: authLoading, signOut } = useAuth();
+  const { user, isLoading: authLoading, signOut } = useSecureAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
-  const { t } = useTranslation(currentUser?.language_code);
+  const { t } = useTranslation();
 
   // Логирование изменений состояния
   useEffect(() => {
@@ -385,7 +381,7 @@ const MainApp = () => {
         />
 
         {openingCase && (
-          <CaseOpeningAnimation
+          <CaseOpeningAnimationSafe
             caseItem={openingCase}
             onClose={() => setOpeningCase(null)}
             currentUser={currentUser}

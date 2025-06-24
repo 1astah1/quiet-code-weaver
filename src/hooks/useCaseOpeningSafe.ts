@@ -1,10 +1,8 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { generateSessionId, storeSessionId, clearSessionId } from '@/utils/sessionUtils';
-import { useCaseOpeningLogger } from './useCaseOpeningLogger';
 import type { CaseSkin } from '@/utils/supabaseTypes';
 
 interface RouletteItem {
@@ -55,7 +53,6 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   const hasInitialized = useRef(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { logCaseOpening } = useCaseOpeningLogger();
 
   // Загружаем скины кейса
   const { data: caseSkins = [], isLoading } = useQuery({
@@ -194,17 +191,6 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         handleDirectResult(response.reward);
       }
 
-      // Логируем успешное открытие
-      await logCaseOpening({
-        user_id: currentUser.id,
-        case_id: caseItem.id,
-        case_name: caseItem.name,
-        is_free: caseItem.is_free || false,
-        phase: 'complete',
-        reward_type: response.reward?.type || 'skin',
-        reward_data: response.reward
-      });
-
     } catch (error: any) {
       console.error('💥 [SAFE_CASE_OPENING] Error:', error);
       setError(error.message || 'Произошла ошибка при открытии кейса');
@@ -226,7 +212,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         }
       }, 5000);
     }
-  }, [caseItem, currentUser, isProcessing, onCoinsUpdate, toast, logCaseOpening]);
+  }, [caseItem, currentUser, isProcessing, onCoinsUpdate, toast]);
 
   const handleDirectResult = useCallback((reward: any) => {
     console.log('🎯 [SAFE_CASE_OPENING] Handling direct result:', reward);

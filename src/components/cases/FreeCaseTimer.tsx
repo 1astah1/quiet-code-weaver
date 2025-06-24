@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Clock, Play } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { supabase } from '@/integrations/supabase/client';
 import AdModal from '@/components/ads/AdModal';
 import { useCaseOpeningWithAd } from '@/hooks/useCaseOpeningWithAd';
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/components/ui/use-translation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 interface FreeCaseTimerProps {
   caseId: string;
@@ -17,7 +22,7 @@ const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
   caseName,
   onCaseOpened
 }) => {
-  const { user } = useAuth();
+  const { user } = useSecureAuth();
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [canOpen, setCanOpen] = useState(false);
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);

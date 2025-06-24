@@ -1,6 +1,4 @@
-
-import { useState, useRef, useEffect } from 'react';
-import { useImageCache } from '@/hooks/useImageCache';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface LazyImageProps {
   src: string;
@@ -26,9 +24,17 @@ const LazyImage = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
   const [localError, setLocalError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [cachedUrl, setCachedUrl] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  
-  const { cachedUrl, isLoading, hasError } = useImageCache(isInView ? src : '', timeout);
+
+  // Простая логика загрузки изображения без кэширования
+  useEffect(() => {
+    if (isInView && src) {
+      setIsLoading(true);
+      setCachedUrl(src);
+    }
+  }, [isInView, src]);
 
   useEffect(() => {
     if (priority || !imgRef.current) return;
@@ -52,14 +58,16 @@ const LazyImage = ({
 
   const handleLoad = () => {
     setIsLoaded(true);
+    setIsLoading(false);
   };
 
   const handleError = () => {
     setLocalError(true);
+    setIsLoading(false);
     onError?.();
   };
 
-  const showError = hasError || localError;
+  const showError = localError;
 
   if (showError && fallback) {
     return <>{fallback}</>;

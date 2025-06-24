@@ -1,6 +1,5 @@
-
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { SecurityRateLimiter } from '@/utils/security';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, Crown } from 'lucide-react';
@@ -15,7 +14,7 @@ interface SecurityEvent {
 const SecurityMonitor: React.FC = () => {
   console.log('🛡️ [SECURITY_MONITOR] Component mounting/rendering');
   
-  const { user } = useAuth();
+  const { user } = useSecureAuth();
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
 

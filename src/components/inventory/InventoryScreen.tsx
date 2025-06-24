@@ -1,10 +1,17 @@
-
 import { useState } from "react";
-import { useUserInventory, useSellSkin } from "@/hooks/useInventory";
-import { Package, Coins, ExternalLink, Loader2, Download } from "lucide-react";
-import OptimizedImage from "@/components/ui/OptimizedImage";
-import { inventoryLimiter } from "@/utils/rateLimiter";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/components/ui/use-translation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Search, Filter, SortAsc, SortDesc, DollarSign, Package, Gift, Crown, Zap, Star, Flame } from "lucide-react";
+import { useSecureInventory } from "@/hooks/useSecureInventory";
 import WithdrawSkinModal from "./WithdrawSkinModal";
 
 interface InventoryScreenProps {

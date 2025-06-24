@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
 export const ensureBucketExists = async (bucketName: string, retries: number = 3): Promise<boolean> => {
   for (let attempt = 1; attempt <= retries; attempt++) {

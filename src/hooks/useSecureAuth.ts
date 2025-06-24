@@ -1,15 +1,70 @@
-
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 import { secureAuditLog, SecurityValidator } from '@/utils/securityValidation';
 
 // Безопасный хук аутентификации с дополнительными проверками
 export const useSecureAuth = () => {
   console.log('🔐 [SECURE_AUTH] Hook mounting/rendering');
   
-  const { user, isLoading } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSecurityVerified, setIsSecurityVerified] = useState(false);
   const [securityWarnings, setSecurityWarnings] = useState<string[]>([]);
+  const { toast } = useToast();
+
+  // Базовая аутентификация
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+        
+        if (error) {
+          console.error('❌ [SECURE_AUTH] Auth error:', error);
+          setUser(null);
+        } else {
+          console.log('✅ [SECURE_AUTH] User loaded:', currentUser?.id);
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error('💥 [SECURE_AUTH] Unexpected auth error:', error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getCurrentUser();
+
+    // Слушаем изменения аутентификации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 [SECURE_AUTH] Auth state changed:', event, session?.user?.id);
+        setUser(session?.user || null);
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Функция выхода
+  const signOut = async () => {
+    try {
+      console.log('🚪 [SECURE_AUTH] Signing out user:', user?.id);
+      await supabase.auth.signOut();
+      setUser(null);
+      setIsSecurityVerified(false);
+      setSecurityWarnings([]);
+    } catch (error) {
+      console.error('❌ [SECURE_AUTH] Sign out error:', error);
+      toast({
+        title: "Ошибка выхода",
+        description: "Не удалось выйти из системы",
+        variant: "destructive",
+      });
+    }
+  };
 
   console.log('📊 [SECURE_AUTH] Current state:', {
     hasUser: !!user,
@@ -96,6 +151,7 @@ export const useSecureAuth = () => {
     user,
     isLoading,
     isSecurityVerified,
-    securityWarnings
+    securityWarnings,
+    signOut
   };
 };

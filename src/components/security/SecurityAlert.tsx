@@ -1,16 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, X } from 'lucide-react';
 import { SecurityMonitor } from '@/utils/securityEnhanced';
-import { useAuth } from '@/hooks/useAuth';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
+import { useEnhancedSecurity } from '@/hooks/useEnhancedSecurity';
+import { useToast } from '@/components/ui/use-toast';
+import { useTranslation } from '@/components/ui/use-translation';
+import { Button } from '@/components/ui/button';
 
 interface SecurityAlertProps {
   userId: string;
 }
 
 const SecurityAlert: React.FC<SecurityAlertProps> = ({ userId }) => {
-  const { user } = useAuth();
+  const { user } = useSecureAuth();
   const [alerts, setAlerts] = useState<Array<{
     id: string;
     type: 'warning' | 'error';

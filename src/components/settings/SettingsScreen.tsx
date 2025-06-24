@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock, FileText, ScrollText, Users, Copy, Share } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
@@ -9,10 +8,9 @@ import TermsOfServiceModal from "./TermsOfServiceModal";
 import PrivacyPolicyModal from "./PrivacyPolicyModal";
 import LanguageSelector from "./LanguageSelector";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useGenerateReferralCode } from "@/hooks/useReferral";
+import { useTranslation } from "@/components/ui/use-translation";
 
 interface SettingsScreenProps {
   currentUser: {
@@ -41,7 +39,6 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
   const [vibrationEnabled, setVibrationEnabled] = useState(currentUser.vibration_enabled ?? true);
   const [profilePrivate, setProfilePrivate] = useState(currentUser.profile_private ?? false);
   const { toast } = useToast();
-  const generateReferralCode = useGenerateReferralCode();
 
   const handleLanguageChange = async (languageCode: string) => {
     try {
@@ -101,14 +98,6 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
         description: t('failedToSaveSettings'),
         variant: "destructive",
       });
-    }
-  };
-
-  const handleGenerateReferralCode = async () => {
-    try {
-      await generateReferralCode.mutateAsync(currentUser.id);
-    } catch (error) {
-      console.error('Error generating referral code:', error);
     }
   };
 
@@ -247,21 +236,10 @@ const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => 
             </div>
           ) : (
             <Button 
-              onClick={handleGenerateReferralCode}
-              disabled={generateReferralCode.isPending}
+              onClick={handleCopyReferralLink}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-xl"
             >
-              {generateReferralCode.isPending ? (
-                <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Создание...
-                </div>
-              ) : (
-                <>
-                  <Users className="w-4 h-4 mr-2" />
-                  Создать реферальный код
-                </>
-              )}
+              Копировать ссылку
             </Button>
           )}
         </div>

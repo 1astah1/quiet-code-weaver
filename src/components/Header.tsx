@@ -1,6 +1,5 @@
-
 import { Settings, Coins } from "lucide-react";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/components/ui/use-translation";
 
 interface HeaderProps {
   currentUser: {

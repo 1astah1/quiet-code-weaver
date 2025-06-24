@@ -1,7 +1,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useEnhancedSecurity } from "@/hooks/useEnhancedSecurity";
 import type { SafePurchaseSkinResponse } from "@/types/rpc";
 
