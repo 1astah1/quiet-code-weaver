@@ -9,6 +9,8 @@ interface RewardData {
   rarity: string;
   price: number;
   image_url?: string;
+  type?: string;
+  amount?: number;
 }
 
 interface RecentWin {
@@ -23,13 +25,12 @@ interface RecentWin {
 const RecentWins = () => {
   const [realtimeWins, setRealtimeWins] = useState<RecentWin[]>([]);
 
-  // Type guard function to safely check if data is RewardData
   const isValidRewardData = (data: any): data is RewardData => {
     return (
       data &&
       typeof data === 'object' &&
       typeof data.name === 'string' &&
-      typeof data.rarity === 'string' &&
+      (typeof data.rarity === 'string' || data.type === 'coin_reward') &&
       typeof data.price === 'number'
     );
   };
@@ -61,11 +62,8 @@ const RecentWins = () => {
 
         console.log('✅ [RECENT_WINS] Loaded wins:', data?.length || 0);
         
-        // Фильтруем записи с корректными данными
         const validWins = (data || []).filter(win => {
           if (!win.reward_data) return false;
-          
-          // Используем type guard для безопасной проверки
           return isValidRewardData(win.reward_data);
         }).map(win => ({
           ...win,
@@ -79,11 +77,10 @@ const RecentWins = () => {
         throw error;
       }
     },
-    staleTime: 15000,
-    retry: 2
+    staleTime: 10000,
+    retry: 3
   });
 
-  // Настраиваем realtime подписку
   useEffect(() => {
     console.log('🔔 [RECENT_WINS] Setting up realtime subscription...');
     
@@ -100,7 +97,6 @@ const RecentWins = () => {
           console.log('🔔 [RECENT_WINS] New win received:', payload);
           
           try {
-            // Получаем полные данные о новом выигрыше
             const { data: newWinData, error } = await supabase
               .from('recent_wins')
               .select(`
@@ -129,7 +125,6 @@ const RecentWins = () => {
                 console.log('✅ [RECENT_WINS] Adding new win to realtime list:', newWin);
                 
                 setRealtimeWins(prev => {
-                  // Добавляем новый выигрыш в начало списка и ограничиваем до 20 элементов
                   const updated = [newWin, ...prev.filter(w => w.id !== newWin.id)].slice(0, 20);
                   return updated;
                 });
@@ -148,17 +143,17 @@ const RecentWins = () => {
     };
   }, []);
 
-  // Сбрасываем realtime данные при обновлении начальных данных
   useEffect(() => {
     if (initialWins.length > 0) {
       setRealtimeWins([]);
     }
   }, [initialWins]);
 
-  // Объединяем начальные данные с realtime обновлениями
   const allWins = [...realtimeWins, ...initialWins].slice(0, 20);
 
-  const getRarityColor = (rarity?: string) => {
+  const getRarityColor = (rarity?: string, type?: string) => {
+    if (type === 'coin_reward') return 'from-yellow-500 to-orange-500';
+    
     if (!rarity) return 'from-gray-500 to-gray-600';
     
     const colors = {
@@ -274,7 +269,7 @@ const RecentWins = () => {
                 index < realtimeWins.length ? 'ring-2 ring-green-500/30 animate-pulse' : ''
               }`}
             >
-              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData.rarity)} p-0.5 flex-shrink-0`}>
+              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${getRarityColor(rewardData.rarity, rewardData.type)} p-0.5 flex-shrink-0`}>
                 <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                   <OptimizedImage
                     src={rewardData.image_url}
@@ -283,7 +278,7 @@ const RecentWins = () => {
                     timeout={5000}
                     fallback={
                       <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        🎁
+                        {rewardData.type === 'coin_reward' ? '🪙' : '🎁'}
                       </div>
                     }
                   />
@@ -301,13 +296,13 @@ const RecentWins = () => {
                   )}
                 </div>
                 <p className="text-white font-medium text-sm truncate">
-                  {rewardData.name}
+                  {rewardData.type === 'coin_reward' ? `${rewardData.amount} монет` : rewardData.name}
                 </p>
               </div>
               
               <div className="text-right flex-shrink-0">
                 <div className="text-yellow-400 font-bold text-sm">
-                  {rewardData.price || 0}₽
+                  {rewardData.type === 'coin_reward' ? rewardData.amount : rewardData.price || 0}₽
                 </div>
                 <div className="text-slate-500 text-xs">
                   {formatTimeAgo(win.won_at)}
