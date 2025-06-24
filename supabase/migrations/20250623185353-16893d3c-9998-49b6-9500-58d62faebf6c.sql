@@ -1,4 +1,3 @@
-
 -- Исправляем функцию safe_open_case_with_session для синхронизации рулетки и награды
 CREATE OR REPLACE FUNCTION public.safe_open_case_with_session(
   p_user_id uuid,
@@ -192,8 +191,8 @@ BEGIN
     temp_item := NULL; -- Очищаем для следующей итерации
   END LOOP;
 
-  -- ВЫБИРАЕМ СЛУЧАЙНУЮ ПОЗИЦИЮ ПОБЕДИТЕЛЯ (0-9)
-  winner_position := floor(random() * 10)::integer;
+  -- ВЫБИРАЕМ ФИКСИРОВАННУЮ ПОЗИЦИЮ ПОБЕДИТЕЛЯ (5) для синхронизации с анимацией
+  winner_position := 5;
   
   -- НАГРАДА = ПРЕДМЕТ НА ПОЗИЦИИ ПОБЕДИТЕЛЯ
   reward_data := roulette_items->winner_position;

@@ -1,4 +1,3 @@
-
 -- Fix the safe_open_case_with_session function to ensure roulette winner position matches actual reward
 CREATE OR REPLACE FUNCTION public.safe_open_case_with_session(
   p_user_id uuid, 
@@ -186,8 +185,8 @@ BEGIN
     WHERE s.id = selected_skin_id;
   END IF;
 
-  -- ТРЕТИЙ ШАГ: Генерируем случайную позицию победителя ПОСЛЕ выбора награды
-  winner_position := floor(random() * 10)::integer;
+  -- FIXED: Устанавливаем фиксированную позицию 5 для синхронизации с анимацией
+  winner_position := 5;
 
   -- ЧЕТВЕРТЫЙ ШАГ: Генерируем рулетку из 10 предметов, где на позиции победителя ТОЧНО находится выбранная награда
   FOR i IN 0..9 LOOP

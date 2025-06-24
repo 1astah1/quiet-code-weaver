@@ -1,4 +1,3 @@
-
 -- Fix the safe_open_case function to ensure roulette winner position matches actual reward
 CREATE OR REPLACE FUNCTION public.safe_open_case(
   p_user_id uuid, 
@@ -28,8 +27,8 @@ DECLARE
   cumulative_probability numeric := 0;
   case_skin_record RECORD;
 BEGIN
-  -- Generate random winner position (0-9)
-  winner_position := floor(random() * 10)::integer;
+  -- FIXED: Устанавливаем фиксированную позицию 5 для синхронизации с анимацией
+  winner_position := 5;
   
   -- Получаем цену кейса и баланс пользователя
   SELECT c.price, u.coins 
