@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { SafeSellSkinResponse } from '@/types/rpc';
-import { useQuery } from '@tanstack/react-query';
 
 export const useSecureInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -75,20 +74,3 @@ export const useSecureInventory = () => {
     clearError: () => setError(null)
   };
 };
-
-export function useUserInventory(userId: string) {
-  return useQuery({
-    queryKey: ['user-inventory', userId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_inventory')
-        .select('*, skins(*)')
-        .eq('user_id', userId)
-        .order('obtained_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  });
-}

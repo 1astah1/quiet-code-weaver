@@ -169,22 +169,6 @@ export default {
       },
       screens: {
         'xs': '475px',
-        'sm': '640px',
-        'md': '768px',
-        'lg': '1024px',
-        'xl': '1280px',
-        '2xl': '1536px',
-        // Мобильные брейкпоинты для горизонтальной ориентации
-        'mobile-landscape': '568px',
-        'mobile-large': '414px',
-        'mobile-medium': '375px',
-        'mobile-small': '320px',
-        // Планшеты
-        'tablet': '768px',
-        'tablet-large': '1024px',
-        // Десктоп
-        'desktop': '1280px',
-        'desktop-large': '1536px',
       },
     },
   },

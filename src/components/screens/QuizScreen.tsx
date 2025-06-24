@@ -24,11 +24,13 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [lives, setLives] = useState(currentUser.quiz_lives);
+  const [lives, setLives] = useState(currentUser.lives);
   const [showResult, setShowResult] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { t } = useTranslation('ru');
+  const { t } = useTranslation(currentUser.language_code);
+  const { validateQuizAction } = useSecureQuiz();
+  const { updateTaskProgress } = useSecureTaskProgress();
 
   const { data: questions, isLoading: questionsLoading } = useQuery({
     queryKey: ['quiz-questions'],
@@ -70,78 +72,69 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
 
   if (lives === 0) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center text-white">
-          <p>Нет жизней</p>
-          <Button onClick={onBack} className="mt-4">
-            Назад
-          </Button>
-        </div>
-      </div>
+      <NoLives
+        nextLifeTime={quizLogic.nextLifeTime}
+        canRestoreLife={quizLogic.canRestoreLife}
+        onRestoreLife={quizLogic.handleRestoreLife}
+        isRestoringLife={quizLogic.restoreLifeWithAdMutation.isPending}
+        onBack={onBack}
+      />
     );
   }
 
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-black px-2 mobile-small:px-3 mobile-medium:px-3 mobile-large:px-4 sm:px-4 md:px-6 py-3 mobile-small:py-4 mobile-medium:py-4 mobile-large:py-5 sm:py-6">
+    <div className="min-h-screen bg-black px-4 py-6">
       <div className="max-w-2xl mx-auto">
-        <div className="mb-4">
-          <Button onClick={onBack} variant="outline" className="mb-4">
-            Назад
-          </Button>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <Heart className="w-5 h-5 text-red-400" />
-              <span className="text-white">{lives}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Flame className="w-5 h-5 text-orange-400" />
-              <span className="text-white">{streak}</span>
-            </div>
-          </div>
-        </div>
+        <QuizHeader
+          onBack={onBack}
+          livesLeft={lives}
+          streak={streak}
+          canRestoreLife={quizLogic.canRestoreLife}
+          onRestoreLife={quizLogic.handleRestoreLife}
+          isRestoringLife={quizLogic.restoreLifeWithAdMutation.isPending}
+          isProcessingAnswer={quizLogic.isProcessingAnswer}
+        />
 
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-400 mb-2">
-            <span>Вопрос {currentQuestionIndex + 1} из {questions.length}</span>
-            <span>{Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}%</span>
-          </div>
-          <Progress value={((currentQuestionIndex + 1) / questions.length) * 100} className="h-2" />
-        </div>
+        <QuizProgress
+          currentQuestionIndex={currentQuestionIndex}
+          totalQuestions={questions.length}
+        />
 
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-white mb-4">{currentQuestion.question}</h3>
-            <div className="space-y-2">
-              {['A', 'B', 'C', 'D'].map((option, index) => (
-                <button
-                  key={option}
-                  onClick={() => setSelectedAnswer(index)}
-                  className={`w-full p-3 text-left rounded-lg border transition-all ${
-                    selectedAnswer === index
-                      ? 'bg-orange-500 border-orange-500 text-white'
-                      : 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
-                  }`}
-                >
-                  <span className="font-medium">{option}.</span> {currentQuestion[`option_${option.toLowerCase()}` as keyof Question]}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <QuizResultOverlay
+          showResult={showResult}
+          lastAnswerCorrect={quizLogic.lastAnswerCorrect}
+          livesLeft={lives}
+        />
+
+        <QuestionCard
+          question={currentQuestion}
+          selectedAnswer={selectedAnswer}
+          onAnswerSelect={(answer) => {
+            setSelectedAnswer(answer);
+            setIsAnswered(true);
+          }}
+          showResult={showResult}
+          isProcessingAnswer={quizLogic.isProcessingAnswer}
+        />
 
         <Button
           onClick={() => {
             if (selectedAnswer !== null) {
-              // Здесь должна быть логика обработки ответа
-              console.log('Ответ выбран:', selectedAnswer);
+              quizLogic.handleAnswerSelect(selectedAnswer);
+              setIsAnswered(true);
             }
           }}
-          disabled={!selectedAnswer}
-          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-400 py-2.5 mobile-small:py-3 mobile-medium:py-3 mobile-large:py-3 sm:py-3 text-sm mobile-small:text-base mobile-medium:text-base mobile-large:text-lg sm:text-lg font-medium"
+          disabled={!selectedAnswer || showResult || quizLogic.isProcessingAnswer}
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-400 py-3 text-lg"
         >
-          {currentQuestionIndex === questions.length - 1 ? 'Завершить викторину' : 'Следующий вопрос'}
+          {quizLogic.isProcessingAnswer 
+            ? 'Обработка...' 
+            : currentQuestionIndex === questions.length - 1 
+              ? 'Завершить викторину' 
+              : 'Следующий вопрос'
+          }
         </Button>
       </div>
     </div>
