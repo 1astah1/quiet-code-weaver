@@ -51,8 +51,6 @@ const PurchaseSuccessModal = ({
     if (isProcessing) return;
     
     setIsProcessing(true);
-    console.log('📦 [SUCCESS_MODAL] Adding reward to inventory (already done by SQL):', reward.name);
-    
     toast({
       title: "Добавлено в инвентарь!",
       description: "Предмет успешно добавлен в ваш инвентарь",

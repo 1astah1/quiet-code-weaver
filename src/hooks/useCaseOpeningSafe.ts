@@ -107,7 +107,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       return;
     }
 
-    console.log('🎯 [SAFE_CASE_OPENING] Starting case opening with FIXED POSITION 5 logic');
+    console.log('🎯 [SAFE_CASE_OPENING] Starting case opening with NEW synchronized logic');
     
     setIsProcessing(true);
     setError(null);
@@ -140,7 +140,7 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       }
 
       const response = data as unknown as CaseOpeningResponse;
-      console.log('✅ [SAFE_CASE_OPENING] Response received with FIXED POSITION 5:', response);
+      console.log('✅ [SAFE_CASE_OPENING] Response received:', response);
 
       if (!response.success) {
         throw new Error(response.error || 'Не удалось открыть кейс');
@@ -152,32 +152,25 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
         console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Используем данные рулетки с ФИКСИРОВАННОЙ ПОЗИЦИЕЙ 5 от SQL функции
+      // Используем данные рулетки и позицию победителя от SQL функции
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [SAFE_CASE_OPENING] Using SQL FIXED POSITION 5 roulette data:', {
+        console.log('🎰 [SAFE_CASE_OPENING] Using SQL-synchronized roulette data:', {
           winnerPosition: response.winner_position,
-          expectedPosition: 5,
           totalItems: response.roulette_items.length,
           winnerItem: response.roulette_items[response.winner_position],
           rewardFromSQL: response.reward
         });
         
-        // Проверяем что SQL функция действительно использует позицию 5
-        if (response.winner_position !== 5) {
-          console.warn('⚠️ [SAFE_CASE_OPENING] Winner position is not 5! Expected fixed position 5');
-        }
-        
-        // Проверяем синхронизацию: предмет на позиции 5 должен совпадать с наградой
+        // Проверяем синхронизацию: предмет на позиции победителя должен совпадать с наградой
         const winnerItem = response.roulette_items[response.winner_position];
         const isSynchronized = winnerItem?.id === response.reward?.id;
         
-        console.log('🔄 [SAFE_CASE_OPENING] FIXED POSITION 5 synchronization check:', {
+        console.log('🔄 [SAFE_CASE_OPENING] Synchronization check:', {
           winnerItemId: winnerItem?.id,
           rewardId: response.reward?.id,
           isSynchronized,
           winnerItemName: winnerItem?.name,
-          rewardName: response.reward?.name,
-          fixedPosition: 5
+          rewardName: response.reward?.name
         });
         
         setRouletteData({
@@ -244,19 +237,18 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
   }, []);
 
   const handleRouletteComplete = useCallback(() => {
-    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete - FIXED POSITION 5');
+    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete');
     
     if (!rouletteData) {
       console.error('❌ [SAFE_CASE_OPENING] No roulette data found!');
       return;
     }
     
-    // Берем награду с ФИКСИРОВАННОЙ ПОЗИЦИИ 5 на рулетке (данные уже синхронизированы SQL функцией)
+    // Берем награду с позиции победителя на рулетке (данные уже синхронизированы SQL функцией)
     const winnerItem = rouletteData.items[rouletteData.winnerPosition];
     
-    console.log('🏆 [SAFE_CASE_OPENING] Using winner item from FIXED POSITION 5:', {
+    console.log('🏆 [SAFE_CASE_OPENING] Using winner item from roulette position:', {
       position: rouletteData.winnerPosition,
-      expectedPosition: 5,
       item: winnerItem,
       type: winnerItem?.type,
       name: winnerItem?.name,
@@ -264,17 +256,17 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     });
     
     if (winnerItem?.type === 'skin') {
-      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from FIXED POSITION 5');
+      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from roulette');
       setWonSkin(winnerItem);
     } else if (winnerItem?.type === 'coin_reward') {
-      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from FIXED POSITION 5');
+      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from roulette');
       setWonCoins(winnerItem.amount || 0);
     }
     
     setAnimationPhase('complete');
     setTimeout(() => {
       setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with FIXED POSITION 5');
+      console.log('✅ [SAFE_CASE_OPENING] Case opening completed');
     }, 1000);
   }, [rouletteData]);
 
