@@ -97,7 +97,8 @@ export const useCaseOpeningFixed = ({
         if (result.reward.type === 'coin_reward') {
           setWonCoins(result.reward.amount || 0);
         } else {
-          setWonSkin(result.reward);
+          const winnerItem = result.roulette_items[result.winner_position];
+          setWonSkin(winnerItem);
         }
       }
 
@@ -117,9 +118,19 @@ export const useCaseOpeningFixed = ({
 
   const handleRouletteComplete = useCallback(() => {
     console.log('🎯 [CASE_OPENING_FIXED] Roulette complete');
+    if (rouletteData && rouletteData.items && rouletteData.winnerPosition !== undefined) {
+      const winnerItem = rouletteData.items[rouletteData.winnerPosition];
+      if (winnerItem?.type === 'coin_reward') {
+        setWonCoins(winnerItem.amount || 0);
+        setWonSkin(null);
+      } else {
+        setWonSkin(winnerItem);
+        setWonCoins(0);
+      }
+    }
     setAnimationPhase('complete');
     setIsComplete(true);
-  }, []);
+  }, [rouletteData]);
 
   const addToInventory = async () => {
     if (!wonSkin) return;
