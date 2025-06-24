@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { SafeSellSkinResponse } from '@/types/rpc';
@@ -57,7 +56,7 @@ export const useSecureInventory = () => {
       };
     } catch (err) {
       console.error('💥 [SECURE_INVENTORY] Error selling skin:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка при продаже';
+      const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
       setError(errorMessage);
       return { 
         success: false, 

@@ -5,9 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, Plus, Upload, X, Shuffle, Image } from "lucide-react";
 import CaseSkinManagement from "./CaseSkinManagement";
+import { Case } from "@/utils/supabaseTypes";
 
 interface CaseManagementProps {
-  tableData: any[];
+  tableData: Case[];
   selectedCase: string | null;
   setSelectedCase: (caseId: string | null) => void;
   uploadingImage: boolean;
@@ -22,7 +23,7 @@ const CaseManagement = ({
   onSkinImageUpload 
 }: CaseManagementProps) => {
   const [editingCase, setEditingCase] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
+  const [editData, setEditData] = useState<Case | Record<string, unknown>>({} as Case);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddSkinForm, setShowAddSkinForm] = useState(false);
   const [newCaseData, setNewCaseData] = useState({
@@ -407,7 +408,7 @@ const CaseManagement = ({
     }
   };
 
-  const handleEditCase = (caseItem: any) => {
+  const handleEditCase = (caseItem: Case) => {
     setEditingCase(caseItem.id);
     setEditData(caseItem);
   };
@@ -569,7 +570,7 @@ const CaseManagement = ({
     if (selectedCase === caseId) {
       setSelectedCase(null);
     } else {
-      setSelectedCase(caseId);
+      setSelectedCase(caseId ? String(caseId) : null);
     }
   };
 
@@ -593,21 +594,21 @@ const CaseManagement = ({
             <input
               type="text"
               placeholder="Название кейса"
-              value={newCaseData.name}
+              value={typeof newCaseData.name === 'string' ? newCaseData.name : ''}
               onChange={(e) => setNewCaseData({ ...newCaseData, name: e.target.value })}
               className="bg-gray-700 text-white px-3 py-2 rounded"
             />
             <input
               type="number"
               placeholder="Цена"
-              value={newCaseData.price}
+              value={typeof newCaseData.price === 'number' ? newCaseData.price : Number(newCaseData.price) || ''}
               onChange={(e) => setNewCaseData({ ...newCaseData, price: parseInt(e.target.value) || 0 })}
               className="bg-gray-700 text-white px-3 py-2 rounded"
             />
             <div className="col-span-1 md:col-span-2">
               <textarea
                 placeholder="Описание кейса"
-                value={newCaseData.description}
+                value={typeof newCaseData.description === 'string' ? newCaseData.description : ''}
                 onChange={(e) => setNewCaseData({ ...newCaseData, description: e.target.value })}
                 className="bg-gray-700 text-white px-3 py-2 rounded w-full"
                 rows={3}
@@ -677,7 +678,7 @@ const CaseManagement = ({
             <label className="flex items-center space-x-2 col-span-1 md:col-span-2">
               <input
                 type="checkbox"
-                checked={newCaseData.is_free}
+                checked={typeof newCaseData.is_free === 'boolean' ? newCaseData.is_free : false}
                 onChange={(e) => setNewCaseData({ ...newCaseData, is_free: e.target.checked })}
                 className="text-orange-500"
               />
@@ -716,13 +717,13 @@ const CaseManagement = ({
               <div className="space-y-3">
                 <input
                   type="text"
-                  value={editData.name || ''}
+                  value={typeof editData.name === 'string' ? editData.name : ''}
                   onChange={(e) => setEditData({...editData, name: e.target.value})}
                   className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                   placeholder="Название кейса"
                 />
                 <textarea
-                  value={editData.description || ''}
+                  value={typeof editData.description === 'string' ? editData.description : ''}
                   onChange={(e) => setEditData({...editData, description: e.target.value})}
                   className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                   placeholder="Описание"
@@ -730,7 +731,7 @@ const CaseManagement = ({
                 />
                 <input
                   type="number"
-                  value={editData.price || ''}
+                  value={typeof editData.price === 'number' ? editData.price : Number(editData.price) || ''}
                   onChange={(e) => setEditData({...editData, price: parseInt(e.target.value) || 0})}
                   className="w-full bg-gray-700 text-white px-3 py-2 rounded"
                   placeholder="Цена"
@@ -753,9 +754,9 @@ const CaseManagement = ({
                       <Upload className="w-4 h-4 animate-spin text-orange-500" />
                     )}
                   </div>
-                  {(editData.cover_image_url || caseItem.cover_image_url) && (
+                  {(typeof editData.cover_image_url === 'string' && editData.cover_image_url) && (
                     <img 
-                      src={editData.cover_image_url || caseItem.cover_image_url} 
+                      src={editData.cover_image_url} 
                       alt="Cover" 
                       className="w-16 h-12 object-cover rounded"
                     />
@@ -779,9 +780,9 @@ const CaseManagement = ({
                       <Upload className="w-4 h-4 animate-spin text-orange-500" />
                     )}
                   </div>
-                  {(editData.image_url || caseItem.image_url) && (
+                  {(typeof editData.image_url === 'string' && editData.image_url) && (
                     <img 
-                      src={editData.image_url || caseItem.image_url} 
+                      src={editData.image_url} 
                       alt="Main" 
                       className="w-16 h-16 object-cover rounded"
                     />
@@ -791,7 +792,7 @@ const CaseManagement = ({
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={editData.is_free || false}
+                    checked={typeof editData.is_free === 'boolean' ? editData.is_free : false}
                     onChange={(e) => setEditData({...editData, is_free: e.target.checked})}
                     className="rounded"
                   />
@@ -813,9 +814,9 @@ const CaseManagement = ({
             ) : (
               <>
                 <div className="flex items-center space-x-3 mb-3">
-                  {(caseItem.cover_image_url || caseItem.image_url) && (
+                  {(typeof caseItem.cover_image_url === 'string' && caseItem.cover_image_url) && (
                     <img 
-                      src={caseItem.cover_image_url || caseItem.image_url} 
+                      src={caseItem.cover_image_url} 
                       alt={caseItem.name}
                       className="w-12 h-12 object-cover rounded"
                     />

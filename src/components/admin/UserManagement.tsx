@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,15 +8,16 @@ import { Users, Shield, Crown, Coins, DollarSign } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import UserBalanceModal from "./UserBalanceModal";
+import { ExtendedUser } from "@/utils/supabaseTypes";
 
 const UserManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<ExtendedUser | null>(null);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
-  const { data: users, isLoading, error } = useQuery({
+  const { data: users, isLoading, error } = useQuery<ExtendedUser[]>({
     queryKey: ['admin_users'],
     queryFn: async () => {
       console.log('Загрузка пользователей...');
@@ -36,7 +36,7 @@ const UserManagement = () => {
       }
       
       console.log('Пользователи загружены:', data);
-      return data || [];
+      return (data || []) as ExtendedUser[];
     }
   });
 
@@ -80,7 +80,7 @@ const UserManagement = () => {
     }
   };
 
-  const openBalanceModal = (user: any) => {
+  const openBalanceModal = (user: ExtendedUser) => {
     setSelectedUser(user);
     setIsBalanceModalOpen(true);
   };
@@ -100,8 +100,8 @@ const UserManagement = () => {
   };
 
   // ИСПРАВЛЕНО: Проверяем роли правильно с учетом LEFT JOIN
-  const checkUserHasRole = (user: any, role: string) => {
-    return user.user_roles?.some((userRole: any) => userRole?.role === role) || false;
+  const checkUserHasRole = (user: ExtendedUser, role: string) => {
+    return Array.isArray(user.user_roles) && user.user_roles.some((userRole: any) => userRole?.role === role) || false;
   };
 
   if (isLoading) {
@@ -185,7 +185,7 @@ const UserManagement = () => {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Coins className="w-4 h-4 text-yellow-500" />
-                            <span>{user.coins || 0}</span>
+                            <span>{user.coins ?? 0}</span>
                           </div>
                         </TableCell>
                         <TableCell>

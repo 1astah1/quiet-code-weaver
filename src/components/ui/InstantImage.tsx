@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface InstantImageProps {
@@ -13,7 +12,7 @@ const InstantImage: React.FC<InstantImageProps> = ({
   src,
   alt,
   className = '',
-  fallback,
+  fallback = <div style={{width: '100%', height: '100%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa'}}>Нет изображения</div>,
   onError
 }) => {
   const [hasError, setHasError] = useState(false);

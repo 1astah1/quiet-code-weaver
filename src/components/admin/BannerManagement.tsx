@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useBannerManagement } from "@/hooks/useBannerManagement";
 import { uploadBannerImage } from "@/utils/bannerUpload";
 import BannerForm from "./banner/BannerForm";
 import BannerCard from "./banner/BannerCard";
+import { Banner } from "@/utils/supabaseTypes";
 
 const BannerManagement = () => {
   const [uploadingImage, setUploadingImage] = useState(false);

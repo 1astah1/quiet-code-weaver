@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, Plus, Save, X, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import InstantImage from "@/components/ui/InstantImage";
+import { CaseSkin } from "@/utils/supabaseTypes";
 
 interface CaseSkinManagementProps {
   caseId: string;
@@ -15,7 +16,7 @@ interface CaseSkinManagementProps {
 
 const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementProps) => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
+  const [editData, setEditData] = useState<CaseSkin | Record<string, unknown>>({} as CaseSkin);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSkinData, setNewSkinData] = useState({
     reward_type: 'skin',
@@ -107,8 +108,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
   const isProbabilityValid = totalProbability <= 100;
 
-  const handleEditItem = (item: any) => {
-    setEditingItemId(item.id);
+  const handleEditItem = (item: CaseSkin) => {
+    setEditingItemId(item.id ? String(item.id) : '');
     setEditData({
       probability: item.probability,
       custom_probability: item.custom_probability,
@@ -420,7 +421,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="block text-gray-300 text-sm mb-2">Вероятность (%):</label>
               <Input
                 type="number"
-                value={newSkinData.probability}
+                value={typeof newSkinData.probability === 'number' ? newSkinData.probability : ''}
                 onChange={(e) => setNewSkinData({ ...newSkinData, probability: parseFloat(e.target.value) || 0 })}
                 className="bg-gray-600 text-white border-gray-500"
                 min="0"
@@ -433,7 +434,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="block text-gray-300 text-sm mb-2">Кастомная вероятность (%):</label>
               <Input
                 type="number"
-                value={newSkinData.custom_probability || ''}
+                value={typeof newSkinData.custom_probability === 'number' ? newSkinData.custom_probability : ''}
                 onChange={(e) => setNewSkinData({ 
                   ...newSkinData, 
                   custom_probability: e.target.value ? parseFloat(e.target.value) : null 
@@ -450,7 +451,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={newSkinData.never_drop}
+                  checked={typeof newSkinData.never_drop === 'boolean' ? newSkinData.never_drop : false}
                   onChange={(e) => setNewSkinData({ ...newSkinData, never_drop: e.target.checked })}
                   className="rounded"
                 />
@@ -527,7 +528,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                     <div className="text-right">
                       <Input
                         type="number"
-                        value={editData.probability || ''}
+                        value={typeof editData.probability === 'number' ? editData.probability : ''}
                         onChange={(e) => setEditData({ ...editData, probability: parseFloat(e.target.value) || 0 })}
                         placeholder="Вероятность"
                         className="w-20 bg-gray-600 text-white border-gray-500 text-sm"
@@ -537,7 +538,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       />
                       <Input
                         type="number"
-                        value={editData.custom_probability || ''}
+                        value={typeof editData.custom_probability === 'number' ? editData.custom_probability : ''}
                         onChange={(e) => setEditData({ 
                           ...editData, 
                           custom_probability: e.target.value ? parseFloat(e.target.value) : null 
@@ -552,7 +553,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={editData.never_drop || false}
+                        checked={typeof editData.never_drop === 'boolean' ? editData.never_drop : false}
                         onChange={(e) => setEditData({ ...editData, never_drop: e.target.checked })}
                         className="rounded"
                       />
@@ -583,7 +584,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       <Edit2 className="w-3 h-3" />
                     </Button>
                     <Button 
-                      onClick={() => handleDeleteItem(item.id)} 
+                      onClick={() => handleDeleteItem(item.id ? String(item.id) : '')} 
                       size="sm" 
                       className="bg-red-600 hover:bg-red-700"
                     >

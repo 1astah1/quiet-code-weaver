@@ -1,15 +1,15 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import SkinRaritySelector from "./SkinRaritySelector";
+import { Case, Skin } from "@/utils/supabaseTypes";
 
 interface AddItemFormProps {
   activeTable: string;
-  newItem: any;
-  setNewItem: (item: any) => void;
+  newItem: Case | Skin | Record<string, unknown>;
+  setNewItem: (item: Case | Skin | Record<string, unknown>) => void;
   onAdd: () => void;
   onImageUpload: (file: File, isEdit?: boolean, itemId?: string, fieldName?: string) => Promise<string | undefined>;
   uploadingImage: boolean;
@@ -72,7 +72,7 @@ const AddItemForm = ({
             <div>
               <Label>Название *</Label>
               <Input
-                value={newItem.name || ''}
+                value={typeof newItem.name === 'string' ? newItem.name : ''}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                 placeholder="Название скина"
                 required
@@ -82,7 +82,7 @@ const AddItemForm = ({
             <div>
               <Label>Тип оружия *</Label>
               <Input
-                value={newItem.weapon_type || ''}
+                value={('weapon_type' in newItem && typeof newItem.weapon_type === 'string') ? newItem.weapon_type : ''}
                 onChange={(e) => setNewItem({ ...newItem, weapon_type: e.target.value })}
                 placeholder="AK-47, M4A4, AWP и т.д."
                 required
@@ -92,7 +92,7 @@ const AddItemForm = ({
             <div>
               <Label>Редкость *</Label>
               <SkinRaritySelector
-                value={newItem.rarity || ''}
+                value={('rarity' in newItem && typeof newItem.rarity === 'string') ? newItem.rarity : ''}
                 onChange={(value) => setNewItem({ ...newItem, rarity: value })}
               />
             </div>
@@ -101,7 +101,7 @@ const AddItemForm = ({
               <Label>Цена (монеты) *</Label>
               <Input
                 type="number"
-                value={newItem.price || ''}
+                value={typeof newItem.price === 'number' ? newItem.price.toString() : ''}
                 onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
                 placeholder="100"
                 min="1"
@@ -148,7 +148,7 @@ const AddItemForm = ({
             <div>
               <Label>Название</Label>
               <Input
-                value={newItem.name || ''}
+                value={typeof newItem.name === 'string' ? newItem.name : ''}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                 placeholder="Название кейса"
               />
@@ -157,7 +157,7 @@ const AddItemForm = ({
             <div>
               <Label>Описание</Label>
               <Input
-                value={newItem.description || ''}
+                value={('description' in newItem && typeof newItem.description === 'string') ? newItem.description : ''}
                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                 placeholder="Описание кейса"
               />
@@ -167,7 +167,7 @@ const AddItemForm = ({
               <Label>Цена</Label>
               <Input
                 type="number"
-                value={newItem.price || ''}
+                value={typeof newItem.price === 'number' ? newItem.price.toString() : ''}
                 onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
                 placeholder="100"
               />
@@ -206,7 +206,7 @@ const AddItemForm = ({
           <div key={key}>
             <Label>{key}</Label>
             <Input
-              value={newItem[key] || ''}
+              value={typeof (newItem as Record<string, unknown>)[key] === 'string' ? (newItem as Record<string, unknown>)[key] : ''}
               onChange={(e) => setNewItem({ ...newItem, [key]: e.target.value })}
               placeholder={`Введите ${key}`}
             />

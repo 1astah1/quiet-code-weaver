@@ -1,12 +1,11 @@
-
 import { useState } from "react";
 import { Edit, Trash2, Save, X } from "lucide-react";
 import { TableName } from "@/types/admin";
 
 interface AdminTableProps {
   activeTable: TableName;
-  tableData: any[];
-  onUpdate: (id: string, updatedData: any) => void;
+  tableData: Record<string, unknown>[];
+  onUpdate: (id: string, updatedData: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   onImageUpload: (file: File, isEdit: boolean, itemId: string, fieldName: string) => void;
   uploadingImage: boolean;
@@ -62,20 +61,20 @@ const AdminTable = ({
             </tr>
           </thead>
           <tbody>
-            {tableData?.map((item: any) => (
+            {tableData?.map((item: Record<string, unknown>) => (
               <TableRow
-                key={item.id}
+                key={String(item.id)}
                 item={item}
                 fields={fields}
-                isEditing={editingId === item.id}
-                onEdit={() => setEditingId(item.id)}
+                isEditing={editingId === String(item.id)}
+                onEdit={() => setEditingId(String(item.id))}
                 onSave={(updatedData) => {
-                  onUpdate(item.id, updatedData);
+                  onUpdate(String(item.id), updatedData);
                   setEditingId(null);
                 }}
                 onCancel={() => setEditingId(null)}
-                onDelete={() => onDelete(item.id)}
-                onImageUpload={(file, fieldName) => onImageUpload(file, true, item.id, fieldName)}
+                onDelete={() => onDelete(String(item.id))}
+                onImageUpload={(file, fieldName) => onImageUpload(file, true, String(item.id), fieldName)}
                 uploadingImage={uploadingImage}
                 getImageRequirements={getImageRequirements}
               />
@@ -99,8 +98,19 @@ const TableRow = ({
   onImageUpload, 
   uploadingImage,
   getImageRequirements
-}: any) => {
-  const [editData, setEditData] = useState(item);
+}: {
+  item: Record<string, unknown>;
+  fields: string[];
+  isEditing: boolean;
+  onEdit: () => void;
+  onSave: (updatedData: Record<string, unknown>) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  onImageUpload: (file: File, fieldName: string) => void;
+  uploadingImage: boolean;
+  getImageRequirements: (fieldName: string) => string;
+}) => {
+  const [editData, setEditData] = useState<Record<string, unknown>>(item);
 
   const handleSave = () => {
     onSave(editData);
@@ -124,9 +134,9 @@ const TableRow = ({
                   disabled={uploadingImage}
                 />
                 <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
-                {editData[field] && (
+                {typeof editData[field] === 'string' && editData[field] !== '' && (
                   <img 
-                    src={editData[field]} 
+                    src={editData[field] as string} 
                     alt="Preview" 
                     className="w-12 h-12 object-cover rounded"
                   />
@@ -134,7 +144,7 @@ const TableRow = ({
               </div>
             ) : field === 'is_free' || field === 'is_active' || field === 'is_admin' ? (
               <select
-                value={editData[field] ? 'true' : 'false'}
+                value={typeof editData[field] === 'boolean' ? (editData[field] ? 'true' : 'false') : Boolean(editData[field]) ? 'true' : 'false'}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value === 'true'})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               >
@@ -143,7 +153,7 @@ const TableRow = ({
               </select>
             ) : field === 'correct_answer' ? (
               <select
-                value={editData[field] || 'A'}
+                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'A'}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               >
@@ -154,7 +164,7 @@ const TableRow = ({
               </select>
             ) : field === 'button_action' ? (
               <select
-                value={editData[field] || 'open_case'}
+                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'open_case'}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               >
@@ -166,7 +176,7 @@ const TableRow = ({
             ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'max_uses' || field === 'current_uses' || field === 'order_index' ? (
               <input
                 type="number"
-                value={editData[field] || ''}
+                value={typeof editData[field] === 'number' ? editData[field] : Number(editData[field]) || ''}
                 onChange={(e) => setEditData({...editData, [field]: parseInt(e.target.value) || 0})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm w-20"
                 min="0"
@@ -175,14 +185,14 @@ const TableRow = ({
             ) : field === 'expires_at' ? (
               <input
                 type="datetime-local"
-                value={editData[field] ? new Date(editData[field]).toISOString().slice(0, 16) : ''}
+                value={((typeof editData[field] === 'string' && editData[field] !== '') || typeof editData[field] === 'number') ? new Date(editData[field] as string | number).toISOString().slice(0, 16) : ''}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value ? new Date(e.target.value).toISOString() : null})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               />
             ) : (
               <input
                 type="text"
-                value={editData[field] || ''}
+                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : ''}
                 onChange={(e) => setEditData({...editData, [field]: e.target.value})}
                 className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
               />

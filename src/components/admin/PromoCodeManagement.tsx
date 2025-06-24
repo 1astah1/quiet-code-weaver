@@ -1,21 +1,21 @@
-
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Gift, Plus, Calendar, Users, Trash2 } from "lucide-react";
+import { PromoCode } from "@/utils/supabaseTypes";
 
 const PromoCodeManagement = () => {
-  const [newPromoCode, setNewPromoCode] = useState({
+  const [newPromoCode, setNewPromoCode] = useState<Omit<PromoCode, 'id' | 'current_uses' | 'is_active' | 'created_at'>>({
     code: '',
     reward_coins: 100,
-    max_uses: null as number | null,
+    max_uses: null,
     expires_at: ''
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: promoCodes, isLoading } = useQuery({
+  const { data: promoCodes, isLoading } = useQuery<PromoCode[]>({
     queryKey: ['promo_codes'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,7 +23,7 @@ const PromoCodeManagement = () => {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []) as PromoCode[];
     }
   });
 
@@ -142,7 +142,7 @@ const PromoCodeManagement = () => {
               <label className="block text-white font-medium mb-2">Максимум использований</label>
               <input
                 type="number"
-                value={newPromoCode.max_uses || ''}
+                value={newPromoCode.max_uses != null ? String(newPromoCode.max_uses) : ''}
                 onChange={(e) => setNewPromoCode({ ...newPromoCode, max_uses: e.target.value ? parseInt(e.target.value) : null })}
                 placeholder="Без ограничений"
                 min="1"

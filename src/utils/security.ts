@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Улучшенный rate limiter с защитой от абуза
@@ -74,11 +73,11 @@ export const validateInput = {
   },
   
   coins: (coins: number): boolean => {
-    return Number.isInteger(coins) && coins >= 0 && coins <= 1000000;
+    return Number.isInteger(coins) && coins >= 0 && coins <= 10000000;
   },
   
   skinPrice: (price: number): boolean => {
-    return Number.isInteger(price) && price >= 0 && price <= 100000;
+    return Number.isInteger(price) && price >= 0 && price <= 1000000;
   }
 };
 

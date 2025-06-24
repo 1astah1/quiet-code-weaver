@@ -19,14 +19,14 @@ export const enhancedValidation = {
     return typeof value === 'number' && 
            Number.isInteger(value) && 
            value >= 0 && 
-           value <= 10000000;
+           value <= 1000000;
   },
 
   coins: (value: number): boolean => {
     return typeof value === 'number' && 
            Number.isInteger(value) && 
            value >= 0 && 
-           value <= 100000000;
+           value <= 10000000;
   },
 
   quantity: (value: number): boolean => {

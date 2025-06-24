@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,22 +5,23 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Skin } from "@/utils/supabaseTypes";
 
 const DatabaseImageCleanup = () => {
   const [isCleaningUp, setIsCleaningUp] = useState(false);
-  const [cleanupResults, setCleanupResults] = useState<any>(null);
+  const [cleanupResults, setCleanupResults] = useState<{ cleaned: number; skinsAffected: string[] } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Загружаем все скины с их изображениями
-  const { data: skins, isLoading } = useQuery({
+  const { data: skins, isLoading } = useQuery<Skin[]>({
     queryKey: ['skins_cleanup_check'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('skins')
         .select('id, name, image_url');
       if (error) throw error;
-      return data || [];
+      return (data || []) as Skin[];
     }
   });
 

@@ -1,4 +1,3 @@
-
 // Временные типы для обхода проблем с Supabase types
 export interface Banner {
   id: string;
@@ -6,7 +5,7 @@ export interface Banner {
   description: string;
   button_text: string;
   button_action: string;
-  image_url?: string;
+  image_url?: string | null;
   is_active?: boolean;
   order_index?: number;
   created_at?: string;
@@ -89,6 +88,7 @@ export interface ExtendedUser {
   language_code?: string;
   sound_enabled?: boolean;
   vibration_enabled?: boolean;
+  user_roles?: { role: string }[];
 }
 
 export interface Task {
@@ -100,4 +100,36 @@ export interface Task {
   is_active?: boolean;
   created_at?: string;
   image_url?: string;
+}
+
+export interface Case {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  is_free?: boolean;
+  cover_image_url?: string;
+  image_url?: string;
+  created_at?: string;
+}
+
+export interface Skin {
+  id: string;
+  name: string;
+  weapon_type: string;
+  rarity: string;
+  price: number;
+  image_url?: string;
+  created_at?: string;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  reward_coins: number;
+  max_uses?: number | null;
+  current_uses?: number;
+  expires_at?: string | null;
+  is_active?: boolean;
+  created_at?: string;
 }
