@@ -1,9 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { generateSessionId, storeSessionId, clearSessionId } from '@/utils/sessionUtils';
-import type { CaseSkin } from '@/utils/supabaseTypes';
 
 interface RouletteItem {
   id: string;
@@ -24,7 +22,6 @@ interface CaseOpeningResponse {
   roulette_items?: RouletteItem[];
   winner_position?: number;
   error?: string;
-  session_id?: string;
 }
 
 interface UseCaseOpeningSafeProps {
@@ -49,12 +46,10 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     winnerPosition: number;
   } | null>(null);
   
-  const sessionRef = useRef<string | null>(null);
-  const hasInitialized = useRef(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Загружаем скины кейса
+  // Загружаем скины кейса для рулетки
   const { data: caseSkins = [], isLoading } = useQuery({
     queryKey: ['case-skins', caseItem?.id],
     queryFn: async () => {
@@ -97,47 +92,36 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     staleTime: 30000
   });
 
-  // Функция для безопасного открытия кейса
+  // Функция для открытия кейса (упрощенная логика)
   const openCaseSafely = useCallback(async () => {
     if (isProcessing || !caseItem || !currentUser) {
-      console.log('🚫 [SAFE_CASE_OPENING] Already processing or missing data');
+      console.log('🚫 [CASE_OPENING] Already processing or missing data');
       return;
     }
 
-    console.log('🎯 [SAFE_CASE_OPENING] Starting case opening with FIXED POSITION 5 logic');
+    console.log('🎯 [CASE_OPENING] Starting case opening');
     
     setIsProcessing(true);
     setError(null);
     setAnimationPhase('opening');
 
     try {
-      // Генерируем новый ID сессии
-      const sessionId = generateSessionId();
-      sessionRef.current = sessionId;
-      
-      // Сохраняем ID сессии
-      storeSessionId(currentUser.id, caseItem.id, sessionId);
-
-      console.log('📡 [SAFE_CASE_OPENING] Calling RPC with session:', sessionId);
-
-      // Вызываем RPC функцию
-      const { data, error } = await supabase.rpc('safe_open_case_with_session', {
+      // Вызываем RPC функцию для открытия кейса
+      const { data, error } = await supabase.rpc('safe_open_case', {
         p_user_id: currentUser.id,
         p_case_id: caseItem.id,
-        p_session_id: sessionId,
-        p_skin_id: null,
-        p_coin_reward_id: null,
-        p_is_free: caseItem.is_free || false,
-        p_ad_watched: false
+        p_skin_id: undefined,
+        p_coin_reward_id: undefined,
+        p_is_free: caseItem.is_free || false
       });
 
       if (error) {
-        console.error('❌ [SAFE_CASE_OPENING] RPC error:', error);
+        console.error('❌ [CASE_OPENING] RPC error:', error);
         throw new Error(error.message || 'Не удалось открыть кейс');
       }
 
       const response = data as unknown as CaseOpeningResponse;
-      console.log('✅ [SAFE_CASE_OPENING] Response received with FIXED POSITION 5:', response);
+      console.log('✅ [CASE_OPENING] Response received:', response);
 
       if (!response.success) {
         throw new Error(response.error || 'Не удалось открыть кейс');
@@ -146,36 +130,21 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       // Обновляем баланс
       if (response.new_balance !== undefined) {
         onCoinsUpdate(response.new_balance);
-        console.log('💰 [SAFE_CASE_OPENING] Balance updated:', response.new_balance);
+        console.log('💰 [CASE_OPENING] Balance updated:', response.new_balance);
       }
 
-      // Используем данные рулетки с ФИКСИРОВАННОЙ ПОЗИЦИЕЙ 5 от SQL функции
+      // Сохраняем выигрышный предмет
+      if (response.reward?.type === 'skin') {
+        setWonSkin(response.reward);
+        setWonCoins(0);
+      } else if (response.reward?.type === 'coin_reward') {
+        setWonSkin(null);
+        setWonCoins(response.reward.amount || 0);
+      }
+
+      // Если есть данные рулетки, показываем анимацию
       if (response.roulette_items && response.winner_position !== undefined) {
-        console.log('🎰 [SAFE_CASE_OPENING] Using SQL FIXED POSITION 5 roulette data:', {
-          winnerPosition: response.winner_position,
-          expectedPosition: 5,
-          totalItems: response.roulette_items.length,
-          winnerItem: response.roulette_items[response.winner_position],
-          rewardFromSQL: response.reward
-        });
-        
-        // Проверяем что SQL функция действительно использует позицию 5
-        if (response.winner_position !== 5) {
-          console.warn('⚠️ [SAFE_CASE_OPENING] Winner position is not 5! Expected fixed position 5');
-        }
-        
-        // Проверяем синхронизацию: предмет на позиции 5 должен совпадать с наградой
-        const winnerItem = response.roulette_items[response.winner_position];
-        const isSynchronized = winnerItem?.id === response.reward?.id;
-        
-        console.log('🔄 [SAFE_CASE_OPENING] FIXED POSITION 5 synchronization check:', {
-          winnerItemId: winnerItem?.id,
-          rewardId: response.reward?.id,
-          isSynchronized,
-          winnerItemName: winnerItem?.name,
-          rewardName: response.reward?.name,
-          fixedPosition: 5
-        });
+        console.log('🎰 [CASE_OPENING] Setting up roulette animation');
         
         setRouletteData({
           items: response.roulette_items,
@@ -187,12 +156,15 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
           setAnimationPhase('roulette');
         }, 1000);
       } else {
-        // Если нет данных рулетки, сразу показываем результат
-        handleDirectResult(response.reward);
+        // Если нет рулетки, сразу показываем результат
+        setAnimationPhase('complete');
+        setTimeout(() => {
+          setIsComplete(true);
+        }, 1000);
       }
 
     } catch (error: any) {
-      console.error('💥 [SAFE_CASE_OPENING] Error:', error);
+      console.error('💥 [CASE_OPENING] Error:', error);
       setError(error.message || 'Произошла ошибка при открытии кейса');
       setAnimationPhase(null);
       
@@ -203,25 +175,12 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       });
     } finally {
       setIsProcessing(false);
-      
-      // Очищаем ID сессии через 5 секунд
-      setTimeout(() => {
-        if (sessionRef.current && caseItem && currentUser) {
-          clearSessionId(currentUser.id, caseItem.id);
-          sessionRef.current = null;
-        }
-      }, 5000);
     }
   }, [caseItem, currentUser, isProcessing, onCoinsUpdate, toast]);
 
-  const handleDirectResult = useCallback((reward: any) => {
-    console.log('🎯 [SAFE_CASE_OPENING] Handling direct result:', reward);
-    
-    if (reward?.type === 'skin') {
-      setWonSkin(reward);
-    } else if (reward?.type === 'coin_reward') {
-      setWonCoins(reward.amount || 0);
-    }
+  // Обработка завершения анимации рулетки
+  const handleRouletteComplete = useCallback(() => {
+    console.log('🎊 [CASE_OPENING] Roulette animation complete');
     
     setAnimationPhase('complete');
     setTimeout(() => {
@@ -229,69 +188,55 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     }, 1000);
   }, []);
 
-  const handleRouletteComplete = useCallback(() => {
-    console.log('🎊 [SAFE_CASE_OPENING] Roulette animation complete - FIXED POSITION 5');
-    
-    if (!rouletteData) {
-      console.error('❌ [SAFE_CASE_OPENING] No roulette data found!');
-      return;
-    }
-    
-    // Берем награду с ФИКСИРОВАННОЙ ПОЗИЦИИ 5 на рулетке (данные уже синхронизированы SQL функцией)
-    const winnerItem = rouletteData.items[rouletteData.winnerPosition];
-    
-    console.log('🏆 [SAFE_CASE_OPENING] Using winner item from FIXED POSITION 5:', {
-      position: rouletteData.winnerPosition,
-      expectedPosition: 5,
-      item: winnerItem,
-      type: winnerItem?.type,
-      name: winnerItem?.name,
-      id: winnerItem?.id
-    });
-    
-    if (winnerItem?.type === 'skin') {
-      console.log('🎨 [SAFE_CASE_OPENING] Setting won skin from FIXED POSITION 5');
-      setWonSkin(winnerItem);
-    } else if (winnerItem?.type === 'coin_reward') {
-      console.log('🪙 [SAFE_CASE_OPENING] Setting won coins from FIXED POSITION 5');
-      setWonCoins(winnerItem.amount || 0);
-    }
-    
-    setAnimationPhase('complete');
-    setTimeout(() => {
-      setIsComplete(true);
-      console.log('✅ [SAFE_CASE_OPENING] Case opening completed with FIXED POSITION 5');
-    }, 1000);
-  }, [rouletteData]);
-
+  // Добавление в инвентарь
   const addToInventory = useCallback(async () => {
+    if (!wonSkin || isProcessing) return;
+    
     setIsProcessing(true);
+    
     try {
-      console.log('📦 [SAFE_CASE_OPENING] Skin already added to inventory by RPC');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('📦 [CASE_OPENING] Adding to inventory:', wonSkin.name);
       
-      // Инвалидируем кэш инвентаря
+      // Обновляем инвентарь
       queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
-    } catch (error) {
-      console.error('❌ [SAFE_CASE_OPENING] Error in addToInventory:', error);
-      setError('Не удалось добавить в инвентарь');
+      
+      toast({
+        title: "Скин добавлен в инвентарь!",
+        description: `${wonSkin.name} теперь в вашем инвентаре`,
+      });
+      
+      // Закрываем модальное окно
+      setAnimationPhase(null);
+      setIsComplete(false);
+      setWonSkin(null);
+      setWonCoins(0);
+      setRouletteData(null);
+      
+    } catch (error: any) {
+      console.error('❌ [CASE_OPENING] Error adding to inventory:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось добавить скин в инвентарь",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentUser.id, queryClient]);
+  }, [wonSkin, isProcessing, queryClient, currentUser.id, toast]);
 
+  // Продажа скина
   const sellDirectly = useCallback(async () => {
-    const rewardToSell = wonSkin;
-    if (!rewardToSell) return;
+    if (!wonSkin || isProcessing) return;
     
     setIsProcessing(true);
+    
     try {
-      console.log('💰 [SAFE_CASE_OPENING] Selling reward directly:', rewardToSell.name);
+      console.log('💰 [CASE_OPENING] Selling skin directly:', wonSkin.name);
       
       const { data, error } = await supabase.rpc('safe_sell_case_reward', {
         p_user_id: currentUser.id,
-        p_skin_id: rewardToSell.id,
-        p_sell_price: rewardToSell.price
+        p_skin_id: wonSkin.id,
+        p_sell_price: wonSkin.price
       });
 
       if (error) throw new Error(error.message);
@@ -308,13 +253,21 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
       
       toast({
         title: "Скин продан!",
-        description: `Получено ${rewardToSell.price} монет`,
+        description: `Получено ${wonSkin.price} монет`,
       });
       
+      // Обновляем инвентарь
       queryClient.invalidateQueries({ queryKey: ['user-inventory', currentUser.id] });
       
+      // Закрываем модальное окно
+      setAnimationPhase(null);
+      setIsComplete(false);
+      setWonSkin(null);
+      setWonCoins(0);
+      setRouletteData(null);
+      
     } catch (error: any) {
-      console.error('❌ [SAFE_CASE_OPENING] Sell error:', error);
+      console.error('❌ [CASE_OPENING] Sell error:', error);
       toast({
         title: "Ошибка продажи",
         description: error.message || "Не удалось продать скин",
@@ -323,20 +276,18 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     } finally {
       setIsProcessing(false);
     }
-  }, [wonSkin, currentUser.id, onCoinsUpdate, toast, queryClient]);
+  }, [wonSkin, isProcessing, currentUser.id, onCoinsUpdate, toast, queryClient]);
 
   // Сброс состояния при смене кейса
   useEffect(() => {
     if (caseItem?.id) {
-      console.log('🔄 [SAFE_CASE_OPENING] Resetting state for case:', caseItem.name);
+      console.log('🔄 [CASE_OPENING] Resetting state for case:', caseItem.name);
       setWonSkin(null);
       setWonCoins(0);
       setIsComplete(false);
       setAnimationPhase(null);
       setError(null);
       setRouletteData(null);
-      hasInitialized.current = false;
-      sessionRef.current = null;
     }
   }, [caseItem?.id]);
 
@@ -346,13 +297,12 @@ export const useCaseOpeningSafe = ({ caseItem, currentUser, onCoinsUpdate }: Use
     isComplete,
     animationPhase,
     isProcessing,
-    addToInventory,
-    sellDirectly,
-    caseSkins,
     error,
     isLoading,
     rouletteData,
     handleRouletteComplete,
+    addToInventory,
+    sellDirectly,
     openCaseSafely
   };
 };
