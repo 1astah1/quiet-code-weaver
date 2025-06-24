@@ -11,7 +11,7 @@ import InventoryScreen from "@/components/inventory/InventoryScreen";
 import SettingsScreen from "@/components/settings/SettingsScreen";
 import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
-import CaseOpeningAnimationSafe from "@/components/CaseOpeningAnimationSafe";
+import CS2CaseOpening from "@/components/CS2CaseOpening";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
 import { useToast } from "@/components/ui/use-toast";
 import { auditLog } from "@/utils/security";
@@ -131,7 +131,7 @@ const MainApp = () => {
       }
 
       console.log('🔍 [MAIN_APP] Validating user data integrity...');
-      if (userData.coins < 0 || userData.coins > 10000000) {
+      if ((userData.coins || 0) < 0 || (userData.coins || 0) > 10000000) {
         console.warn('⚠️ [MAIN_APP] Suspicious coin amount detected:', userData.coins);
         await auditLog(userData.id, 'suspicious_coin_amount', { coins: userData.coins }, false);
       }
@@ -149,9 +149,9 @@ const MainApp = () => {
         isAdmin: userData.is_admin || false,
         avatar_url: authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture,
         language_code: userData.language_code || 'ru',
-        sound_enabled: userData.sound_enabled,
-        vibration_enabled: userData.vibration_enabled,
-        profile_private: userData.profile_private
+        sound_enabled: userData.sound_enabled ?? undefined,
+        vibration_enabled: userData.vibration_enabled ?? undefined,
+        profile_private: userData.profile_private ?? false
       };
 
       console.log('✅ [MAIN_APP] User profile created:', {
@@ -381,11 +381,11 @@ const MainApp = () => {
         />
 
         {openingCase && (
-          <CaseOpeningAnimationSafe
-            caseItem={openingCase}
+          <CS2CaseOpening
+            userId={currentUser.id}
+            caseId={openingCase.id}
             onClose={() => setOpeningCase(null)}
-            currentUser={currentUser}
-            onCoinsUpdate={handleCoinsUpdate}
+            onBalanceUpdate={handleCoinsUpdate}
           />
         )}
       </div>

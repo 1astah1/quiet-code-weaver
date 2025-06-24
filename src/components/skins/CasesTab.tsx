@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
-import CaseOpeningAnimationSafe from "@/components/CaseOpeningAnimationSafe";
+import CS2CaseOpening from "@/components/CS2CaseOpening";
 
 interface CasesTabProps {
   currentUser: {
@@ -139,11 +138,11 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       )}
 
       {openingCase && currentUser && (
-        <CaseOpeningAnimationSafe
-          caseItem={openingCase}
+        <CS2CaseOpening
+          userId={currentUser.id}
+          caseId={openingCase.id}
           onClose={() => setOpeningCase(null)}
-          currentUser={currentUser}
-          onCoinsUpdate={onCoinsUpdate}
+          onBalanceUpdate={onCoinsUpdate}
         />
       )}
     </div>
