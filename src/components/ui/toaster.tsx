@@ -3,7 +3,7 @@ import {
   Toast,
   ToastClose,
   ToastDescription,
-  ToastProvider,
+  ToastProvider as ToastProviderComponent,
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast"
@@ -20,7 +20,7 @@ export function Toaster() {
   }
 
   return (
-    <ToastProvider>
+    <ToastProviderComponent>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         console.log('🍞 [TOASTER] Rendering toast:', { id, title, variant: props.variant });
         return (
@@ -37,6 +37,6 @@ export function Toaster() {
         )
       })}
       <ToastViewport />
-    </ToastProvider>
+    </ToastProviderComponent>
   )
 }
