@@ -354,7 +354,7 @@ const MainApp = () => {
         />
         
         <div className="flex-1 overflow-hidden">
-          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10">
+          <main className="h-full w-full overflow-y-auto px-4 pb-20 sm:px-6 md:px-8 lg:px-10 pt-16">
             <div className="max-w-7xl mx-auto">
               {renderScreen()}
             </div>
