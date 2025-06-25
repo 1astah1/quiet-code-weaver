@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/toast";
@@ -25,9 +25,10 @@ interface InventoryScreenProps {
     steam_trade_url?: string;
   };
   onCoinsUpdate: (newCoins: number) => void;
+  setInventoryRefetch?: (refetchFn: () => Promise<any>) => void;
 }
 
-const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) => {
+const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: InventoryScreenProps) => {
   const queryClient = useQueryClient();
   const { data: inventory, isLoading, error, refetch } = useUserInventory(currentUser.id);
   const { sellSkin } = useSecureInventory();
@@ -111,6 +112,11 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       return await sellSkin(inventoryId, userId);
     }
   });
+
+  // При монтировании сохраняем refetch
+  useEffect(() => {
+    if (setInventoryRefetch) setInventoryRefetch(refetch);
+  }, [setInventoryRefetch, refetch]);
 
   if (isLoading) {
     return (

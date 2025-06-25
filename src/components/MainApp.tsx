@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/components/ui/use-translation";
+import QuizScreen from "@/components/quiz/QuizScreen";
 
 export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
 
@@ -45,6 +46,7 @@ const MainApp = () => {
   const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
+  const inventoryRefetchRef = useRef<null | (() => Promise<any>)>(null);
 
   // Логирование изменений состояния
   useEffect(() => {
@@ -301,6 +303,7 @@ const MainApp = () => {
           <InventoryScreen 
             currentUser={currentUser}
             onCoinsUpdate={handleCoinsUpdate}
+            setInventoryRefetch={(refetchFn) => { inventoryRefetchRef.current = refetchFn; }}
           />
         );
       case 'settings':
@@ -312,6 +315,10 @@ const MainApp = () => {
             onCoinsUpdate={handleCoinsUpdate}
             onScreenChange={setCurrentScreen}
           />
+        );
+      case 'quiz':
+        return (
+          <QuizScreen />
         );
       default:
         return (
@@ -362,7 +369,10 @@ const MainApp = () => {
           <CS2CaseOpening
             userId={currentUser.id}
             caseId={openingCase.id}
-            onClose={() => setOpeningCase(null)}
+            onClose={() => {
+              setOpeningCase(null);
+              if (inventoryRefetchRef.current) inventoryRefetchRef.current();
+            }}
             onBalanceUpdate={handleCoinsUpdate}
           />
         )}
