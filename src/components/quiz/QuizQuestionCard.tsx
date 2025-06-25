@@ -1,6 +1,12 @@
 import React from 'react';
 
-const QuizQuestionCard = ({ question, onAnswer, loading }: { question: any, onAnswer: (answer: string) => void, loading: boolean }) => {
+interface QuizQuestion {
+  text: string;
+  answers: string[];
+  correct: string;
+}
+
+const QuizQuestionCard = ({ question, onAnswer, loading }: { question: QuizQuestion, onAnswer: (answer: string) => void, loading: boolean }) => {
   return (
     <div className="bg-slate-800 rounded-lg p-4 mb-4 shadow">
       <div className="text-white text-lg font-semibold mb-2">{question.text}</div>

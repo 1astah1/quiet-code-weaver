@@ -23,11 +23,17 @@ const restoreHeartByAd = async () => {
   return { success: true };
 };
 
+interface QuizQuestion {
+  text: string;
+  answers: string[];
+  correct: string;
+}
+
 export function useQuiz() {
   const [hearts, setHearts] = useState(5);
   const [lastRestore, setLastRestore] = useState(Date.now());
   const [adWatchedAt, setAdWatchedAt] = useState<number|null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [canAnswer, setCanAnswer] = useState(true);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
   const [restoreTimeLeft, setRestoreTimeLeft] = useState(0);
@@ -39,7 +45,7 @@ export function useQuiz() {
       setHearts(state.hearts);
       setLastRestore(state.lastRestore);
       setAdWatchedAt(state.adWatchedAt);
-      setCurrentQuestion(state.currentQuestion);
+      setCurrentQuestion(state.currentQuestion as QuizQuestion);
       setCanAnswer(state.hearts > 0);
       setIsRestoreModalOpen(state.hearts === 0);
     });

@@ -32,6 +32,14 @@ interface Skin {
   image_url: string | null;
 }
 
+interface Case {
+  id: string;
+  name: string;
+  price: number;
+  image_url?: string;
+  [key: string]: any;
+}
+
 const ITEMS_PER_PAGE = 24;
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
@@ -331,7 +339,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
               <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
             </div>
           ) : cases && cases.length > 0 ? (
-            cases.map((caseItem: any) => (
+            (cases as Case[]).map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
                 caseItem={caseItem}
