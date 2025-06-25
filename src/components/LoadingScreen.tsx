@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 
 const LoadingScreen = () => {
@@ -25,13 +24,10 @@ const LoadingScreen = () => {
       <div className="text-center z-10">
         {/* Logo */}
         <div className="mb-8 animate-pulse">
-          <div className="relative">
-            <h1 className="text-6xl font-bold text-transparent bg-gradient-to-r from-orange-400 via-red-500 to-orange-600 bg-clip-text animate-bounce">
-              FastMarket
-            </h1>
-            <h2 className="text-2xl font-semibold text-orange-300 mt-2 animate-pulse">
-              CASE CS2
-            </h2>
+          <div className="relative flex flex-col items-center">
+            <img src="/fastmarket-logo.png" alt="FastMarket Logo" className="w-24 h-24 sm:w-32 sm:h-32 mb-2 drop-shadow-lg rounded-xl" />
+            <h1 className="text-4xl sm:text-6xl font-bold text-white animate-bounce">FastMarket</h1>
+            <h2 className="text-2xl font-semibold text-orange-300 mt-2 animate-pulse">CASE CS2</h2>
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
           </div>
         </div>
