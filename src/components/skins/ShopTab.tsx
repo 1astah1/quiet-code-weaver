@@ -277,6 +277,10 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           Подарки
         </button>
       </div>
+      {/* ВРЕМЕННО: Диагностика количества скинов и кейсов */}
+      <div className="text-xs text-slate-400 mb-2">
+        Скинов: {skins?.length ?? 0} | Кейсов: {cases?.length ?? 0}
+      </div>
 
       {/* Содержимое вкладок */}
       {activeTab === 'shop' && (
