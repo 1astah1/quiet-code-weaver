@@ -2,9 +2,37 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Coins, Ticket, Play } from "lucide-react";
 import LazyImage from "@/components/ui/LazyImage";
+import { useFreeCaseTimers } from '@/hooks/useFreeCaseTimers';
+
+const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
 
 const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: any) => {
   const canAfford = currentUser.coins >= caseItem.price;
+  const { data: freeCaseTimers } = useFreeCaseTimers(currentUser.id);
+
+  let isFreeAvailable = true;
+  let timeLeft = 0;
+  if (caseItem.is_free && freeCaseTimers) {
+    const lastOpened = freeCaseTimers[caseItem.id];
+    if (lastOpened) {
+      const last = new Date(lastOpened).getTime();
+      const now = Date.now();
+      const diff = now - last;
+      if (diff < EIGHT_HOURS_MS) {
+        isFreeAvailable = false;
+        timeLeft = EIGHT_HOURS_MS - diff;
+      }
+    }
+  }
+
+  const formatTime = (ms: number) => {
+    const h = Math.floor(ms / (1000 * 60 * 60));
+    const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((ms % (1000 * 60)) / 1000);
+    if (h > 0) return `${h}ч ${m}м ${s}с`;
+    if (m > 0) return `${m}м ${s}с`;
+    return `${s}с`;
+  };
 
   const handleOpenClick = () => {
     if (caseItem.is_free) {
@@ -28,14 +56,22 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: any) => {
       <div className="p-2">
         <h3 className="text-white text-sm font-medium truncate">{caseItem.name}</h3>
         {caseItem.is_free ? (
-          <Button
-            onClick={handleOpenClick}
-            size="sm"
-            className="w-full mt-2 text-xs h-auto py-1 px-3 bg-green-600 hover:bg-green-700"
-          >
-            <Play className="w-3 h-3 mr-1" />
-            Смотреть и открыть
-          </Button>
+          <>
+            <Button
+              onClick={handleOpenClick}
+              size="sm"
+              className="w-full mt-2 text-xs h-auto py-1 px-3 bg-green-600 hover:bg-green-700"
+              disabled={!isFreeAvailable}
+            >
+              <Play className="w-3 h-3 mr-1" />
+              Смотреть и открыть
+            </Button>
+            {!isFreeAvailable && (
+              <div className="text-xs text-slate-400 text-center mt-1">
+                Доступно через {formatTime(timeLeft)}
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-1 text-yellow-400">
