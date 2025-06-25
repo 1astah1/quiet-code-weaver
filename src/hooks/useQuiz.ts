@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // Заглушки для API
 const fetchQuizState = async () => {
@@ -107,5 +107,33 @@ export function useQuiz() {
     restoreTimeLeft,
     closeRestoreModal,
     loading,
+  };
+}
+
+export function useSecureQuiz() {
+  const quiz = useQuiz();
+  const lastActionRef = useRef<number>(0);
+
+  // Защита от спама и двойных кликов
+  const safeHandleAnswer = async (answer: string) => {
+    const now = Date.now();
+    if (now - lastActionRef.current < 1000) return; // не чаще 1 раза в секунду
+    lastActionRef.current = now;
+    // Здесь можно добавить проверку токена пользователя и логирование
+    await quiz.handleAnswer(answer);
+  };
+
+  const safeHandleWatchAd = async () => {
+    const now = Date.now();
+    if (now - lastActionRef.current < 1000) return;
+    lastActionRef.current = now;
+    // Здесь можно добавить проверку токена пользователя и логирование
+    await quiz.handleWatchAd();
+  };
+
+  return {
+    ...quiz,
+    handleAnswer: safeHandleAnswer,
+    handleWatchAd: safeHandleWatchAd,
   };
 } 
