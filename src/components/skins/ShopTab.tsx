@@ -10,6 +10,7 @@ import ShopPagination from "./ShopPagination";
 import PurchaseSuccessModal from "./PurchaseSuccessModal";
 import { Badge } from "@/components/ui/badge";
 import { Crown } from "lucide-react";
+import CaseCard from './CaseCard';
 
 interface ShopTabProps {
   currentUser: {
@@ -28,12 +29,13 @@ interface Skin {
   weapon_type: string;
   rarity: string;
   price: number;
-  image_url: string | null;
+  image_url: string;
 }
 
 const ITEMS_PER_PAGE = 24;
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
+  const [activeTab, setActiveTab] = useState<'shop' | 'gifts'>('shop');
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
   const [selectedWeapon, setSelectedWeapon] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 999999 });
@@ -46,8 +48,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   
   const { purchaseMutation, isPurchasing, isAdmin } = useSecureShop(currentUser);
 
-  // ИСПРАВЛЕНО: Безопасная загрузка скинов с валидацией и принудительным обновлением
-  const { data: skins, isLoading, refetch } = useQuery({
+  // Скины
+  const { data: skins, isLoading: isSkinsLoading, refetch } = useQuery({
     queryKey: ['shop-skins'],
     queryFn: async () => {
       console.log('🔄 [SHOP] Loading skins...');
@@ -91,6 +93,23 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       console.log(`🔄 [SHOP] Retry attempt ${failureCount}:`, error);
       return failureCount < 2;
     }
+  });
+
+  // Кейсы
+  const { data: cases, isLoading: isCasesLoading } = useQuery({
+    queryKey: ['shop-cases'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('*')
+        .order('price', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Автоматически обновлять данные при изменении
@@ -227,7 +246,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     setCurrentPage(1);
   };
 
-  if (isLoading) {
+  if (isSkinsLoading) {
     return (
       <div className="space-y-3">
         {[1, 2, 3, 4, 5, 6].map(i => (
@@ -237,91 +256,106 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     );
   }
 
-  const rarities = [...new Set(skins?.map(skin => skin.rarity) || [])];
-  const weaponTypes = [...new Set(skins?.map(skin => skin.weapon_type) || [])];
+  // Получаем уникальные значения для фильтров
+  const rarities = Array.from(new Set((skins || []).map(s => s.rarity).filter(Boolean)));
+  const weaponTypes = Array.from(new Set((skins || []).map(s => s.weapon_type).filter(Boolean)));
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* ДОБАВЛЕНО: Индикатор администратора */}
-      {isAdmin && (
-        <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 border border-yellow-300 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-yellow-600" />
-            <span className="font-semibold text-yellow-800">Администраторский режим</span>
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-              Бесплатные покупки
-            </Badge>
-          </div>
-          <p className="text-sm text-yellow-700 mt-1">
-            Все покупки в магазине для администраторов бесплатны и не списывают монеты
-          </p>
-        </div>
-      )}
-
-      <ShopFilters
-        selectedRarity={selectedRarity}
-        selectedWeapon={selectedWeapon}
-        rarities={rarities}
-        weaponTypes={weaponTypes}
-        onRarityChange={handleRarityChange}
-        onWeaponChange={handleWeaponChange}
-        onPriceRangeChange={handlePriceRangeChange}
-        onSortChange={handleSortChange}
-      />
-
-      <div className="flex justify-between items-center text-xs sm:text-sm text-slate-400 px-1">
-        <span>
-          Показано {currentSkins.length} из {filteredAndSortedSkins.length} скинов
-          {isAdmin && <span className="text-yellow-600 ml-2">(режим администратора)</span>}
-        </span>
-        {totalPages > 1 && (
-          <span>
-            Страница {currentPage} из {totalPages}
-          </span>
-        )}
+    <div className="space-y-6">
+      {/* Табы */}
+      <div className="flex space-x-2 mb-4">
+        <button
+          className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'shop' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+          onClick={() => setActiveTab('shop')}
+        >
+          Магазин
+        </button>
+        <button
+          className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'gifts' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+          onClick={() => setActiveTab('gifts')}
+        >
+          Подарки
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
-        {currentSkins.map((skin) => (
-          <ShopSkinCard
-            key={skin.id}
-            skin={skin}
-            canAfford={isAdmin || currentUser.coins >= skin.price} // ИСПРАВЛЕНО: Админы всегда могут покупать
-            onPurchase={handlePurchase}
-            isPurchasing={isPurchasing}
-            isAdmin={isAdmin} // ДОБАВЛЕНО: Передаем статус администратора
+      {/* Содержимое вкладок */}
+      {activeTab === 'shop' && (
+        <>
+          {/* Фильтры и скины */}
+          <ShopFilters
+            selectedRarity={selectedRarity}
+            selectedWeapon={selectedWeapon}
+            rarities={rarities}
+            weaponTypes={weaponTypes}
+            onRarityChange={setSelectedRarity}
+            onWeaponChange={setSelectedWeapon}
+            onPriceRangeChange={handlePriceRangeChange}
+            onSortChange={handleSortChange}
           />
-        ))}
-      </div>
-
-      {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
-
-      <ShopPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-      />
-
-      <PurchaseSuccessModal
-        isOpen={purchaseSuccessModal.isOpen}
-        onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
-        reward={purchaseSuccessModal.item ? {
-          id: purchaseSuccessModal.item.id,
-          name: purchaseSuccessModal.item.name,
-          rarity: purchaseSuccessModal.item.rarity,
-          price: purchaseSuccessModal.item.price,
-          image_url: purchaseSuccessModal.item.image_url,
-          type: 'skin' as const,
-          weapon_type: purchaseSuccessModal.item.weapon_type
-        } : {
-          id: '',
-          name: '',
-          price: 0,
-          type: 'skin' as const
-        }}
-        newBalance={currentUser.coins}
-        onInventoryUpdate={() => {}}
-      />
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
+            {currentSkins.map((skin) => (
+              <ShopSkinCard
+                key={skin.id}
+                skin={{
+                  id: skin.id,
+                  name: skin.name,
+                  rarity: skin.rarity,
+                  price: skin.price,
+                  image_url: skin.image_url ?? '',
+                  weapon_type: skin.weapon_type ?? ''
+                }}
+                onBuy={handlePurchase}
+                isFavorite={false}
+                onToggleFavorite={() => {}}
+              />
+            ))}
+          </div>
+          {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
+          <ShopPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+          <PurchaseSuccessModal
+            isOpen={purchaseSuccessModal.isOpen}
+            onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
+            reward={purchaseSuccessModal.item ? {
+              id: purchaseSuccessModal.item.id,
+              name: purchaseSuccessModal.item.name,
+              rarity: purchaseSuccessModal.item.rarity,
+              price: purchaseSuccessModal.item.price,
+              image_url: purchaseSuccessModal.item.image_url,
+              type: 'skin' as const,
+              weapon_type: purchaseSuccessModal.item.weapon_type
+            } : {
+              id: '',
+              name: '',
+              price: 0,
+              type: 'skin' as const
+            }}
+            newBalance={currentUser.coins}
+            onInventoryUpdate={() => {}}
+          />
+        </>
+      )}
+      {activeTab === 'gifts' && (
+        <>
+          {/* Кейсы */}
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
+            {cases && cases.length > 0 ? cases.map((caseItem: any) => (
+              <CaseCard
+                key={caseItem.id}
+                caseItem={caseItem}
+                currentUser={currentUser}
+                onOpen={() => {}}
+                onCoinsUpdate={onCoinsUpdate}
+              />
+            )) : (
+              <ShopEmptyState />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };
