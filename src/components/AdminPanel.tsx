@@ -12,8 +12,12 @@ import UserManagement from "./admin/UserManagement";
 import PromoCodeManagement from "./admin/PromoCodeManagement";
 import SuspiciousActivityManagement from "./admin/SuspiciousActivityManagement";
 import DatabaseImageCleanup from "./admin/DatabaseImageCleanup";
-import type { TableName } from "@/types/admin";
+import type { TableName, RealTableName } from "@/types/admin";
 import { Case, Skin } from "@/utils/supabaseTypes";
+
+const isRealTable = (table: TableName): table is RealTableName => {
+  return table !== 'users' && table !== 'suspicious_activities';
+}
 
 const AdminPanel = () => {
   const [activeTable, setActiveTable] = useState<TableName>("cases");
@@ -26,11 +30,11 @@ const AdminPanel = () => {
   const { data: tableData, isLoading } = useQuery<Case[] | Skin[] | Record<string, unknown>[]>({
     queryKey: [activeTable],
     queryFn: async () => {
-      if (activeTable === 'users' || activeTable === 'suspicious_activities') {
+      if (!isRealTable(activeTable)) {
         return [];
       }
       const { data, error } = await supabase
-        .from(activeTable as any)
+        .from(activeTable)
         .select('*');
       if (error) throw error;
       if (!Array.isArray(data)) return [];
@@ -110,13 +114,16 @@ const AdminPanel = () => {
       console.warn(`⚠️ [BUCKET_CHECK] Bucket access issue:`, error);
       throw new Error(`Ошибка доступа к bucket ${bucketName}: ${error.message}`);
       
-    } catch (error: any) {
-      console.error(`❌ [BUCKET_ERROR] Error with bucket ${bucketName}:`, error);
-      throw new Error(`Ошибка с bucket ${bucketName}: ${error.message}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`❌ [BUCKET_ERROR] Error with bucket ${bucketName}:`, error);
+        throw new Error(`Ошибка с bucket ${bucketName}: ${error.message}`);
+      }
+      throw new Error(`An unknown error occurred with bucket ${bucketName}`);
     }
   };
 
-  const handleImageUpload = async (file: File, isEdit = false, itemId?: string, fieldName = 'image_url') => {
+  const handleImageUpload = async (file: File | null, isEdit = false, itemId?: string, fieldName = 'image_url') => {
     if (!file) {
       console.warn('⚠️ [IMAGE_UPLOAD] No file provided');
       return;
@@ -183,8 +190,12 @@ const AdminPanel = () => {
       if (isEdit && itemId) {
         console.log('💾 [IMAGE_UPLOAD] Updating database record:', { itemId, fieldName, publicUrl });
         
+        if (!isRealTable(activeTable)) {
+           throw new Error("Invalid table for database operation.");
+        }
+
         const { error: updateError } = await supabase
-          .from(activeTable as any)
+          .from(activeTable)
           .update({ [fieldName]: publicUrl })
           .eq('id', itemId);
           
@@ -246,14 +257,21 @@ const AdminPanel = () => {
       });
       
       return publicUrl;
-    } catch (error: any) {
-      console.error('❌ [IMAGE_UPLOAD] Upload failed:', error);
-      toast({ 
-        title: "Ошибка загрузки", 
-        description: error.message || "Неизвестная ошибка",
-        variant: "destructive" 
-      });
-      throw error;
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('❌ [IMAGE_UPLOAD] Upload failed:', error);
+        toast({
+          title: "Ошибка загрузки",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.error('❌ [IMAGE_UPLOAD] Upload failed with unknown error:', error);
+        toast({
+          title: "Произошла неизвестная ошибка",
+          variant: "destructive"
+        });
+      }
     } finally {
       setUploadingImage(false);
     }

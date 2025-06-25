@@ -94,4 +94,12 @@ export const ru = {
   enterPromoCode: 'Введите промокод',
   activating: 'Активация...',
   activatePromoCode: 'Активировать',
+  
+  // New translations
+  "rarity": {
+    "Consumer Grade": "Ширпотреб",
+  },
+  "success": "Успех",
+  "itemSoldSuccess": "Предмет успешно продан!",
+  "itemSoldError": "Не удалось продать предмет"
 };

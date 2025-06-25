@@ -187,14 +187,9 @@ const MainApp = () => {
     }
   }, [user, authLoading]);
 
-  const handleCoinsUpdate = async (newCoins: number) => {
-    console.log('💰 [MAIN_APP] Coins update requested:', { oldCoins: currentUser?.coins, newCoins });
-    
-    if (currentUser) {
-      setCurrentUser(prev => prev ? { ...prev, coins: newCoins } : null);
-      await auditLog(currentUser.id, 'coins_updated', { newBalance: newCoins });
-      console.log('✅ [MAIN_APP] Coins updated successfully');
-    }
+  const handleCoinsUpdate = async () => {
+    console.log('💰 [MAIN_APP] Forcing user data reload to update coins...');
+    await loadUserData();
   };
 
   const handleLivesUpdate = async (newLives: number) => {

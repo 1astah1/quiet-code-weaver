@@ -16,6 +16,8 @@ DECLARE
   winner_skin record;
   temp_skin record;
   i integer;
+  new_inventory_item_id uuid;
+  new_balance numeric;
 BEGIN
   -- Проверяем пользователя и кейс
   SELECT * INTO user_record FROM users WHERE id = p_user_id;
@@ -30,7 +32,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Недостаточно монет');
   END IF;
   -- Списываем монеты
-  UPDATE users SET coins = coins - case_record.price WHERE id = p_user_id;
+  UPDATE users SET coins = coins - case_record.price WHERE id = p_user_id RETURNING coins INTO new_balance;
   -- Выбираем победителя случайно из скинов кейса
   SELECT skin_id INTO winner_skin_id FROM case_skins WHERE case_id = p_case_id AND never_drop = false ORDER BY random() LIMIT 1;
   SELECT * INTO winner_skin FROM skins WHERE id = winner_skin_id;
@@ -60,10 +62,11 @@ BEGIN
     END IF;
   END LOOP;
   -- Добавляем скин в инвентарь
-  INSERT INTO user_inventory (user_id, skin_id, obtained_at) VALUES (p_user_id, winner_skin_id, now());
+  INSERT INTO user_inventory (user_id, skin_id, obtained_at) VALUES (p_user_id, winner_skin_id, now()) RETURNING id INTO new_inventory_item_id;
   -- Возвращаем результат
   RETURN jsonb_build_object(
     'success', true,
+    'new_balance', new_balance,
     'roulette_items', items,
     'winner_position', winner_position,
     'reward', jsonb_build_object(
@@ -73,7 +76,8 @@ BEGIN
       'rarity', winner_skin.rarity,
       'price', winner_skin.price,
       'image_url', winner_skin.image_url,
-      'type', 'skin'
+      'type', 'skin',
+      'user_inventory_id', new_inventory_item_id
     )
   );
 END;

@@ -966,6 +966,10 @@ export type Database = {
         }
         Relationships: []
       }
+      final_sell_item: {
+        Args: { p_inventory_id: string; p_user_id: string };
+        Returns: Array<{ success: boolean; message: string; new_balance: number }>;
+      };
     }
     Views: {
       [_ in never]: never

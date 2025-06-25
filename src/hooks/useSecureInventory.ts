@@ -7,61 +7,58 @@ export const useSecureInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sellSkin = async (inventoryItemId: string, skinPrice: number, userId: string) => {
+  const sellSkin = async (inventoryItemId: string, userId: string) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('💰 [SECURE_INVENTORY] Starting skin sale:', { 
-        inventoryItemId, 
-        skinPrice, 
-        userId 
+      console.log('💰 [FINAL_SELL_ITEM] Starting skin sale:', {
+        inventoryItemId,
+        userId
       });
 
       // Проверяем валидность параметров
-      if (!inventoryItemId || !userId || skinPrice <= 0) {
+      if (!inventoryItemId || !userId) {
         throw new Error('Неверные параметры для продажи скина');
       }
 
-      // Используем безопасную функцию продажи
-      const { data, error: sellError } = await supabase.rpc('safe_sell_skin', {
-        p_user_id: userId,
+      // Используем финальную функцию продажи
+      const { data, error: sellError } = await supabase.rpc('final_sell_item', {
         p_inventory_id: inventoryItemId,
-        p_sell_price: skinPrice
+        p_user_id: userId
       });
 
       if (sellError) {
-        console.error('❌ [SECURE_INVENTORY] RPC error:', sellError);
+        console.error('❌ [FINAL_SELL_ITEM] RPC error:', sellError);
         throw new Error(sellError.message || 'Не удалось продать скин');
       }
 
-      if (!data) {
+      if (!data || data.length === 0) {
         throw new Error('Сервер не вернул результат операции');
       }
-
-      // Типизируем ответ от RPC функции
-      const result = data as unknown as SafeSellSkinResponse;
+      
+      const result = data[0];
 
       if (!result.success) {
-        throw new Error('Операция продажи не была выполнена');
+        console.error('📉 [FINAL_SELL_ITEM] Sale failed:', result.message);
+        throw new Error(result.message || 'Операция продажи не была выполнена');
       }
 
-      console.log('✅ [SECURE_INVENTORY] Skin sold successfully:', {
+      console.log('✅ [FINAL_SELL_ITEM] Skin sold successfully:', {
         newBalance: result.new_balance,
-        soldPrice: skinPrice
       });
 
-      return { 
-        success: true, 
-        newBalance: result.new_balance 
+      return {
+        success: true,
+        newBalance: result.new_balance
       };
     } catch (err) {
-      console.error('💥 [SECURE_INVENTORY] Error selling skin:', err);
+      console.error('💥 [FINAL_SELL_ITEM] Error selling skin:', err);
       const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
       setError(errorMessage);
-      return { 
-        success: false, 
-        error: errorMessage 
+      return {
+        success: false,
+        error: errorMessage
       };
     } finally {
       setIsLoading(false);

@@ -118,10 +118,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   };
 
   const handleSaveItem = async () => {
+    if (!editingItemId) return;
     try {
       const { error } = await supabase
         .from('case_skins')
-        .update(editData)
+        .update({
+          probability: editData.probability,
+          custom_probability: editData.custom_probability,
+          never_drop: editData.never_drop,
+        })
         .eq('id', editingItemId);
       
       if (error) throw error;
@@ -133,10 +138,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
       toast({ title: "Параметры скина обновлены" });
-    } catch (error: any) {
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     }
@@ -158,10 +164,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
       toast({ title: "Предмет удален из кейса" });
-    } catch (error: any) {
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     }
@@ -178,19 +185,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
 
     try {
-      const insertData: any = {
+      const insertData = {
         case_id: caseId,
         reward_type: newSkinData.reward_type,
         probability: newSkinData.probability,
         never_drop: newSkinData.never_drop,
-        custom_probability: newSkinData.custom_probability
+        custom_probability: newSkinData.custom_probability,
+        skin_id: newSkinData.reward_type === 'skin' ? newSkinData.skin_id : undefined,
+        coin_reward_id: newSkinData.reward_type === 'coin_reward' ? newSkinData.coin_reward_id : undefined,
       };
-
-      if (newSkinData.reward_type === 'skin') {
-        insertData.skin_id = newSkinData.skin_id;
-      } else {
-        insertData.coin_reward_id = newSkinData.coin_reward_id;
-      }
 
       const { error } = await supabase
         .from('case_skins')
@@ -213,10 +216,11 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
       toast({ title: "Предмет добавлен в кейс" });
-    } catch (error: any) {
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     }
@@ -230,29 +234,27 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
     try {
       // Получаем скины из исходного кейса
-      const { data: sourceSkns, error: fetchError } = await supabase
+      const { data: sourceSkins, error: fetchError } = await supabase
         .from('case_skins')
         .select('*')
         .eq('case_id', cloneFromCase);
 
       if (fetchError) throw fetchError;
 
-      if (!sourceSkns || sourceSkns.length === 0) {
+      if (!sourceSkins || sourceSkins.length === 0) {
         toast({ title: "Ошибка", description: "В выбранном кейсе нет предметов", variant: "destructive" });
         return;
       }
 
       // Копируем скины в текущий кейс
-      const itemsToInsert = sourceSkns.map(item => ({
-        case_id: caseId,
-        skin_id: item.skin_id,
-        coin_reward_id: item.coin_reward_id,
-        reward_type: item.reward_type,
-        probability: item.probability,
-        custom_probability: item.custom_probability,
-        never_drop: item.never_drop
-      }));
-
+      const itemsToInsert = sourceSkins.map(item => {
+        const { id, created_at, ...remaningItem } = item;
+        return {
+          ...remaningItem,
+          case_id: caseId,
+        }
+      });
+      
       const { error: insertError } = await supabase
         .from('case_skins')
         .insert(itemsToInsert);
@@ -265,11 +267,35 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       await refetchCaseSkins();
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
-      toast({ title: `Скопировано ${itemsToInsert.length} предметов` });
-    } catch (error: any) {
+      toast({ title: "Клонирование завершено", description: `Скопировано ${sourceSkins.length} предметов` });
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка клонирования", 
-        description: error.message,
+        description: errorMessage,
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleUpdateProbabilities = async () => {
+    if (!caseSkins) return;
+    try {
+      const updates = caseSkins.map(item => {
+        const newProb = item.custom_probability ?? item.probability ?? 0;
+        return supabase
+          .from('case_skins')
+          .update({ probability: newProb })
+          .eq('id', item.id);
+      });
+      await Promise.all(updates);
+      toast({ title: "Вероятности обновлены" });
+      await refetchCaseSkins();
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
+      toast({ 
+        title: "Ошибка обновления вероятностей", 
+        description: errorMessage,
         variant: "destructive" 
       });
     }

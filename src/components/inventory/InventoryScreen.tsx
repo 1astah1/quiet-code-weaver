@@ -48,7 +48,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     return colors[rarity as keyof typeof colors] || 'border-gray-500 bg-gray-500/10';
   };
 
-  const handleSellSkin = async (inventoryId: string, sellPrice: number) => {
+  const handleSellSkin = async (inventoryId: string) => {
     try {
       if (!inventory) return;
       const item = inventory.find((i: any) => i.id === inventoryId);
@@ -75,7 +75,6 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       const result = await sellSkinMutation.mutateAsync({
         inventoryId,
         userId: currentUser.id,
-        sellPrice
       });
       if (result && result.newBalance !== undefined) {
         console.log('Skin sold, updating coins to:', result.newBalance);
@@ -92,12 +91,11 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
     setWithdrawModalOpen(true);
   };
 
-  const sellSkinMutation = {
-    isPending: false,
-    mutateAsync: async ({ inventoryId, userId, sellPrice }: any) => {
-      return await sellSkin(inventoryId, sellPrice, userId);
+  const sellSkinMutation = useMutation({
+    mutationFn: async ({ inventoryId, userId }: { inventoryId: string, userId: string }) => {
+      return await sellSkin(inventoryId, userId);
     }
-  };
+  });
 
   if (isLoading) {
     return (
@@ -141,32 +139,31 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         </div>
       ) : (
         <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
-          {inventory.map((item) => {
-            if (!item.skins) return null;
+          {inventory.filter((item) => !!item.skins && !item.is_sold).map((item) => {
             console.log('Rendering inventory item:', item.id, 'skin data:', item.skins);
             return (
               <div
                 key={item.id}
-                className={`bg-slate-800/50 rounded-lg border ${getRarityColor(item.skins.rarity || '')} p-2 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl`}
+                className={`bg-slate-800/50 rounded-lg border ${getRarityColor(item.skins!.rarity || '')} p-2 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl`}
               >
                 {/* Rarity Badge */}
                 <div className="bg-black/60 px-1 py-0.5 rounded text-[10px] sm:text-xs text-white mb-1.5 text-center truncate">
-                  {(item.skins.rarity || '').split(' ')[0]}
+                  {(item.skins!.rarity || '').split(' ')[0]}
                 </div>
 
                 {/* Skin Image */}
                 <div className="bg-black/30 rounded-lg aspect-square mb-1.5 flex items-center justify-center overflow-hidden">
-                  {item.skins.image_url ? (
+                  {item.skins!.image_url ? (
                     <OptimizedImage
-                      src={item.skins.image_url}
-                      alt={item.skins.name || 'Скин'}
+                      src={item.skins!.image_url}
+                      alt={item.skins!.name || 'Скин'}
                       className="w-full h-full object-contain"
                       fallback={
                         <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
                           <Package className="w-4 h-4 sm:w-6 sm:h-6 text-white/50" />
                         </div>
                       }
-                      onError={() => console.log('Failed to load inventory skin image:', item.skins.image_url, 'for skin:', item.skins.name)}
+                      onError={() => console.log('Failed to load inventory skin image:', item.skins!.image_url, 'for skin:', item.skins!.name)}
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-700/50 rounded-lg flex items-center justify-center">
@@ -178,10 +175,10 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                 {/* Skin Info */}
                 <div className="space-y-1">
                   <div>
-                    <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins.name || ''}>
-                      {item.skins.name || ''}
+                    <h3 className="text-white font-semibold text-[10px] sm:text-xs leading-tight truncate" title={item.skins!.name || ''}>
+                      {item.skins!.name || ''}
                     </h3>
-                    <p className="text-white/70 text-[9px] sm:text-[10px] truncate">{item.skins.weapon_type || ''}</p>
+                    <p className="text-white/70 text-[9px] sm:text-[10px] truncate">{item.skins!.weapon_type || ''}</p>
                   </div>
                   
                   <div className="flex items-center justify-center">
@@ -189,14 +186,14 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
                       <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
                         <span className="text-white text-[8px] sm:text-xs font-bold">₽</span>
                       </div>
-                      <span className="text-orange-400 font-bold text-[10px] sm:text-xs">{item.skins.price ?? ''}</span>
+                      <span className="text-orange-400 font-bold text-[10px] sm:text-xs">{item.skins!.price ?? ''}</span>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="space-y-1">
                     <button
-                      onClick={() => handleSellSkin(item.id, item.skins.price ?? 0)}
+                      onClick={() => handleSellSkin(item.id)}
                       disabled={sellSkinMutation.isPending}
                       className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
                     >
@@ -234,7 +231,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
       )}
 
       {/* Модальное окно для вывода скина */}
-      {selectedItem && (
+      {selectedItem && selectedItem.skins && (
         <WithdrawSkinModal
           isOpen={withdrawModalOpen}
           onClose={() => {

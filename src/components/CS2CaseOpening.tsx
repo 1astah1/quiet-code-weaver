@@ -1,80 +1,152 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useCS2CaseOpening } from '@/hooks/useCS2CaseOpening';
 import CS2CaseRoulette from './CS2CaseRoulette';
 import CS2CaseResult from './CS2CaseResult';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getRarityColor } from '@/utils/rarityColors';
+import { Loader2 } from 'lucide-react';
 
 interface CS2CaseOpeningProps {
   userId: string;
   caseId: string;
   onClose: () => void;
-  onBalanceUpdate?: (newBalance: number) => void;
+  onBalanceUpdate?: () => void;
 }
 
 const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpeningProps) => {
   const { loading, error, result, phase, openCase, finishRoulette } = useCS2CaseOpening(userId, caseId);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sold, setSold] = useState(false);
+  const [showSoldMessage, setShowSoldMessage] = useState(false);
+  
+  const rarityColor = result ? getRarityColor(result.reward.rarity || '') : '#ffffff';
 
-  // Открыть кейс при первом рендере
-  useState(() => { openCase(); });
+  useEffect(() => {
+    openCase();
+  }, [openCase]);
 
-  // Продажа скина (эмуляция)
+  useEffect(() => {
+    if (result?.success && onBalanceUpdate) {
+      onBalanceUpdate();
+    }
+  }, [result]);
+
   const handleSell = async () => {
-    if (!result) return;
+    if (!result || !result.reward.user_inventory_id) {
+      return;
+    }
     setIsProcessing(true);
-    // Здесь можно вызвать Supabase RPC для продажи
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.rpc('final_sell_item', {
+        p_inventory_id: result.reward.user_inventory_id,
+        p_user_id: userId,
+      });
+
+      const sellResult = data as Array<{ success: boolean; message: string; new_balance: number }>;
+      if (error || (sellResult && !sellResult[0]?.success)) {
+        console.error('Ошибка продажи предмета:', error || (sellResult && sellResult[0]?.message));
+        // Тут можно показать тост с ошибкой
+      } else if (sellResult && sellResult[0]?.success) {
+        if (onBalanceUpdate) {
+          onBalanceUpdate();
+        }
+        setShowSoldMessage(true);
+        setTimeout(onClose, 1500);
+      }
+    } catch (e) {
+      console.error('Критическая ошибка продажи:', e);
+    } finally {
       setIsProcessing(false);
-      setSold(true);
-      if (onBalanceUpdate) onBalanceUpdate(result.reward.price);
-      setTimeout(onClose, 1200);
-    }, 1200);
+    }
   };
 
-  // Забрать в инвентарь (эмуляция)
   const handleTake = () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      onClose();
-    }, 1000);
+    setTimeout(onClose, 1000);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
-      <div className="absolute top-4 right-4">
-        <Button variant="ghost" onClick={onClose} className="text-white">✕</Button>
-      </div>
-      {error && (
-        <div className="bg-red-700 text-white p-8 rounded-xl shadow-xl text-center">
-          <div className="text-2xl mb-2">Ошибка открытия кейса</div>
-          <div>{error}</div>
-          <Button onClick={onClose} className="mt-4">Закрыть</Button>
-        </div>
-      )}
-      {phase === 'anim' && (
-        <div className="text-white text-2xl animate-pulse">Подготовка кейса...</div>
-      )}
-      {phase === 'roulette' && result && (
-        <CS2CaseRoulette
-          items={result.roulette_items}
-          winnerPosition={result.winner_position}
-          onComplete={finishRoulette}
-        />
-      )}
-      {phase === 'result' && result && !sold && (
-        <CS2CaseResult
-          reward={result.reward}
-          onTake={handleTake}
-          onSell={handleSell}
-          isProcessing={isProcessing}
-        />
-      )}
-      {sold && (
-        <div className="text-green-400 text-2xl font-bold animate-bounce mt-8">Скин успешно продан!</div>
-      )}
-    </div>
+    <motion.div
+      className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="absolute inset-0 z-0"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${rarityColor}1A 0%, transparent 70%)`,
+        }}
+        animate={{
+          scale: phase === 'result' ? [1.5, 2] : 1,
+          opacity: phase === 'result' ? [0.5, 0] : 0.2,
+        }}
+        transition={{ duration: 1, ease: 'easeOut' }}
+      />
+      
+      <Button variant="ghost" onClick={onClose} className="absolute top-4 right-4 text-white/50 hover:text-white z-20">✕</Button>
+      
+      <AnimatePresence>
+        {loading && phase === 'anim' && (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="flex flex-col items-center text-white"
+          >
+            <Loader2 className="w-12 h-12 animate-spin mb-4" />
+            <span className="text-xl">Открываем кейс...</span>
+          </motion.div>
+        )}
+
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-900/50 border border-red-500 text-white p-6 rounded-lg text-center"
+          >
+            <h3 className="text-xl font-bold mb-2">Ошибка</h3>
+            <p>{error}</p>
+            <Button onClick={onClose} className="mt-4">Закрыть</Button>
+          </motion.div>
+        )}
+
+        {phase === 'roulette' && result && (
+          <motion.div key="roulette" className="w-full">
+            <CS2CaseRoulette
+              items={result.roulette_items}
+              winnerPosition={result.winner_position}
+              onComplete={finishRoulette}
+            />
+          </motion.div>
+        )}
+
+        {phase === 'result' && result && !showSoldMessage && (
+          <motion.div key="result">
+            <CS2CaseResult
+              reward={result.reward}
+              onTake={handleTake}
+              onSell={handleSell}
+              isProcessing={isProcessing}
+            />
+          </motion.div>
+        )}
+        
+        {showSoldMessage && (
+          <motion.div
+            key="sold"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-green-400 text-2xl font-bold"
+          >
+            Скин продан!
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

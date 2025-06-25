@@ -1,4 +1,3 @@
-
 export type TableName = 
   | "cases"
   | "skins"
@@ -11,6 +10,8 @@ export type TableName =
   | "daily_rewards"
   | "faq_items"
   | "suspicious_activities"; // ДОБАВЛЕНО: Новый тип таблицы
+
+export type RealTableName = Exclude<TableName, 'users' | 'suspicious_activities'>;
 
 export interface AdminUser {
   id: string;

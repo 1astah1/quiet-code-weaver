@@ -82,7 +82,9 @@ const Sidebar = ({ isOpen, onClose, currentUser, onScreenChange, onSignOut }: Si
                 </div>
                 <div className="flex items-center space-x-2">
                   <Coins className="w-4 h-4 text-yellow-400" />
-                  <span className="text-yellow-400 font-bold">{currentUser.coins.toLocaleString()}</span>
+                  <span className="text-yellow-400 font-bold">
+                    {(typeof currentUser.coins === 'number' ? currentUser.coins : 0).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>

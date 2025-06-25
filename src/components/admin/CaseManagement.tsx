@@ -210,11 +210,12 @@ const CaseManagement = ({
         description: `Добавлено ${shuffledSkins.length} скинов в кейс` 
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Auto-select error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка автоподбора", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     } finally {
@@ -264,12 +265,13 @@ const CaseManagement = ({
       console.log('Generated public URL:', publicUrl);
 
       setNewCaseData({ ...newCaseData, [fieldName]: publicUrl });
-      toast({ title: "Изображение загружено успешно" });
-    } catch (error: any) {
+      toast({ title: "Изображение загружено" });
+    } catch (error) {
       console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка загрузки", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     } finally {
@@ -331,16 +333,17 @@ const CaseManagement = ({
       }
 
       queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({ title: "Изображение обновлено успешно" });
-    } catch (error: any) {
+      toast({ title: "Изображение обновлено" });
+    } catch (error) {
       console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка загрузки", 
-        description: error.message,
+        description: errorMessage,
         variant: "destructive" 
       });
     } finally {
-      setUploadingEditImage({ ...uploadingEditImage, [`${caseId}_${fieldName}`]: false });
+      setUploadingEditImage(prev => ({ ...prev, [`${caseId}_${fieldName}`]: false }));
     }
   };
 
@@ -363,10 +366,12 @@ const CaseManagement = ({
       setShowAddForm(false);
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       toast({ title: "Кейс успешно добавлен" });
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error adding case:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: `Не удалось добавить кейс: ${errorMessage}`, 
         variant: "destructive" 
       });
     }
@@ -398,11 +403,12 @@ const CaseManagement = ({
       if (selectedCase === caseId) {
         setSelectedCase(null);
       }
-    } catch (error: any) {
-      console.error('Delete error:', error);
+    } catch (error) {
+      console.error('Error deleting case:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
-        title: "Ошибка удаления", 
-        description: error.message,
+        title: "Ошибка", 
+        description: `Не удалось удалить кейс: ${errorMessage}`, 
         variant: "destructive" 
       });
     }
@@ -426,22 +432,27 @@ const CaseManagement = ({
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       toast({ title: "Кейс обновлен" });
     } catch (error) {
-      console.error('Update error:', error);
-      toast({ title: "Ошибка обновления", variant: "destructive" });
+      console.error('Error saving case:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
+      toast({ 
+        title: "Ошибка", 
+        description: `Не удалось сохранить кейс: ${errorMessage}`, 
+        variant: "destructive" 
+      });
     }
   };
 
   const handleAddSkinToCase = async () => {
-    if (!selectedCase) {
-      toast({ 
-        title: "Ошибка", 
-        description: "Выберите кейс",
-        variant: "destructive" 
+    const currentCaseId = selectedCase;
+    if (!currentCaseId) {
+      toast({
+        title: "Ошибка",
+        description: "Сначала выберите кейс, в который хотите добавить предмет.",
+        variant: "destructive"
       });
       return;
     }
 
-    // Проверяем что выбран либо скин либо монетная награда
     if (newSkinData.reward_type === 'skin' && !newSkinData.skin_id) {
       toast({ 
         title: "Ошибка", 
@@ -480,59 +491,30 @@ const CaseManagement = ({
     }
 
     try {
-      // Проверяем, не добавлен ли уже этот предмет в кейс
-      const { data: existingItem } = await supabase
+      const { data, error } = await supabase
         .from('case_skins')
-        .select('id')
-        .eq('case_id', selectedCase)
-        .eq(newSkinData.reward_type === 'skin' ? 'skin_id' : 'coin_reward_id', 
-            newSkinData.reward_type === 'skin' ? newSkinData.skin_id : newSkinData.coin_reward_id)
-        .maybeSingle();
+        .insert({
+          case_id: currentCaseId,
+          skin_id: newSkinData.reward_type === 'skin' ? newSkinData.skin_id : null,
+          coin_reward_id: newSkinData.reward_type === 'coin' ? newSkinData.coin_reward_id : null,
+          reward_type: newSkinData.reward_type,
+          probability: newSkinData.custom_probability ?? newSkinData.probability,
+          never_drop: newSkinData.never_drop,
+        })
+        .select();
 
-      if (existingItem) {
-        toast({ 
-          title: "Ошибка", 
-          description: `Эта ${newSkinData.reward_type === 'skin' ? 'награда' : 'монетная награда'} уже добавлена в кейс`,
-          variant: "destructive" 
-        });
-        return;
-      }
-
-      const insertData: any = {
-        case_id: selectedCase,
-        reward_type: newSkinData.reward_type,
-        probability: newSkinData.probability,
-        never_drop: newSkinData.never_drop,
-        custom_probability: newSkinData.custom_probability
-      };
-
-      if (newSkinData.reward_type === 'skin') {
-        insertData.skin_id = newSkinData.skin_id;
-      } else {
-        insertData.coin_reward_id = newSkinData.coin_reward_id;
-      }
-
-      const { error } = await supabase
-        .from('case_skins')
-        .insert([insertData]);
-      
       if (error) throw error;
       
-      setNewSkinData({
-        reward_type: 'skin',
-        skin_id: '',
-        coin_reward_id: '',
-        probability: 1.0,
-        never_drop: false,
-        custom_probability: null
-      });
+      toast({ title: "Предмет добавлен в кейс" });
       setShowAddSkinForm(false);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-      toast({ title: `${newSkinData.reward_type === 'skin' ? 'Скин' : 'Монетная награда'} успешно добавлена в кейс` });
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['case_skins', currentCaseId] });
+      
+    } catch (error) {
+      console.error('Error adding skin to case:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: `Не удалось добавить предмет: ${errorMessage}`, 
         variant: "destructive" 
       });
     }
@@ -553,10 +535,12 @@ const CaseManagement = ({
       
       queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
       toast({ title: "Скин удален из кейса" });
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error removing skin from case:', error);
+      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
       toast({ 
         title: "Ошибка", 
-        description: error.message,
+        description: `Не удалось удалить предмет: ${errorMessage}`, 
         variant: "destructive" 
       });
     }

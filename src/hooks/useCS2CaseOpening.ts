@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CS2RouletteItem {
@@ -9,10 +9,12 @@ export interface CS2RouletteItem {
   price: number;
   image_url?: string | null;
   type: 'skin';
+  user_inventory_id?: string;
 }
 
 export interface CS2CaseOpeningResult {
   success: boolean;
+  new_balance: number;
   roulette_items: CS2RouletteItem[];
   winner_position: number;
   reward: CS2RouletteItem;
@@ -24,14 +26,19 @@ export const useCS2CaseOpening = (userId: string, caseId: string) => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CS2CaseOpeningResult | null>(null);
   const [phase, setPhase] = useState<'init' | 'anim' | 'roulette' | 'result'>('init');
+  const hasOpened = useRef(false);
 
   const openCase = useCallback(async () => {
+    if (hasOpened.current) return;
+    hasOpened.current = true;
+
     setLoading(true);
     setError(null);
     setPhase('anim');
     setResult(null);
     try {
-      const { data, error } = await supabase.rpc<CS2CaseOpeningResult, { p_user_id: string; p_case_id: string }>('cs2_open_case', {
+      // @ts-ignore
+      const { data, error } = await supabase.rpc('cs2_open_case', {
         p_user_id: userId,
         p_case_id: caseId
       });
@@ -44,8 +51,9 @@ export const useCS2CaseOpening = (userId: string, caseId: string) => {
       }
       setResult(res);
       setTimeout(() => setPhase('roulette'), 1000);
-    } catch (e: any) {
-      setError(e.message || 'Ошибка открытия кейса');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Ошибка открытия кейса';
+      setError(message);
       setPhase('init');
     } finally {
       setLoading(false);

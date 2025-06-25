@@ -77,16 +77,15 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const paidCases = cases.filter(caseItem => !caseItem?.is_free) || [];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       {/* Free cases */}
       {freeCases.length > 0 && (
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center">
-            <span className="mr-2">🎁</span>
+            <span className="mr-2 text-2xl">🎁</span>
             Бесплатные кейсы
           </h2>
-          
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 sm:mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {freeCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
@@ -104,11 +103,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       {paidCases.length > 0 && (
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center">
-            <span className="mr-2">💎</span>
+            <span className="mr-2 text-2xl">💎</span>
             Премиум кейсы
           </h2>
-          
-          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {paidCases.map((caseItem) => (
               <CaseCard
                 key={caseItem.id}
@@ -123,8 +121,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
       )}
 
       {cases.length === 0 && !isLoading && (
-        <div className="text-center py-8 sm:py-12">
-          <div className="text-4xl sm:text-6xl mb-4">📦</div>
+        <div className="text-center py-12">
+          <div className="text-5xl sm:text-6xl mb-4">📦</div>
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">Пока нет кейсов</h3>
           <p className="text-slate-400 text-sm sm:text-base">Скоро здесь появятся удивительные кейсы!</p>
         </div>

@@ -1,5 +1,9 @@
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import type { CS2RouletteItem } from '@/hooks/useCS2CaseOpening';
+import LazyImage from '@/components/ui/LazyImage';
+import { getRarityColor, getRarityShade } from '@/utils/rarityColors';
+import { Coins } from 'lucide-react';
 
 interface CS2CaseResultProps {
   reward: CS2RouletteItem;
@@ -8,55 +12,101 @@ interface CS2CaseResultProps {
   isProcessing?: boolean;
 }
 
-const RARITY_COLORS: Record<string, string> = {
-  'consumer': 'border-gray-500',
-  'industrial': 'border-blue-500',
-  'mil-spec': 'border-purple-500',
-  'restricted': 'border-pink-500',
-  'classified': 'border-red-500',
-  'covert': 'border-yellow-500',
-  'legendary': 'border-orange-500',
-  'mythical': 'border-purple-600',
-};
+const CS2CaseResult = ({ reward, onTake, onSell, isProcessing }: CS2CaseResultProps) => {
+  const rarity = reward.rarity?.toLowerCase() || 'consumer grade';
+  const rarityColor = getRarityColor(rarity);
 
-export const CS2CaseResult = ({ reward, onTake, onSell, isProcessing }: CS2CaseResultProps) => {
-  const rarity = reward.rarity?.toLowerCase() || 'consumer';
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        type: 'spring' as const,
+        damping: 15,
+        stiffness: 100,
+        when: "beforeChildren",
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 },
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl relative">
-      {/* Вспышка и подсветка */}
-      <div className={`absolute inset-0 rounded-2xl pointer-events-none ${['covert','legendary','mythical'].includes(rarity) ? 'animate-pulse bg-yellow-200/10' : ''}`}></div>
-      <div className="relative z-10 flex flex-col items-center">
-        <h2 className="text-4xl font-bold text-yellow-400 mb-4 animate-bounce">Поздравляем!</h2>
-        <p className="text-white text-lg mb-6">Вам выпал скин:</p>
-        <div className={`p-6 rounded-xl border-4 ${RARITY_COLORS[rarity] || 'border-gray-500'} bg-slate-800 shadow-xl flex flex-col items-center mb-8 relative animate-fade-in`}> 
-          <div className="w-40 h-40 flex items-center justify-center mb-4">
-            {reward.image_url ? (
-              <img src={reward.image_url} alt={reward.name} className="w-full h-full object-contain" />
-            ) : (
-              <span className="text-6xl">🔫</span>
-            )}
+    <motion.div
+      className="flex flex-col items-center justify-center p-4 sm:p-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div
+        className="absolute inset-0 z-0"
+        style={{
+          background: `radial-gradient(circle, ${rarityColor}33 0%, transparent 60%)`,
+        }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0, 0.5, 0],
+        }}
+        transition={{
+          duration: 1.5,
+          repeat: Infinity,
+          repeatType: "mirror",
+        }}
+      />
+      
+      <div className="relative z-10 flex flex-col items-center text-center">
+        <motion.h2 variants={itemVariants} className="text-3xl sm:text-4xl font-bold text-white mb-4">
+          Вы выиграли скин!
+        </motion.h2>
+
+        <motion.div
+          variants={itemVariants}
+          className="p-4 rounded-xl border-2"
+          style={{ 
+            borderColor: rarityColor,
+            backgroundColor: getRarityShade(rarity),
+            boxShadow: `0 0 30px 0px ${rarityColor}`,
+          }}
+        >
+          <div className="w-32 h-32 sm:w-40 sm:h-40 flex items-center justify-center mb-4">
+            <LazyImage 
+              src={reward.image_url ?? ''}
+              alt={reward.name} 
+              className="w-full h-full object-contain drop-shadow-lg"
+            />
           </div>
-          <div className="text-white text-2xl font-bold mb-2">{reward.name}</div>
-          <div className="text-slate-400 text-lg mb-1">{reward.weapon_type}</div>
-          <div className="text-xs uppercase text-yellow-400 font-bold mb-2">{reward.rarity}</div>
-          <div className="text-yellow-400 text-xl font-bold mb-2">{reward.price} монет</div>
-        </div>
-        <div className="flex gap-4">
-          <Button onClick={onTake} disabled={isProcessing} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 text-lg rounded-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50">
+          <h3 className="text-white text-xl sm:text-2xl font-bold">{reward.name}</h3>
+          <p className="text-sm uppercase font-semibold mt-1" style={{ color: rarityColor }}>
+            {reward.rarity}
+          </p>
+          <div className="flex items-center justify-center gap-2 text-yellow-400 text-lg sm:text-xl font-bold mt-2">
+            <Coins className="w-5 h-5 sm:w-6 sm:h-6" />
+            {reward.price}
+          </div>
+        </motion.div>
+
+        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mt-8">
+          <Button onClick={onTake} disabled={isProcessing} size="lg" className="bg-green-600 hover:bg-green-700">
             Забрать в инвентарь
           </Button>
-          <Button onClick={onSell} disabled={isProcessing} className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-8 text-lg rounded-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50">
-            Продать за {reward.price} монет
+          <Button onClick={onSell} disabled={isProcessing} size="lg" className="bg-orange-600 hover:bg-orange-700">
+            Продать за {reward.price}
           </Button>
-        </div>
+        </motion.div>
+
         {isProcessing && (
-          <div className="mt-4 flex items-center space-x-2 text-white">
+          <motion.div variants={itemVariants} className="mt-4 flex items-center space-x-2 text-white">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             <span>Обработка...</span>
-          </div>
+          </motion.div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

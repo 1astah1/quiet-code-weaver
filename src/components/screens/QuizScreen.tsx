@@ -84,7 +84,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-black px-2 mobile-small:px-3 mobile-medium:px-3 mobile-large:px-4 sm:px-4 md:px-6 py-3 mobile-small:py-4 mobile-medium:py-4 mobile-large:py-5 sm:py-6">
+    <div className="min-h-screen bg-black px-2 sm:px-4 md:px-6 py-3 sm:py-6">
       <div className="max-w-2xl mx-auto">
         <div className="mb-4">
           <Button onClick={onBack} variant="outline" className="mb-4">
@@ -110,7 +110,7 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
           <Progress value={((currentQuestionIndex + 1) / questions.length) * 100} className="h-2" />
         </div>
 
-        <Card className="mb-6">
+        <Card className="mb-4">
           <CardContent className="p-4">
             <h3 className="text-lg font-semibold text-white mb-4">{currentQuestion.question}</h3>
             <div className="space-y-2">
@@ -118,13 +118,13 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
                 <button
                   key={option}
                   onClick={() => setSelectedAnswer(index)}
-                  className={`w-full p-3 text-left rounded-lg border transition-all ${
+                  className={`w-full p-3 text-left rounded-lg border transition-all text-sm sm:text-base font-medium ${
                     selectedAnswer === index
                       ? 'bg-orange-500 border-orange-500 text-white'
                       : 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
                   }`}
                 >
-                  <span className="font-medium">{option}.</span> {currentQuestion[`option_${option.toLowerCase()}` as keyof Question]}
+                  <span className="font-medium mr-2">{option}.</span> {currentQuestion[`option_${option.toLowerCase()}` as keyof Question]}
                 </button>
               ))}
             </div>
@@ -138,8 +138,8 @@ const QuizScreen = ({ currentUser, onCoinsUpdate, onBack, onLivesUpdate, onStrea
               console.log('Ответ выбран:', selectedAnswer);
             }
           }}
-          disabled={!selectedAnswer}
-          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-400 py-2.5 mobile-small:py-3 mobile-medium:py-3 mobile-large:py-3 sm:py-3 text-sm mobile-small:text-base mobile-medium:text-base mobile-large:text-lg sm:text-lg font-medium"
+          disabled={selectedAnswer === null}
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:text-gray-400 py-2.5 sm:py-3 text-sm sm:text-lg font-medium"
         >
           {currentQuestionIndex === questions.length - 1 ? 'Завершить викторину' : 'Следующий вопрос'}
         </Button>

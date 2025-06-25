@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -45,10 +44,9 @@ export const useSecureShop = (currentUser: CurrentUser) => {
       if (isAdmin) {
         console.log('👑 [SECURE_SHOP] Admin user detected, bypassing most security checks');
         
-        const { data, error } = await supabase.rpc('safe_purchase_skin', {
+        const { data, error } = await (supabase.rpc as any)('purchase_skin', {
           p_user_id: currentUser.id,
-          p_skin_id: skin.id,
-          p_skin_price: skin.price
+          p_skin_id: skin.id
         });
 
         if (error) {
@@ -96,10 +94,9 @@ export const useSecureShop = (currentUser: CurrentUser) => {
 
       console.log('📡 [SECURE_SHOP] Calling RPC function...');
 
-      const { data, error } = await supabase.rpc('safe_purchase_skin', {
+      const { data, error } = await (supabase.rpc as any)('purchase_skin', {
         p_user_id: currentUser.id,
-        p_skin_id: skin.id,
-        p_skin_price: skin.price
+        p_skin_id: skin.id
       });
 
       if (error) {

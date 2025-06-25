@@ -1,20 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Clock, Play } from 'lucide-react';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { supabase } from '@/integrations/supabase/client';
-import AdModal from '@/components/ads/AdModal';
-import { useCaseOpeningWithAd } from '@/hooks/useCaseOpeningWithAd';
-import { useToast } from "@/components/ui/use-toast";
-import { useTranslation } from "@/components/ui/use-translation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import CS2CaseOpening from '../CS2CaseOpening';
 
 interface FreeCaseTimerProps {
   caseId: string;
   caseName: string;
-  onCaseOpened?: (result: any) => void;
+  onCaseOpened?: (caseData: any) => void;
 }
 
 const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
@@ -23,69 +17,68 @@ const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
   onCaseOpened
 }) => {
   const { user } = useSecureAuth();
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(8 * 60 * 60 * 1000); // Start with full time
   const [canOpen, setCanOpen] = useState(false);
-  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
-  const [lastOpenTime, setLastOpenTime] = useState<Date | null>(null);
-  
-  const caseOpeningMutation = useCaseOpeningWithAd();
+  const [isOpening, setIsOpening] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Проверяем время последнего открытия бесплатного кейса
-  useEffect(() => {
+  const checkLastOpenTime = useCallback(async () => {
     if (!user?.id || !caseId) return;
 
-    const checkLastOpenTime = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_free_case_openings')
-          .select('opened_at')
-          .eq('user_id', user.id)
-          .eq('case_id', caseId)
-          .order('opened_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_free_case_openings')
+        .select('opened_at')
+        .eq('user_id', user.id)
+        .eq('case_id', caseId)
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (error) {
-          console.error('Error checking last open time:', error);
-          return;
-        }
+      if (error) {
+        console.error('Error checking last open time:', error);
+        setCanOpen(false); // Assume cannot open on error
+        return;
+      }
 
-        if (data?.opened_at) {
-          const openTime = new Date(data.opened_at);
-          setLastOpenTime(openTime);
-          
-          const now = new Date();
-          const timeDiff = now.getTime() - openTime.getTime();
-          const eightHours = 8 * 60 * 60 * 1000; // 8 часов в миллисекундах
-          
-          if (timeDiff < eightHours) {
-            setTimeLeft(eightHours - timeDiff);
-            setCanOpen(false);
-          } else {
-            setCanOpen(true);
-            setTimeLeft(0);
-          }
+      if (data?.opened_at) {
+        const openTime = new Date(data.opened_at);
+        const now = new Date();
+        const timeDiff = now.getTime() - openTime.getTime();
+        const eightHours = 8 * 60 * 60 * 1000;
+
+        if (timeDiff < eightHours) {
+          setTimeLeft(eightHours - timeDiff);
+          setCanOpen(false);
         } else {
-          // Если никогда не открывал этот кейс
           setCanOpen(true);
           setTimeLeft(0);
         }
-      } catch (error) {
-        console.error('Error in checkLastOpenTime:', error);
+      } else {
+        setCanOpen(true);
+        setTimeLeft(0);
       }
-    };
-
-    checkLastOpenTime();
+    } catch (error) {
+      console.error('Error in checkLastOpenTime:', error);
+      setCanOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user?.id, caseId]);
 
-  // Обновляем таймер каждую секунду
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) return;
+    checkLastOpenTime();
+  }, [checkLastOpenTime]);
+
+  useEffect(() => {
+    if (canOpen || isLoading) return;
 
     const interval = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev === null || prev <= 1000) {
+        if (prev <= 1000) {
           setCanOpen(true);
+          clearInterval(interval);
           return 0;
         }
         return prev - 1000;
@@ -93,64 +86,53 @@ const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeLeft]);
+  }, [canOpen, isLoading]);
 
   const formatTime = (ms: number) => {
     const hours = Math.floor(ms / (1000 * 60 * 60));
     const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((ms % (1000 * 60)) / 1000);
     
-    if (hours > 0) {
-      return `${hours}ч ${minutes}м ${seconds}с`;
-    } else if (minutes > 0) {
-      return `${minutes}м ${seconds}с`;
-    } else {
-      return `${seconds}с`;
-    }
+    if (hours > 0) return `${hours}ч ${minutes}м ${seconds}с`;
+    if (minutes > 0) return `${minutes}м ${seconds}с`;
+    return `${seconds}с`;
   };
 
-  const handleWatchAd = () => {
-    setIsAdModalOpen(true);
+  const handleOpenFreeCase = () => {
+    if (!user) return;
+    setIsOpening(true);
   };
 
-  const handleAdWatched = async () => {
-    setIsAdModalOpen(false);
-    
-    if (!user?.id) return;
-
-    try {
-      const result = await caseOpeningMutation.mutateAsync({
-        userId: user.id,
-        caseId: caseId,
-        isFree: true,
-        adWatched: true
-      });
-
-      if (result.success && onCaseOpened) {
-        onCaseOpened(result);
-        
-        // Обновляем время последнего открытия
-        setLastOpenTime(new Date());
-        setTimeLeft(8 * 60 * 60 * 1000); // 8 часов
-        setCanOpen(false);
-      }
-    } catch (error) {
-      console.error('Error opening free case:', error);
-    }
+  const handleCloseOpening = () => {
+    setIsOpening(false);
+    // After closing, re-check the timer immediately
+    checkLastOpenTime();
   };
+  
+  const handleBalanceUpdate = () => {
+    // This function can be used if balance needs to be updated from opening modal
+  }
 
   if (!user) return null;
+
+  if (isLoading) {
+    return (
+      <Button disabled className="w-full bg-slate-600 text-slate-400">
+        <Clock className="w-4 h-4 mr-2" />
+        Загрузка...
+      </Button>
+    );
+  }
 
   return (
     <div className="space-y-2">
       {canOpen ? (
         <Button
-          onClick={handleWatchAd}
-          disabled={caseOpeningMutation.isPending}
+          onClick={handleOpenFreeCase}
           className="w-full bg-green-600 hover:bg-green-700 text-white"
         >
           <Play className="w-4 h-4 mr-2" />
-          {caseOpeningMutation.isPending ? 'Открываем...' : 'Бесплатно (с рекламой)'}
+          Бесплатно
         </Button>
       ) : (
         <Button
@@ -158,16 +140,18 @@ const FreeCaseTimer: React.FC<FreeCaseTimerProps> = ({
           className="w-full bg-slate-600 text-slate-400 cursor-not-allowed"
         >
           <Clock className="w-4 h-4 mr-2" />
-          {timeLeft ? `Доступно через ${formatTime(timeLeft)}` : 'Загрузка...'}
+          Доступно через {formatTime(timeLeft)}
         </Button>
       )}
 
-      <AdModal
-        isOpen={isAdModalOpen}
-        onClose={() => setIsAdModalOpen(false)}
-        onAdWatched={handleAdWatched}
-        caseName={caseName}
-      />
+      {isOpening && user && (
+        <CS2CaseOpening
+          userId={user.id}
+          caseId={caseId}
+          onClose={handleCloseOpening}
+          onBalanceUpdate={handleBalanceUpdate}
+        />
+      )}
     </div>
   );
 };
