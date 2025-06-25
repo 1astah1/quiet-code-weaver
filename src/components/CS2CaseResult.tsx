@@ -94,7 +94,15 @@ const CS2CaseResult = ({ reward, onTake, onSell, isProcessing }: CS2CaseResultPr
           <Button onClick={onTake} disabled={isProcessing} size="lg" className="bg-green-600 hover:bg-green-700">
             Забрать в инвентарь
           </Button>
-          <Button onClick={onSell} disabled={isProcessing} size="lg" className="bg-orange-600 hover:bg-orange-700">
+          <Button 
+            onClick={() => {
+              console.log('SELL CLICK', reward);
+              onSell();
+            }}
+            disabled={isProcessing || !reward.user_inventory_id}
+            size="lg" 
+            className="bg-orange-600 hover:bg-orange-700"
+          >
             Продать за {reward.price}
           </Button>
         </motion.div>
