@@ -42,12 +42,15 @@ export const useCS2CaseOpening = (userId: string, caseId: string) => {
         p_user_id: userId,
         p_case_id: caseId
       });
-      const res = data as unknown as CS2CaseOpeningResult;
+      let res = data as unknown as CS2CaseOpeningResult & { inventory_id?: string };
       if (error || !res || !res.success) {
         setError(res?.error || error?.message || 'Ошибка открытия кейса');
         setLoading(false);
         setPhase('init');
         return;
+      }
+      if (res.reward && !res.reward.user_inventory_id && (res as any).inventory_id) {
+        res.reward.user_inventory_id = (res as any).inventory_id;
       }
       setResult(res);
       setTimeout(() => setPhase('roulette'), 1000);
