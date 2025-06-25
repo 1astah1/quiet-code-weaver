@@ -5,7 +5,6 @@ import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import MainScreen from "@/components/screens/MainScreen";
 import SkinsScreen from "@/components/screens/SkinsScreen";
-import QuizScreen from "@/components/screens/QuizScreen";
 import TasksScreen from "@/components/screens/TasksScreen";
 import InventoryScreen from "@/components/inventory/InventoryScreen";
 import SettingsScreen from "@/components/settings/SettingsScreen";
@@ -288,22 +287,6 @@ const MainApp = () => {
           <SkinsScreen 
             currentUser={currentUser}
             onCoinsUpdate={handleCoinsUpdate}
-          />
-        );
-      case 'quiz':
-        return (
-          <QuizScreen 
-            currentUser={{
-              id: currentUser.id,
-              username: currentUser.username,
-              coins: currentUser.coins,
-              quiz_lives: currentUser.lives,
-              quiz_streak: currentUser.streak
-            }}
-            onCoinsUpdate={handleCoinsUpdate}
-            onBack={() => setCurrentScreen('main')}
-            onLivesUpdate={handleLivesUpdate}
-            onStreakUpdate={handleStreakUpdate}
           />
         );
       case 'tasks':
