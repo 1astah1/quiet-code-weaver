@@ -13,7 +13,7 @@ interface CS2CaseOpeningProps {
   userId: string;
   caseId: string;
   onClose: () => void;
-  onBalanceUpdate?: () => void;
+  onBalanceUpdate?: (newBalance: number) => void;
 }
 
 const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpeningProps) => {
@@ -30,9 +30,9 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
 
   useEffect(() => {
     if (result?.success && onBalanceUpdate) {
-      onBalanceUpdate();
+      onBalanceUpdate(result.new_balance);
     }
-  }, [result]);
+  }, [result, onBalanceUpdate]);
 
   const handleSell = async () => {
     if (!result || !result.reward.user_inventory_id) {
@@ -64,7 +64,7 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
           description: 'Скин успешно продан!',
         });
         if (onBalanceUpdate) {
-          onBalanceUpdate();
+          onBalanceUpdate(sellResult[0].new_balance);
         }
         setShowSoldMessage(true);
         setTimeout(onClose, 1500);

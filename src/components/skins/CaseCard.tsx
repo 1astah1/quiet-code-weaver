@@ -1,15 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Coins, Ticket } from "lucide-react";
+import { Coins, Ticket, Play } from "lucide-react";
 import LazyImage from "@/components/ui/LazyImage";
-import FreeCaseTimer from "@/components/cases/FreeCaseTimer";
 
 const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: any) => {
   const canAfford = currentUser.coins >= caseItem.price;
 
   const handleOpenClick = () => {
-    if (caseItem.is_free || canAfford) {
-      onOpen(caseItem);
+    if (caseItem.is_free) {
+      onOpen(caseItem, true);
+    } else if (canAfford) {
+      onOpen(caseItem, false);
     }
   };
 
@@ -27,7 +28,14 @@ const CaseCard = ({ caseItem, currentUser, onOpen, onCoinsUpdate }: any) => {
       <div className="p-2">
         <h3 className="text-white text-sm font-medium truncate">{caseItem.name}</h3>
         {caseItem.is_free ? (
-          <FreeCaseTimer caseId={caseItem.id} caseName={caseItem.name} onCaseOpened={onOpen} />
+          <Button
+            onClick={handleOpenClick}
+            size="sm"
+            className="w-full mt-2 text-xs h-auto py-1 px-3 bg-green-600 hover:bg-green-700"
+          >
+            <Play className="w-3 h-3 mr-1" />
+            Смотреть и открыть
+          </Button>
         ) : (
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-1 text-yellow-400">

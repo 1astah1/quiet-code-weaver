@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
 import CS2CaseOpening from "@/components/CS2CaseOpening";
+import AdModal from "@/components/ads/AdModal";
 
 interface CasesTabProps {
   currentUser: {
@@ -17,6 +18,7 @@ interface CasesTabProps {
 const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [selectedCaseForPreview, setSelectedCaseForPreview] = useState<any>(null);
   const [openingCase, setOpeningCase] = useState<any>(null);
+  const [showAdForCase, setShowAdForCase] = useState<any>(null);
 
   const { data: cases = [], isLoading, error } = useQuery({
     queryKey: ['cases'],
@@ -44,13 +46,30 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
     retryDelay: 1000
   });
 
-  const handleCaseOpen = (caseData: any) => {
+  const handleCaseOpen = (caseData: any, isFree: boolean = false) => {
     if (!caseData || !currentUser) {
       console.error('Invalid case data or user for opening');
       return;
     }
-    console.log('🎯 [CASES_TAB] Opening case with safe animation:', caseData.name);
-    setOpeningCase(caseData);
+
+    if (isFree) {
+      setShowAdForCase(caseData);
+    } else {
+      console.log('🎯 [CASES_TAB] Opening case with safe animation:', caseData.name);
+      setOpeningCase(caseData);
+    }
+  };
+
+  const handleAdComplete = (success: boolean) => {
+    if (success && showAdForCase) {
+      console.log('🎯 [CASES_TAB] Ad completed, opening free case:', showAdForCase.name);
+      setOpeningCase(showAdForCase);
+    }
+    setShowAdForCase(null);
+  };
+
+  const handleBalanceUpdate = (newBalance: number) => {
+    onCoinsUpdate(newBalance);
   };
 
   if (error) {
@@ -132,6 +151,14 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         <CasePreviewModal
           caseItem={selectedCaseForPreview}
           onClose={() => setSelectedCaseForPreview(null)}
+        />
+      )}
+
+      {showAdForCase && (
+        <AdModal
+          isOpen={!!showAdForCase}
+          onClose={handleAdComplete}
+          caseName={showAdForCase.name}
         />
       )}
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,15 +6,15 @@ import { Play, X } from 'lucide-react';
 
 interface AdModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onAdWatched: () => void;
+  onClose: (success: boolean) => void;
+  rewardAmount?: number;
   caseName?: string;
 }
 
 const AdModal: React.FC<AdModalProps> = ({ 
   isOpen, 
   onClose, 
-  onAdWatched, 
+  rewardAmount, 
   caseName 
 }) => {
   const [adProgress, setAdProgress] = useState(0);
@@ -37,7 +36,7 @@ const AdModal: React.FC<AdModalProps> = ({
         if (newProgress >= 100) {
           // Реклама закончилась
           setTimeout(() => {
-            onAdWatched();
+            onClose(true);
           }, 1000);
           return 100;
         }
@@ -47,7 +46,7 @@ const AdModal: React.FC<AdModalProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isWatching, onAdWatched]);
+  }, [isWatching, onClose]);
 
   const handleStartAd = () => {
     setIsWatching(true);
@@ -57,7 +56,7 @@ const AdModal: React.FC<AdModalProps> = ({
 
   const handleSkip = () => {
     if (canSkip) {
-      onAdWatched();
+      onClose(true);
     }
   };
 
@@ -65,7 +64,7 @@ const AdModal: React.FC<AdModalProps> = ({
     setIsWatching(false);
     setAdProgress(0);
     setCanSkip(false);
-    onClose();
+    onClose(false);
   };
 
   return (
@@ -89,7 +88,10 @@ const AdModal: React.FC<AdModalProps> = ({
           {!isWatching ? (
             <div className="text-center space-y-4">
               <div className="text-slate-300">
-                Для получения бесплатного кейса {caseName && `"${caseName}"`} необходимо посмотреть короткую рекламу
+                {caseName 
+                  ? `Для получения бесплатного кейса "${caseName}" необходимо посмотреть рекламу.`
+                  : `Для получения ${rewardAmount} монет необходимо посмотреть рекламу.`
+                }
               </div>
               
               <Button 
