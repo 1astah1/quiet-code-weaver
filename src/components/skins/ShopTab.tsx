@@ -303,7 +303,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
                <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
              </div>
           ) : currentSkins.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {currentSkins.map((skin) => (
                 <ShopSkinCard
                   key={skin.id}
