@@ -77,11 +77,26 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate }: InventoryScreenProps) =
         userId: currentUser.id,
       });
       if (result && result.newBalance !== undefined) {
+        toast({
+          title: "Успех",
+          description: "Скин успешно продан!",
+        });
         console.log('Skin sold, updating coins to:', result.newBalance);
         onCoinsUpdate(result.newBalance);
         await refetch();
+      } else if (result && result.error) {
+        toast({
+          title: "Ошибка продажи",
+          description: result.error,
+          variant: "destructive",
+        });
       }
     } catch (error) {
+      toast({
+        title: "Критическая ошибка",
+        description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+        variant: "destructive",
+      });
       console.error('Error selling skin:', error);
     }
   };

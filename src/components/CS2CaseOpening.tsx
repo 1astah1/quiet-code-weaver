@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRarityColor } from '@/utils/rarityColors';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface CS2CaseOpeningProps {
   userId: string;
@@ -19,6 +20,7 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
   const { loading, error, result, phase, openCase, finishRoulette } = useCS2CaseOpening(userId, caseId);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSoldMessage, setShowSoldMessage] = useState(false);
+  const { toast } = useToast();
   
   const rarityColor = result ? getRarityColor(result.reward.rarity || '') : '#ffffff';
 
@@ -34,6 +36,11 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
 
   const handleSell = async () => {
     if (!result || !result.reward.user_inventory_id) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось определить предмет для продажи.',
+        variant: 'destructive',
+      });
       return;
     }
     setIsProcessing(true);
@@ -45,9 +52,17 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
 
       const sellResult = data as Array<{ success: boolean; message: string; new_balance: number }>;
       if (error || (sellResult && !sellResult[0]?.success)) {
+        toast({
+          title: 'Ошибка продажи',
+          description: error?.message || (sellResult && sellResult[0]?.message) || 'Не удалось продать предмет.',
+          variant: 'destructive',
+        });
         console.error('Ошибка продажи предмета:', error || (sellResult && sellResult[0]?.message));
-        // Тут можно показать тост с ошибкой
       } else if (sellResult && sellResult[0]?.success) {
+        toast({
+          title: 'Успех',
+          description: 'Скин успешно продан!',
+        });
         if (onBalanceUpdate) {
           onBalanceUpdate();
         }
@@ -55,6 +70,11 @@ const CS2CaseOpening = ({ userId, caseId, onClose, onBalanceUpdate }: CS2CaseOpe
         setTimeout(onClose, 1500);
       }
     } catch (e) {
+      toast({
+        title: 'Критическая ошибка',
+        description: e instanceof Error ? e.message : 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
       console.error('Критическая ошибка продажи:', e);
     } finally {
       setIsProcessing(false);
