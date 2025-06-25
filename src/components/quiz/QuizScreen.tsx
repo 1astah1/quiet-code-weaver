@@ -16,6 +16,8 @@ const QuizScreen = () => {
     restoreTimeLeft,
     closeRestoreModal,
     loading,
+    errorMessage,
+    resetQuiz,
   } = useQuiz();
 
   return (
@@ -24,7 +26,10 @@ const QuizScreen = () => {
         <h1 className="text-3xl font-bold text-center text-white mb-4">Викторина</h1>
         <QuizHearts hearts={hearts} />
         {canAnswer && currentQuestion && (
-          <QuizQuestionCard question={currentQuestion as QuizQuestion} onAnswer={handleAnswer} loading={loading} />
+          <>
+            <QuizQuestionCard question={currentQuestion as QuizQuestion} onAnswer={handleAnswer} loading={loading} />
+            {errorMessage && <div className="text-red-400 text-center font-semibold mt-2">{errorMessage}</div>}
+          </>
         )}
         {!canAnswer && (
           <QuizRestoreModal 
@@ -34,6 +39,7 @@ const QuizScreen = () => {
             onWatchAd={handleWatchAd}
           />
         )}
+        <button className="mt-4 text-xs text-orange-400 underline" onClick={resetQuiz}>Сбросить викторину</button>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Edit, Trash2, Save, X } from "lucide-react";
 import { TableName } from "@/types/admin";
 

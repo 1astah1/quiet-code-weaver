@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +21,11 @@ interface RecentWin {
   } | null;
 }
 
-const RecentWins = () => {
+interface RecentWinsProps {
+  userId?: string;
+}
+
+const RecentWins = ({ userId }: RecentWinsProps) => {
   const [realtimeWins, setRealtimeWins] = useState<RecentWin[]>([]);
 
   const isValidRewardData = (data: any): data is RewardData => {
@@ -36,41 +39,38 @@ const RecentWins = () => {
   };
 
   const { data: initialWins = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['recent-wins-public'],
+    queryKey: ['recent-wins', userId || 'public'],
     queryFn: async () => {
-      console.log('🏆 [RECENT_WINS] Loading public recent wins...');
-      
+      console.log('🏆 [RECENT_WINS] Loading wins...');
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('recent_wins')
           .select(`
             id,
             won_at,
             reward_data,
-            users (
-              username
-            )
+            user_id,
+            users:users(username)
           `)
           .not('reward_data', 'is', null)
           .order('won_at', { ascending: false })
           .limit(20);
-
-        if (error) {
-          console.error('❌ [RECENT_WINS] Error loading recent wins:', error);
-          throw new Error(`Failed to load recent wins: ${error.message}`);
+        if (userId) {
+          query = query.eq('user_id', userId);
         }
-
-        console.log('✅ [RECENT_WINS] Loaded wins:', data?.length || 0);
-        
+        const { data, error } = await query;
+        if (error) {
+          console.error('❌ [RECENT_WINS] Error loading wins:', error);
+          throw new Error(`Failed to load wins: ${error.message}`);
+        }
         const validWins = (data || []).filter(win => {
           if (!win.reward_data) return false;
           return isValidRewardData(win.reward_data);
         }).map(win => ({
           ...win,
-          reward_data: win.reward_data as unknown as RewardData
+          reward_data: win.reward_data as unknown as RewardData,
+          users: Array.isArray(win.users) ? (win.users[0] || null) : win.users || null
         }));
-
-        console.log('✅ [RECENT_WINS] Valid wins after filtering:', validWins.length);
         return validWins as RecentWin[];
       } catch (error) {
         console.error('💥 [RECENT_WINS] Unexpected error:', error);
@@ -83,7 +83,6 @@ const RecentWins = () => {
 
   useEffect(() => {
     console.log('🔔 [RECENT_WINS] Setting up realtime subscription...');
-    
     const channel = supabase
       .channel('recent-wins-realtime')
       .on(
@@ -95,35 +94,32 @@ const RecentWins = () => {
         },
         async (payload) => {
           console.log('🔔 [RECENT_WINS] New win received:', payload);
-          
           try {
-            const { data: newWinData, error } = await supabase
+            let query = supabase
               .from('recent_wins')
               .select(`
                 id,
                 won_at,
                 reward_data,
-                users (
-                  username
-                )
+                user_id,
+                users:users(username)
               `)
-              .eq('id', payload.new.id)
-              .single();
-
+              .eq('id', payload.new.id);
+            if (userId) {
+              query = query.eq('user_id', userId);
+            }
+            const { data: newWinData, error } = await query.single();
             if (error) {
               console.error('❌ [RECENT_WINS] Error fetching new win data:', error);
               return;
             }
-
             if (newWinData && newWinData.reward_data) {
               if (isValidRewardData(newWinData.reward_data)) {
                 const newWin = {
                   ...newWinData,
-                  reward_data: newWinData.reward_data as unknown as RewardData
+                  reward_data: newWinData.reward_data as unknown as RewardData,
+                  users: Array.isArray(newWinData.users) ? (newWinData.users[0] || null) : newWinData.users || null
                 } as RecentWin;
-
-                console.log('✅ [RECENT_WINS] Adding new win to realtime list:', newWin);
-                
                 setRealtimeWins(prev => {
                   const updated = [newWin, ...prev.filter(w => w.id !== newWin.id)].slice(0, 20);
                   return updated;
@@ -136,12 +132,10 @@ const RecentWins = () => {
         }
       )
       .subscribe();
-
     return () => {
-      console.log('🔌 [RECENT_WINS] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (initialWins.length > 0) {

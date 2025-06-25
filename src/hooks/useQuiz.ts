@@ -23,10 +23,27 @@ const restoreHeartByAd = async () => {
   return { success: true };
 };
 
-interface QuizQuestion {
+export interface QuizQuestion {
   text: string;
   answers: string[];
   correct: string;
+  image_url?: string;
+}
+
+function loadQuizStateFromStorage() {
+  try {
+    const data = localStorage.getItem('quizState');
+    if (!data) return null;
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+function saveQuizStateToStorage(state: any) {
+  try {
+    localStorage.setItem('quizState', JSON.stringify(state));
+  } catch {}
 }
 
 export function useQuiz() {
@@ -38,18 +55,41 @@ export function useQuiz() {
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
   const [restoreTimeLeft, setRestoreTimeLeft] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Загрузка состояния викторины
+  // Загрузка состояния викторины из localStorage
   useEffect(() => {
-    fetchQuizState().then(state => {
-      setHearts(state.hearts);
-      setLastRestore(state.lastRestore);
-      setAdWatchedAt(state.adWatchedAt);
-      setCurrentQuestion(state.currentQuestion as QuizQuestion);
-      setCanAnswer(state.hearts > 0);
-      setIsRestoreModalOpen(state.hearts === 0);
-    });
+    const saved = loadQuizStateFromStorage();
+    if (saved) {
+      setHearts(saved.hearts ?? 5);
+      setLastRestore(saved.lastRestore ?? Date.now());
+      setAdWatchedAt(saved.adWatchedAt ?? null);
+      setCurrentQuestion(saved.currentQuestion ?? null);
+      setCanAnswer(saved.canAnswer ?? true);
+      setIsRestoreModalOpen(saved.isRestoreModalOpen ?? false);
+    } else {
+      fetchQuizState().then(state => {
+        setHearts(state.hearts);
+        setLastRestore(state.lastRestore);
+        setAdWatchedAt(state.adWatchedAt);
+        setCurrentQuestion(state.currentQuestion as QuizQuestion);
+        setCanAnswer(state.hearts > 0);
+        setIsRestoreModalOpen(state.hearts === 0);
+      });
+    }
   }, []);
+
+  // Сохраняем состояние при изменениях
+  useEffect(() => {
+    saveQuizStateToStorage({
+      hearts,
+      lastRestore,
+      adWatchedAt,
+      currentQuestion,
+      canAnswer,
+      isRestoreModalOpen
+    });
+  }, [hearts, lastRestore, adWatchedAt, currentQuestion, canAnswer, isRestoreModalOpen]);
 
   // Таймер восстановления сердец
   useEffect(() => {
@@ -69,7 +109,9 @@ export function useQuiz() {
 
   // Ответ на вопрос
   const handleAnswer = useCallback(async (answer: string) => {
+    if (!canAnswer || loading) return;
     setLoading(true);
+    setErrorMessage(null);
     const res = await sendAnswer(answer);
     setLoading(false);
     if (res.correct) {
@@ -78,16 +120,21 @@ export function useQuiz() {
         text: 'Столица Франции?',
         answers: ['Париж', 'Берлин', 'Лондон', 'Мадрид'],
         correct: 'Париж',
+        image_url: undefined
       });
     } else {
-      setHearts(h => Math.max(0, h - 1));
-      if (hearts - 1 <= 0) {
-        setCanAnswer(false);
-        setIsRestoreModalOpen(true);
-        setLastRestore(Date.now());
-      }
+      setErrorMessage('Неправильный ответ!');
+      setHearts(h => {
+        const newHearts = Math.max(0, h - 1);
+        if (newHearts <= 0) {
+          setCanAnswer(false);
+          setIsRestoreModalOpen(true);
+          setLastRestore(Date.now());
+        }
+        return newHearts;
+      });
     }
-  }, [hearts]);
+  }, [canAnswer, loading]);
 
   // Просмотр рекламы для восстановления сердца
   const handleWatchAd = useCallback(async () => {
@@ -103,6 +150,25 @@ export function useQuiz() {
 
   const closeRestoreModal = () => setIsRestoreModalOpen(false);
 
+  const resetQuiz = () => {
+    setHearts(5);
+    setLastRestore(Date.now());
+    setAdWatchedAt(null);
+    setCurrentQuestion(null);
+    setCanAnswer(true);
+    setIsRestoreModalOpen(false);
+    setErrorMessage(null);
+    localStorage.removeItem('quizState');
+    fetchQuizState().then(state => {
+      setHearts(state.hearts);
+      setLastRestore(state.lastRestore);
+      setAdWatchedAt(state.adWatchedAt);
+      setCurrentQuestion(state.currentQuestion as QuizQuestion);
+      setCanAnswer(state.hearts > 0);
+      setIsRestoreModalOpen(state.hearts === 0);
+    });
+  };
+
   return {
     hearts,
     isRestoreModalOpen,
@@ -113,6 +179,8 @@ export function useQuiz() {
     restoreTimeLeft,
     closeRestoreModal,
     loading,
+    errorMessage,
+    resetQuiz,
   };
 }
 
@@ -125,7 +193,6 @@ export function useSecureQuiz() {
     const now = Date.now();
     if (now - lastActionRef.current < 1000) return; // не чаще 1 раза в секунду
     lastActionRef.current = now;
-    // Здесь можно добавить проверку токена пользователя и логирование
     await quiz.handleAnswer(answer);
   };
 
@@ -133,7 +200,6 @@ export function useSecureQuiz() {
     const now = Date.now();
     if (now - lastActionRef.current < 1000) return;
     lastActionRef.current = now;
-    // Здесь можно добавить проверку токена пользователя и логирование
     await quiz.handleWatchAd();
   };
 
