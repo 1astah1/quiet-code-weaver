@@ -1,22 +1,22 @@
-# Welcome to your Lovable project
+# Welcome to your FastMarket project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5
+**URL**: https://fastmarket.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
+**Use FastMarket**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5) and start prompting.
+Simply visit the [FastMarket Project](https://fastmarket.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+Changes made via FastMarket will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in FastMarket.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,9 +62,9 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5) and click on Share -> Publish.
+Simply open [FastMarket](https://fastmarket.dev/projects/0da5c695-e1de-4f4e-a122-18dfea3711e5) and click on Share -> Publish.
 
-## Can I connect a custom domain to my Lovable project?
+## Can I connect a custom domain to my FastMarket project?
 
 Yes, you can!
 
