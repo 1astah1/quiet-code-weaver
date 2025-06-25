@@ -4,7 +4,7 @@ import { Shield, AlertTriangle, X } from 'lucide-react';
 import { SecurityMonitor } from '@/utils/securityEnhanced';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { useEnhancedSecurity } from '@/hooks/useEnhancedSecurity';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from "@/components/ui/toast";
 import { useTranslation } from '@/components/ui/use-translation';
 import { Button } from '@/components/ui/button';
 

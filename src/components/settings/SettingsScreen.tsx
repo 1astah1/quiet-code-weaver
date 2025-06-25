@@ -8,7 +8,7 @@ import TermsOfServiceModal from "./TermsOfServiceModal";
 import PrivacyPolicyModal from "./PrivacyPolicyModal";
 import LanguageSelector from "./LanguageSelector";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/components/ui/use-translation";
 

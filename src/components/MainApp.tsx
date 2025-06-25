@@ -13,7 +13,7 @@ import AdminPanel from "@/components/AdminPanel";
 import AuthScreen from "@/components/auth/AuthScreen";
 import CS2CaseOpening from "@/components/CS2CaseOpening";
 import SecurityMonitor from "@/components/security/SecurityMonitor";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/components/ui/use-translation";

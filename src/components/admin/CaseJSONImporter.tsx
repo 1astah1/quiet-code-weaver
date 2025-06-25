@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { Upload, FileText, AlertCircle } from "lucide-react";
 
 interface CaseJSONImporterProps {

@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { X, Copy, Users, Gift, Share2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 

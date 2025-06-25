@@ -1,7 +1,6 @@
-
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from "@/components/ui/toast";
 
 const ReferralHandler = () => {
   const { code } = useParams<{ code: string }>();

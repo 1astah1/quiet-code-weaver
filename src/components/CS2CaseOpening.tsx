@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRarityColor } from '@/utils/rarityColors';
 import { Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from "@/components/ui/toast";
 
 interface CS2CaseOpeningProps {
   userId: string;

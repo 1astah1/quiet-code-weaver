@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ExternalLink, Info, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { useTranslation } from "@/components/ui/use-translation";
 
 interface WithdrawSkinModalProps {

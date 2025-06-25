@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
 import PrivacyPolicyModal from "@/components/settings/PrivacyPolicyModal";

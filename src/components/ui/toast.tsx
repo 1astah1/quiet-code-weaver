@@ -5,7 +5,7 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const ToastProvider = ToastPrimitives.Provider
+const RadixToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -114,14 +114,64 @@ type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
+// --- CONTEXT & HOOK FOR TOASTS ---
+
+type ToastData = {
+  id: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  variant?: "default" | "destructive";
+  duration?: number;
+};
+
+type ToastContextType = {
+  toasts: ToastData[];
+  toast: (toast: Omit<ToastData, "id">) => void;
+  removeToast: (id: string) => void;
+};
+
+const ToastContext = React.createContext<ToastContextType | undefined>(undefined);
+
+function ToastProviderCustom({ children }: { children: React.ReactNode }) {
+  const [toasts, setToasts] = React.useState<ToastData[]>([]);
+
+  const toast = React.useCallback((toast: Omit<ToastData, "id">) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    if (toast.duration !== 0) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, toast.duration || 4000);
+    }
+  }, []);
+
+  const removeToast = React.useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  return (
+    <ToastContext.Provider value={{ toasts, toast, removeToast }}>
+      <RadixToastProvider>{children}</RadixToastProvider>
+    </ToastContext.Provider>
+  );
+}
+
+function useToast() {
+  const ctx = React.useContext(ToastContext);
+  if (!ctx) throw new Error("useToast must be used within ToastProvider");
+  return ctx;
+}
+
 export {
   type ToastProps,
   type ToastActionElement,
-  ToastProvider,
   ToastViewport,
   Toast,
   ToastTitle,
   ToastDescription,
   ToastClose,
   ToastAction,
+  ToastProviderCustom as ToastProvider,
+  useToast,
 }
