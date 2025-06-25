@@ -3,7 +3,6 @@ import {
   Toast,
   ToastClose,
   ToastDescription,
-  ToastProvider as ToastProviderComponent,
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast"
@@ -20,23 +19,18 @@ export function Toaster() {
   }
 
   return (
-    <ToastProviderComponent>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        console.log('🍞 [TOASTER] Rendering toast:', { id, title, variant: props.variant });
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        )
-      })}
+    <>
+      {toasts.map(({ id, title, description, action, ...props }) => (
+        <Toast key={id} {...props}>
+          <div className="grid gap-1">
+            {title && <ToastTitle>{title}</ToastTitle>}
+            {description && <ToastDescription>{description}</ToastDescription>}
+          </div>
+          {action}
+          <ToastClose />
+        </Toast>
+      ))}
       <ToastViewport />
-    </ToastProviderComponent>
+    </>
   )
 }
