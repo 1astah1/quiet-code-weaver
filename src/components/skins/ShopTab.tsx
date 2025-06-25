@@ -35,7 +35,7 @@ interface Skin {
 const ITEMS_PER_PAGE = 24;
 
 const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
-  const [activeTab, setActiveTab] = useState<'shop' | 'gifts'>('shop');
+  const [activeTab, setActiveTab] = useState<'skins' | 'cases'>('skins');
   const [selectedRarity, setSelectedRarity] = useState<string>("all");
   const [selectedWeapon, setSelectedWeapon] = useState<string>("all");
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 999999 });
@@ -288,7 +288,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            {activeTab === 'shop' ? 'Магазин' : 'Подарки'}
+            {activeTab === 'skins' ? 'Магазин' : 'Подарки'}
           </h1>
         </div>
         <div className="flex items-center space-x-2">
@@ -306,16 +306,16 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       {/* Табы */}
       <div className="flex space-x-2 mb-4">
         <button 
-          onClick={() => setActiveTab('shop')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'shop' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+          onClick={() => setActiveTab('skins')}
+          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'skins' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
         >
-          Магазин
+          Скины
         </button>
         <button 
-          onClick={() => setActiveTab('gifts')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'gifts' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+          onClick={() => setActiveTab('cases')}
+          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'cases' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
         >
-          Подарки
+          Кейсы
         </button>
       </div>
       {/* ВРЕМЕННО: Диагностика количества скинов и кейсов */}
@@ -324,7 +324,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       </div>
 
       {/* Содержимое вкладок */}
-      {activeTab === 'shop' && (
+      {activeTab === 'skins' && (
         <>
           {/* Фильтры и скины */}
           <ShopFilters
@@ -363,7 +363,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           />
         </>
       )}
-      {activeTab === 'gifts' && (
+      {activeTab === 'cases' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {isCasesLoading ? (
             <div className="flex justify-center items-center h-96">
