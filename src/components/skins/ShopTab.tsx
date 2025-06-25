@@ -279,23 +279,8 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
           Магазин
         </h1>
       </div>
-      {/* Табы */}
-      <div className="flex space-x-2 mb-4">
-        <button 
-          onClick={() => setActiveTab('skins')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'skins' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-        >
-          Скины
-        </button>
-        <button 
-          onClick={() => setActiveTab('cases')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'cases' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-        >
-          Кейсы
-        </button>
-      </div>
       {/* ВРЕМЕННО: Диагностика количества скинов и кейсов */}
-      <div className="text-xs text-slate-400 mb-2">
+      <div className="text-xs text-slate-400 mb-4 text-center">
         Скинов: {skins?.length ?? 0} | Кейсов: {cases?.length ?? 0}
       </div>
 
