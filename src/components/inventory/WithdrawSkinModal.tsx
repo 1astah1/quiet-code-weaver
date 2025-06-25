@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { useTranslation } from "@/components/ui/use-translation";
+import { useWithdrawSkin } from "@/hooks/useWithdrawSkin";
 
 interface WithdrawSkinModalProps {
   isOpen: boolean;
