@@ -274,23 +274,10 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 relative">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-2">
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            {activeTab === 'skins' ? 'Магазин' : 'Подарки'}
-          </h1>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            className="px-4 py-2 rounded-md bg-slate-700 text-slate-300"
-            onClick={handleViewInventory}
-          >
-            <span className="mr-2">Инвентарь</span>
-            <Badge className="bg-slate-700 text-slate-300">
-              {currentUser.coins}
-            </Badge>
-          </button>
-        </div>
+      <div className="flex justify-center items-center mb-6">
+        <h1 className="text-3xl font-bold tracking-tight text-white text-center w-full">
+          Магазин
+        </h1>
       </div>
       {/* Табы */}
       <div className="flex space-x-2 mb-4">
