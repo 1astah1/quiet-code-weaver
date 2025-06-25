@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,17 +26,22 @@ const AddItemForm = ({
   getImageRequirements
 }: AddItemFormProps) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string = 'image_url') => {
-    const file = e.target.files?.[0];
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>, fieldName: string = 'image_url') => {
+    let file: File | null = null;
+    if ('dataTransfer' in e) {
+      file = e.dataTransfer.files?.[0] || null;
+    } else {
+      file = e.target.files?.[0] || null;
+    }
     if (file) {
-      console.log('🖼️ [ADD_FORM] Image selected:', file.name);
       setImageFile(file);
-      
+      setPreviewUrl(URL.createObjectURL(file));
       try {
         const imageUrl = await onImageUpload(file, false, undefined, fieldName);
         if (imageUrl) {
-          console.log('✅ [ADD_FORM] Image uploaded successfully:', imageUrl);
           setNewItem({ ...newItem, [fieldName]: imageUrl });
         }
       } catch (error) {
@@ -45,23 +50,28 @@ const AddItemForm = ({
     }
   };
 
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setPreviewUrl(null);
+    setNewItem({ ...newItem, image_url: '' });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleAdd = async () => {
-    // Валидация обязательных полей для скинов
-    if (activeTable === 'skins') {
-      if (!newItem.name || !newItem.weapon_type || !newItem.rarity || !newItem.price) {
-        alert('Заполните все обязательные поля: название, тип оружия, редкость, цена');
+    // Валидация обязательных полей для задач
+    if (activeTable === 'tasks') {
+      if (!newItem.title || !newItem.description || !newItem.reward_coins || !newItem.image_url) {
+        alert('Заполните все обязательные поля: название, описание, награда, картинка');
         return;
       }
-      
-      // Проверяем что цена - число
-      if (isNaN(Number(newItem.price)) || Number(newItem.price) <= 0) {
-        alert('Цена должна быть положительным числом');
+      if (isNaN(Number(newItem.reward_coins)) || Number(newItem.reward_coins) <= 0) {
+        alert('Награда должна быть положительным числом');
         return;
       }
     }
-    
     await onAdd();
     setImageFile(null);
+    setPreviewUrl(null);
   };
 
   const getFormFields = () => {
@@ -112,31 +122,41 @@ const AddItemForm = ({
             <div>
               <Label>Изображение скина</Label>
               <div className="space-y-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageChange(e, 'image_url')}
-                  disabled={uploadingImage}
-                />
-                <p className="text-xs text-gray-400">
-                  {getImageRequirements('image_url')}
-                </p>
-                {newItem.image_url && !uploadingImage && (
-                  <div className="mt-2">
-                    <img 
-                      src={newItem.image_url} 
-                      alt="Превью" 
-                      className="w-20 h-20 object-cover rounded border"
-                      onError={(e) => {
-                        console.log('❌ [ADD_FORM] Image preview failed to load:', newItem.image_url);
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-                {uploadingImage && (
-                  <div className="text-sm text-blue-400">Загрузка изображения...</div>
-                )}
+                <div
+                  className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer ${uploadingImage ? 'opacity-60' : 'hover:border-orange-500'}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDrop={(e) => { e.preventDefault(); handleImageChange(e, 'image_url'); }}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  {previewUrl || newItem.image_url ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={previewUrl || newItem.image_url}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded mb-2 mx-auto border border-gray-600"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 text-xs hover:bg-red-600"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
+                      >Удалить</button>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 flex flex-col items-center justify-center h-32">
+                      <span>Перетащите или выберите картинку</span>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleImageChange(e, 'image_url')}
+                    disabled={uploadingImage}
+                  />
+                  {uploadingImage && <div className="text-orange-500 mt-2">Загрузка...</div>}
+                  <p className="text-xs text-gray-400 mt-1">{getImageRequirements('image_url')}</p>
+                </div>
               </div>
             </div>
           </>
@@ -197,6 +217,75 @@ const AddItemForm = ({
               <p className="text-xs text-gray-400 mt-1">
                 {getImageRequirements('cover_image_url')}
               </p>
+            </div>
+          </>
+        );
+        
+      case 'tasks':
+        return (
+          <>
+            <div>
+              <Label>Название</Label>
+              <Input
+                value={typeof newItem.title === 'string' ? newItem.title : ''}
+                onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
+                placeholder="Название задания"
+              />
+            </div>
+            <div>
+              <Label>Описание</Label>
+              <Input
+                value={typeof newItem.description === 'string' ? newItem.description : ''}
+                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                placeholder="Описание задания"
+              />
+            </div>
+            <div>
+              <Label>Награда (монеты)</Label>
+              <Input
+                type="number"
+                value={typeof newItem.reward_coins === 'number' ? newItem.reward_coins : ''}
+                onChange={(e) => setNewItem({ ...newItem, reward_coins: parseInt(e.target.value) || 0 })}
+                placeholder="100"
+              />
+            </div>
+            <div>
+              <Label>Картинка задания <span className="text-red-500">*</span></Label>
+              <div
+                className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer ${uploadingImage ? 'opacity-60' : 'hover:border-orange-500'}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={(e) => { e.preventDefault(); handleImageChange(e, 'image_url'); }}
+                onDragOver={(e) => e.preventDefault()}
+              >
+                {previewUrl || newItem.image_url ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={previewUrl || newItem.image_url}
+                      alt="Preview"
+                      className="w-32 h-32 object-cover rounded mb-2 mx-auto border border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 text-xs hover:bg-red-600"
+                      onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
+                    >Удалить</button>
+                  </div>
+                ) : (
+                  <div className="text-gray-400 flex flex-col items-center justify-center h-32">
+                    <span>Перетащите или выберите картинку</span>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageChange(e, 'image_url')}
+                  disabled={uploadingImage}
+                />
+                {uploadingImage && <div className="text-orange-500 mt-2">Загрузка...</div>}
+                <p className="text-xs text-gray-400 mt-1">{getImageRequirements('image_url')}</p>
+              </div>
             </div>
           </>
         );
