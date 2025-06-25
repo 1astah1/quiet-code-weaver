@@ -271,20 +271,9 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
       </div>
     );
   }
-  
-  // Временный диагностический вывод
-  const diagnosticInfo = (
-    <div className="absolute top-0 left-0 bg-red-500 text-white p-2 z-50">
-      <p>Skins loaded: {skins?.length ?? 0}</p>
-      <p>Cases loaded: {cases?.length ?? 0}</p>
-      <p>Filtered skins: {filteredAndSortedSkins.length}</p>
-      <p>Current Tab: {activeTab}</p>
-    </div>
-  );
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 relative">
-      {diagnosticInfo} 
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <h1 className="text-3xl font-bold tracking-tight text-white">
