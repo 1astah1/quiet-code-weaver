@@ -10,7 +10,7 @@ interface Skin {
   rarity: string;
   price: number;
   image_url: string | null;
-  weapon_type?: string;
+  weapon_type: string;
 }
 
 interface ShopSkinCardProps {

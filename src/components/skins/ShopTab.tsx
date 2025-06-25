@@ -29,7 +29,7 @@ interface Skin {
   weapon_type: string;
   rarity: string;
   price: number;
-  image_url: string;
+  image_url: string | null;
 }
 
 const ITEMS_PER_PAGE = 24;
@@ -159,6 +159,10 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentSkins = filteredAndSortedSkins.slice(startIndex, endIndex);
 
+  // Получаем уникальные значения для фильтров
+  const rarities = [...new Set(skins?.map(s => s.rarity).filter(Boolean) || [])];
+  const weaponTypes = [...new Set(skins?.map(s => s.weapon_type).filter(Boolean) || [])];
+
   const handlePurchase = async (skin: Skin) => {
     console.log('🛒 [SHOP] Handle purchase clicked for:', skin.name);
     
@@ -200,6 +204,20 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         'low'
       );
     }
+  };
+
+  const handleOpenCase = (caseItem: any, isFree: boolean) => {
+    console.log('Opening case:', caseItem.name, 'isFree:', isFree);
+    // TODO: Implement case opening logic, e.g., show AdModal or navigate
+    if (onTabChange) {
+      // For now, let's just log it. A proper implementation would likely involve
+      // setting state to show a modal or changing the route.
+      alert(`Opening ${caseItem.name}`);
+    }
+  };
+
+  const handleInventoryUpdate = () => {
+    refetch(); // Просто перезагружаем скины в магазине, можно сделать более сложно
   };
 
   const handlePriceRangeChange = (min: number, max: number) => {
@@ -246,33 +264,56 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     setCurrentPage(1);
   };
 
-  if (isSkinsLoading) {
+  if (isSkinsLoading || isCasesLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3, 4, 5, 6].map(i => (
-          <div key={i} className="bg-gray-800/50 rounded-lg h-16 sm:h-20 animate-pulse"></div>
-        ))}
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
       </div>
     );
   }
-
-  // Получаем уникальные значения для фильтров
-  const rarities = Array.from(new Set((skins || []).map(s => s.rarity).filter(Boolean)));
-  const weaponTypes = Array.from(new Set((skins || []).map(s => s.weapon_type).filter(Boolean)));
+  
+  // Временный диагностический вывод
+  const diagnosticInfo = (
+    <div className="absolute top-0 left-0 bg-red-500 text-white p-2 z-50">
+      <p>Skins loaded: {skins?.length ?? 0}</p>
+      <p>Cases loaded: {cases?.length ?? 0}</p>
+      <p>Filtered skins: {filteredAndSortedSkins.length}</p>
+      <p>Current Tab: {activeTab}</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+      {diagnosticInfo} 
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-2">
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            {activeTab === 'shop' ? 'Магазин' : 'Подарки'}
+          </h1>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            className="px-4 py-2 rounded-md bg-slate-700 text-slate-300"
+            onClick={handleViewInventory}
+          >
+            <span className="mr-2">Инвентарь</span>
+            <Badge className="bg-slate-700 text-slate-300">
+              {currentUser.coins}
+            </Badge>
+          </button>
+        </div>
+      </div>
       {/* Табы */}
       <div className="flex space-x-2 mb-4">
-        <button
-          className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'shop' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+        <button 
           onClick={() => setActiveTab('shop')}
+          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'shop' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
         >
           Магазин
         </button>
-        <button
-          className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'gifts' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+        <button 
           onClick={() => setActiveTab('gifts')}
+          className={`px-4 py-2 rounded-md font-semibold transition-colors ${activeTab === 'gifts' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
         >
           Подарки
         </button>
@@ -291,75 +332,69 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
             selectedWeapon={selectedWeapon}
             rarities={rarities}
             weaponTypes={weaponTypes}
-            onRarityChange={setSelectedRarity}
-            onWeaponChange={setSelectedWeapon}
+            onRarityChange={handleRarityChange}
+            onWeaponChange={handleWeaponChange}
             onPriceRangeChange={handlePriceRangeChange}
             onSortChange={handleSortChange}
           />
-          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
-            {currentSkins.map((skin) => (
-              <ShopSkinCard
-                key={skin.id}
-                skin={{
-                  id: skin.id,
-                  name: skin.name,
-                  rarity: skin.rarity,
-                  price: skin.price,
-                  image_url: skin.image_url ?? '',
-                  weapon_type: skin.weapon_type ?? ''
-                }}
-                onBuy={handlePurchase}
-                isFavorite={false}
-                onToggleFavorite={() => {}}
-              />
-            ))}
-          </div>
-          {filteredAndSortedSkins.length === 0 && <ShopEmptyState />}
+          {isSkinsLoading ? (
+             <div className="flex justify-center items-center h-96">
+               <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
+             </div>
+          ) : currentSkins.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+              {currentSkins.map((skin) => (
+                <ShopSkinCard
+                  key={skin.id}
+                  skin={skin}
+                  onBuy={(skin) => { void handlePurchase(skin); }}
+                  isFavorite={false}
+                  onToggleFavorite={() => {}}
+                />
+              ))}
+            </div>
+          ) : (
+            <ShopEmptyState />
+          )}
           <ShopPagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={handlePageChange}
           />
-          <PurchaseSuccessModal
-            isOpen={purchaseSuccessModal.isOpen}
-            onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
-            reward={purchaseSuccessModal.item ? {
-              id: purchaseSuccessModal.item.id,
-              name: purchaseSuccessModal.item.name,
-              rarity: purchaseSuccessModal.item.rarity,
-              price: purchaseSuccessModal.item.price,
-              image_url: purchaseSuccessModal.item.image_url,
-              type: 'skin' as const,
-              weapon_type: purchaseSuccessModal.item.weapon_type
-            } : {
-              id: '',
-              name: '',
-              price: 0,
-              type: 'skin' as const
-            }}
-            newBalance={currentUser.coins}
-            onInventoryUpdate={() => {}}
-          />
         </>
       )}
       {activeTab === 'gifts' && (
-        <>
-          {/* Кейсы */}
-          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-3">
-            {cases && cases.length > 0 ? cases.map((caseItem: any) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {isCasesLoading ? (
+            <div className="flex justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div>
+            </div>
+          ) : cases && cases.length > 0 ? (
+            cases.map((caseItem: any) => (
               <CaseCard
                 key={caseItem.id}
                 caseItem={caseItem}
                 currentUser={currentUser}
-                onOpen={() => {}}
+                onOpen={handleOpenCase}
                 onCoinsUpdate={onCoinsUpdate}
               />
-            )) : (
-              <ShopEmptyState />
-            )}
-          </div>
-        </>
+            ))
+          ) : (
+            <ShopEmptyState />
+          )}
+        </div>
       )}
+      <PurchaseSuccessModal
+        isOpen={purchaseSuccessModal.isOpen}
+        onClose={() => setPurchaseSuccessModal({ isOpen: false, item: null })}
+        reward={purchaseSuccessModal.item ? {
+          ...purchaseSuccessModal.item,
+          image_url: purchaseSuccessModal.item.image_url || undefined,
+          type: 'skin' as const,
+        } : { id: '', name: '', price: 0, type: 'skin' as const }}
+        newBalance={currentUser.coins}
+        onInventoryUpdate={handleInventoryUpdate}
+      />
     </div>
   );
 };
