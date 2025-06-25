@@ -43,6 +43,7 @@ export const useCS2CaseOpening = (userId: string, caseId: string) => {
         p_case_id: caseId
       });
       let res = data as unknown as CS2CaseOpeningResult & { inventory_id?: string };
+      console.log('[CS2CaseOpening] Ответ от сервера:', res);
       if (error || !res || !res.success) {
         setError(res?.error || error?.message || 'Ошибка открытия кейса');
         setLoading(false);
@@ -51,6 +52,7 @@ export const useCS2CaseOpening = (userId: string, caseId: string) => {
       }
       if (res.reward && !res.reward.user_inventory_id && (res as any).inventory_id) {
         res.reward.user_inventory_id = (res as any).inventory_id;
+        console.log('[CS2CaseOpening] user_inventory_id был подставлен вручную:', res.reward.user_inventory_id);
       }
       setResult(res);
       setTimeout(() => setPhase('roulette'), 1000);
