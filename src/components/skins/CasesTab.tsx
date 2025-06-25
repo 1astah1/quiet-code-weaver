@@ -5,6 +5,7 @@ import CaseCard from "./CaseCard";
 import CasePreviewModal from "./CasePreviewModal";
 import CS2CaseOpening from "@/components/CS2CaseOpening";
 import AdModal from "@/components/ads/AdModal";
+import { useFreeCaseTimers } from '@/hooks/useFreeCaseTimers';
 
 interface CasesTabProps {
   currentUser: {
@@ -19,6 +20,8 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
   const [selectedCaseForPreview, setSelectedCaseForPreview] = useState<any>(null);
   const [openingCase, setOpeningCase] = useState<any>(null);
   const [showAdForCase, setShowAdForCase] = useState<any>(null);
+
+  const { refetch: refetchFreeTimers } = useFreeCaseTimers(currentUser.id);
 
   const { data: cases = [], isLoading, error } = useQuery({
     queryKey: ['cases'],
@@ -166,7 +169,10 @@ const CasesTab = ({ currentUser, onCoinsUpdate }: CasesTabProps) => {
         <CS2CaseOpening
           userId={currentUser.id}
           caseId={openingCase.id}
-          onClose={() => setOpeningCase(null)}
+          onClose={() => {
+            setOpeningCase(null);
+            refetchFreeTimers();
+          }}
           onBalanceUpdate={onCoinsUpdate}
         />
       )}
