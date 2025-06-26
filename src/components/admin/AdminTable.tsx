@@ -1,260 +1,246 @@
-import { useState, useRef } from "react";
-import { Edit, Trash2, Save, X } from "lucide-react";
-import { TableName } from "@/types/admin";
+
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Search, Filter, Download, Upload } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import type { RealTableName } from "@/types/admin";
 
 interface AdminTableProps {
-  activeTable: TableName;
-  tableData: Record<string, unknown>[];
-  onUpdate: (id: string, updatedData: Record<string, unknown>) => void;
+  tableName: RealTableName;
+  data: any[];
+  onRefresh: () => void;
+  onEdit: (item: any) => void;
   onDelete: (id: string) => void;
-  onImageUpload: (file: File, isEdit: boolean, itemId: string, fieldName: string) => void;
-  uploadingImage: boolean;
-  getImageRequirements: (fieldName: string) => string;
 }
 
-const AdminTable = ({ 
-  activeTable, 
-  tableData, 
-  onUpdate, 
-  onDelete, 
-  onImageUpload, 
-  uploadingImage, 
-  getImageRequirements 
-}: AdminTableProps) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
+const AdminTable = ({ tableName, data, onRefresh, onEdit, onDelete }: AdminTableProps) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filterField, setFilterField] = useState("");
+  const [filterValue, setFilterValue] = useState("");
+  const { toast } = useToast();
 
-  const getTableFields = (tableName: TableName) => {
-    switch (tableName) {
-      case "cases":
-        return ['name', 'description', 'price', 'is_free', 'cover_image_url'];
-      case "skins":
-        return ['name', 'weapon_type', 'rarity', 'price', 'image_url'];
-      case "users":
-        return ['username', 'email', 'coins', 'is_admin'];
-      case "tasks":
-        return ['title', 'description', 'reward_coins', 'task_url', 'image_url', 'is_active'];
-      case "quiz_questions":
-        return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
-      case "banners":
-        return ['title', 'description', 'image_url', 'button_text', 'button_action', 'is_active'];
-      case "promo_codes":
-        return ['code', 'reward_coins', 'max_uses', 'current_uses', 'expires_at', 'is_active'];
-      case "faq_items":
-        return ['question', 'answer', 'order_index', 'is_active'];
-      default:
-        return [];
+  const filteredData = data.filter(item => {
+    const searchMatch = Object.values(item).some(value => 
+      String(value || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    const filterMatch = !filterField || !filterValue || 
+      String(item[filterField] || '').toLowerCase().includes(filterValue.toLowerCase());
+    
+    return searchMatch && filterMatch;
+  });
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    const aVal = a[sortField] || '';
+    const bVal = b[sortField] || '';
+    
+    if (sortOrder === "asc") {
+      return String(aVal).localeCompare(String(bVal));
+    } else {
+      return String(bVal).localeCompare(String(aVal));
+    }
+  });
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Вы уверены, что хотите удалить этот элемент?")) return;
+    
+    try {
+      const { error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast({ title: "Элемент удален успешно" });
+      onRefresh();
+    } catch (error: any) {
+      toast({ 
+        title: "Ошибка удаления", 
+        description: error.message,
+        variant: "destructive" 
+      });
     }
   };
 
-  const fields = getTableFields(activeTable);
-
-  return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-700">
-            <tr>
-              {fields.map(field => (
-                <th key={field} className="text-left p-3 text-gray-300">{field}</th>
-              ))}
-              <th className="text-left p-3 text-gray-300">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tableData?.map((item: Record<string, unknown>) => (
-              <TableRow
-                key={String(item.id)}
-                item={item}
-                fields={fields}
-                isEditing={editingId === String(item.id)}
-                onEdit={() => setEditingId(String(item.id))}
-                onSave={(updatedData) => {
-                  onUpdate(String(item.id), updatedData);
-                  setEditingId(null);
-                }}
-                onCancel={() => setEditingId(null)}
-                onDelete={() => onDelete(String(item.id))}
-                onImageUpload={(file, fieldName) => onImageUpload(file, true, String(item.id), fieldName)}
-                uploadingImage={uploadingImage}
-                getImageRequirements={getImageRequirements}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
-// Separate component for table rows to handle editing
-const TableRow = ({ 
-  item, 
-  fields, 
-  isEditing, 
-  onEdit, 
-  onSave, 
-  onCancel, 
-  onDelete, 
-  onImageUpload, 
-  uploadingImage,
-  getImageRequirements
-}: {
-  item: Record<string, unknown>;
-  fields: string[];
-  isEditing: boolean;
-  onEdit: () => void;
-  onSave: (updatedData: Record<string, unknown>) => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  onImageUpload: (file: File, fieldName: string) => void;
-  uploadingImage: boolean;
-  getImageRequirements: (fieldName: string) => string;
-}) => {
-  const [editData, setEditData] = useState<Record<string, unknown>>(item);
-
-  const handleSave = () => {
-    onSave(editData);
+  const exportToCSV = () => {
+    if (sortedData.length === 0) return;
+    
+    const headers = Object.keys(sortedData[0]);
+    const csv = [
+      headers.join(','),
+      ...sortedData.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          return typeof value === 'string' ? `"${value}"` : String(value || '');
+        }).join(',')
+      )
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${tableName}_export.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  if (isEditing) {
+  const renderValue = (value: any, key: string) => {
+    if (value === null || value === undefined) {
+      return <span className="text-gray-400">null</span>;
+    }
+    
+    if (typeof value === 'boolean') {
+      return (
+        <Badge variant={value ? "default" : "secondary"}>
+          {value ? "true" : "false"}
+        </Badge>
+      );
+    }
+    
+    if (key.includes('created_at') || key.includes('updated_at') || key.includes('_at')) {
+      try {
+        return new Date(String(value)).toLocaleDateString();
+      } catch {
+        return String(value);
+      }
+    }
+    
+    if (typeof value === 'object') {
+      return <pre className="text-xs">{JSON.stringify(value, null, 2)}</pre>;
+    }
+    
+    return String(value);
+  };
+
+  if (!data || data.length === 0) {
     return (
-      <tr className="border-t border-gray-700">
-        {fields.map((field: string) => (
-          <td key={field} className="p-3">
-            {(field === 'cover_image_url' || field === 'image_url') ? (
-              <div className="space-y-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onImageUpload(file, field);
-                  }}
-                  className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-                  disabled={uploadingImage}
-                />
-                <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
-                {typeof editData[field] === 'string' && editData[field] !== '' && (
-                  <img 
-                    src={editData[field] as string} 
-                    alt="Preview" 
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                )}
-              </div>
-            ) : field === 'is_free' || field === 'is_active' || field === 'is_admin' ? (
-              <select
-                value={typeof editData[field] === 'boolean' ? (editData[field] ? 'true' : 'false') : Boolean(editData[field]) ? 'true' : 'false'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value === 'true'})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="false">Нет</option>
-                <option value="true">Да</option>
-              </select>
-            ) : field === 'correct_answer' ? (
-              <select
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'A'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-              </select>
-            ) : field === 'button_action' ? (
-              <select
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'open_case'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="open_case">Открыть кейс</option>
-                <option value="premium">Премиум</option>
-                <option value="tasks">Задания</option>
-                <option value="quiz">Викторина</option>
-              </select>
-            ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'max_uses' || field === 'current_uses' || field === 'order_index' ? (
-              <input
-                type="number"
-                value={typeof editData[field] === 'number' ? editData[field] : Number(editData[field]) || ''}
-                onChange={(e) => setEditData({...editData, [field]: parseInt(e.target.value) || 0})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm w-20"
-                min="0"
-                step="1"
-              />
-            ) : field === 'expires_at' ? (
-              <input
-                type="datetime-local"
-                value={((typeof editData[field] === 'string' && editData[field] !== '') || typeof editData[field] === 'number') ? new Date(editData[field] as string | number).toISOString().slice(0, 16) : ''}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value ? new Date(e.target.value).toISOString() : null})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              />
-            ) : (
-              <input
-                type="text"
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : ''}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              />
-            )}
-          </td>
-        ))}
-        <td className="p-3">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSave}
-              className="bg-green-600 hover:bg-green-700 text-white p-1 rounded"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onCancel}
-              className="bg-gray-600 hover:bg-gray-700 text-white p-1 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </td>
-      </tr>
+      <Card>
+        <CardHeader>
+          <CardTitle>Нет данных</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>В таблице {tableName} нет данных для отображения.</p>
+        </CardContent>
+      </Card>
     );
   }
 
+  const columns = Object.keys(data[0]);
+
   return (
-    <tr className="border-t border-gray-700 hover:bg-gray-750">
-      {fields.map((field: string) => (
-        <td key={field} className="p-3 text-gray-300">
-          {(field === 'cover_image_url' || field === 'image_url') && item[field] ? (
-            <img 
-              src={item[field]} 
-              alt="Cover" 
-              className="w-12 h-12 object-cover rounded"
-            />
-          ) : typeof item[field] === 'boolean' ? (
-            item[field] ? 'Да' : 'Нет'
-          ) : field === 'expires_at' && item[field] ? (
-            new Date(item[field]).toLocaleDateString()
-          ) : (
-            item[field]?.toString() || '-'
-          )}
-        </td>
-      ))}
-      <td className="p-3">
-        <div className="flex space-x-2">
-          <button
-            onClick={onEdit}
-            className="bg-blue-600 hover:bg-blue-700 text-white p-1 rounded"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="bg-red-600 hover:bg-red-700 text-white p-1 rounded"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+    <Card>
+      <CardHeader className="space-y-4">
+        <div className="flex justify-between items-center">
+          <CardTitle>Таблица: {tableName}</CardTitle>
+          <div className="flex gap-2">
+            <Button onClick={exportToCSV} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              CSV
+            </Button>
+            <Button onClick={onRefresh} variant="outline" size="sm">
+              Обновить
+            </Button>
+          </div>
         </div>
-      </td>
-    </tr>
+        
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+              <Input
+                placeholder="Поиск..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          <Select value={sortField} onValueChange={setSortField}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Сортировка" />
+            </SelectTrigger>
+            <SelectContent>
+              {columns.map(col => (
+                <SelectItem key={col} value={col}>{col}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">↑</SelectItem>
+              <SelectItem value="desc">↓</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                {columns.map(col => (
+                  <th key={col} className="text-left p-2 font-medium">
+                    {col}
+                  </th>
+                ))}
+                <th className="text-left p-2 font-medium">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((item, index) => (
+                <tr key={item.id || index} className="border-b hover:bg-gray-50">
+                  {columns.map(col => (
+                    <td key={col} className="p-2 max-w-[200px] truncate">
+                      {renderValue(item[col], col)}
+                    </td>
+                  ))}
+                  <td className="p-2">
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => onEdit(item)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDelete(item.id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="mt-4 text-sm text-gray-600">
+          Показано {sortedData.length} из {data.length} записей
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

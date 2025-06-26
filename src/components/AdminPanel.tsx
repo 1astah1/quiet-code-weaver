@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,10 +44,16 @@ const AdminPanel = () => {
           <UserManagement />
         </TabsContent>
         <TabsContent value="cases">
-          <CaseManagement />
+          <CaseManagement 
+            tableData={[]}
+            selectedCase={null}
+            setSelectedCase={() => {}}
+            uploadingImage={false}
+            onSkinImageUpload={async () => ''}
+          />
         </TabsContent>
         <TabsContent value="case_skins">
-            <CaseSkinManagement />
+          <div className="text-white">Case Skins Management - Coming Soon</div>
         </TabsContent>
         <TabsContent value="banners">
             <BannerManagement />
