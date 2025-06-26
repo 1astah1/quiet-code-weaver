@@ -67,7 +67,7 @@ const QuizQuestionCard = ({ question, onAnswer, loading }: Props) => {
       )}
       <h2 className="text-white text-xl font-bold mb-6 text-center -mt-10 z-30 relative">{question.question_text}</h2>
       <div className="flex flex-col gap-3">
-        {question.answers.map((ans) => (
+        {question.answers && question.answers.map((ans) => (
           <Button
             key={ans.id}
             variant={selectedAnswer === ans.id ? 'default' : 'secondary'}
