@@ -26,6 +26,19 @@ const fetchQuizState = async (): Promise<QuizState> => {
     throw new Error(error.message);
   }
 
+  // If there's no data, it means the quiz is over or not started.
+  // Return a default state to prevent errors.
+  if (!data || data.length === 0) {
+    return {
+      lives: 0,
+      ad_cooldown_seconds: 0,
+      streak_multiplier: 1.0,
+      reward: 0,
+      current_question: null,
+      quiz_progress: { current: 0, total: 0 },
+    };
+  }
+
   // The RPC returns an array with a single object, we need to extract it.
   return data[0] as QuizState;
 };

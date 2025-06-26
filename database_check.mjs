@@ -29,7 +29,7 @@ async function checkDatabaseHealth() {
             'users', 'skins', 'cases', 'case_skins', 'user_inventory',
             'user_favorites', 'recent_wins', 'user_quiz_progress',
             'referral_earnings', 'user_promo_codes', 'user_steam_settings',
-            'promo_codes', 'banners', 'suspicious_activity'
+            'promo_codes', 'banners', 'suspicious_activities'
         ];
 
         for (const table of tables) {
