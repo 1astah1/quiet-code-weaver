@@ -12,7 +12,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    user_id UUID := auth.uid();
+    auth_user_id UUID := auth.uid();
     profile RECORD;
     lives_to_restore INT;
     time_since_loss BIGINT;
@@ -23,16 +23,16 @@ DECLARE
 BEGIN
     -- Ensure the user has a profile
     INSERT INTO public.user_quiz_profiles (user_id)
-    VALUES (user_id)
+    VALUES (auth_user_id)
     ON CONFLICT (user_id) DO NOTHING;
 
     -- Get the user's profile
-    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = user_id;
+    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = auth_user_id;
 
     -- Check and reset streak if needed
     IF profile.last_quiz_completed_date IS NOT NULL AND profile.last_quiz_completed_date < (current_date - interval '1 day') THEN
         profile.current_streak := 0;
-        UPDATE user_quiz_profiles SET current_streak = 0 WHERE user_quiz_profiles.user_id = user_id;
+        UPDATE user_quiz_profiles SET current_streak = 0 WHERE user_quiz_profiles.user_id = auth_user_id;
     END IF;
 
     -- Calculate regenerated lives
@@ -46,7 +46,7 @@ BEGIN
             SET 
                 lives = profile.lives,
                 last_life_lost_at = CASE WHEN profile.lives < 2 THEN last_life_lost_at + (lives_to_restore * (8 * 3600) * interval '1 second') ELSE NULL END
-            WHERE user_quiz_profiles.user_id = user_id;
+            WHERE user_quiz_profiles.user_id = auth_user_id;
         END IF;
     END IF;
 
@@ -60,7 +60,7 @@ BEGIN
     -- Get today's quiz questions
     SELECT COUNT(*) INTO total_questions_today FROM quizzes WHERE active = true;
     SELECT COUNT(*) INTO answered_questions_today FROM user_quiz_progress
-    WHERE user_quiz_progress.user_id = user_id AND date(answered_at) = current_date;
+    WHERE user_quiz_progress.user_id = auth_user_id AND date(answered_at) = current_date;
 
     -- Find the next unanswered question for today
     SELECT
@@ -75,7 +75,7 @@ BEGIN
         q.active = true
         AND NOT EXISTS (
             SELECT 1 FROM user_quiz_progress up
-            WHERE up.quiz_id = q.id AND up.user_id = user_id AND date(up.answered_at) = current_date
+            WHERE up.quiz_id = q.id AND up.user_id = auth_user_id AND date(up.answered_at) = current_date
         )
     GROUP BY q.id, q.question_text, q.image_url
     ORDER BY q.created_at
@@ -117,7 +117,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    user_id UUID := auth.uid();
+    auth_user_id UUID := auth.uid();
     profile RECORD;
     v_answer RECORD;
     is_quiz_complete BOOLEAN := false;
@@ -127,7 +127,7 @@ DECLARE
     final_reward INT;
 BEGIN
     -- Get user profile and lock the row
-    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = user_id FOR UPDATE;
+    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = auth_user_id FOR UPDATE;
 
     -- Check if user has lives
     IF profile.lives <= 0 THEN
@@ -143,20 +143,20 @@ BEGIN
     -- Check if question was already answered today
     IF EXISTS (
         SELECT 1 FROM user_quiz_progress up
-        WHERE up.user_id = user_id AND up.quiz_id = v_answer.question_id AND date(up.answered_at) = current_date
+        WHERE up.user_id = auth_user_id AND up.quiz_id = v_answer.question_id AND date(up.answered_at) = current_date
     ) THEN
         RETURN QUERY SELECT false, NULL, 'Вы уже отвечали на этот вопрос сегодня.', profile.lives, NULL::BIGINT;
     END IF;
 
     -- Record the progress
     INSERT INTO user_quiz_progress (user_id, quiz_id, was_correct)
-    VALUES (user_id, v_answer.question_id, v_answer.is_correct);
+    VALUES (auth_user_id, v_answer.question_id, v_answer.is_correct);
 
     IF v_answer.is_correct THEN
         -- Check if all questions for today are answered
         SELECT COUNT(*) INTO total_questions_today FROM quizzes WHERE active = true;
         SELECT COUNT(*) INTO answered_questions_today FROM user_quiz_progress
-        WHERE user_quiz_progress.user_id = user_id AND date(answered_at) = current_date AND was_correct = true;
+        WHERE user_quiz_progress.user_id = auth_user_id AND date(answered_at) = current_date AND was_correct = true;
 
         IF answered_questions_today >= total_questions_today THEN
             is_quiz_complete := true;
@@ -167,12 +167,12 @@ BEGIN
             final_reward := floor(base_reward * (1.0 + (profile.current_streak * 0.1)));
 
             -- Update user's balance
-            UPDATE public.users SET balance = balance + final_reward WHERE id = user_id;
-            new_balance := (SELECT balance FROM public.users WHERE id = user_id);
+            UPDATE public.users SET balance = balance + final_reward WHERE id = auth_user_id;
+            new_balance := (SELECT balance FROM public.users WHERE id = auth_user_id);
 
             UPDATE user_quiz_profiles
             SET current_streak = profile.current_streak, last_quiz_completed_date = profile.last_quiz_completed_date
-            WHERE user_quiz_profiles.user_id = user_id;
+            WHERE user_quiz_profiles.user_id = auth_user_id;
         END IF;
 
         RETURN QUERY SELECT true, true, CASE WHEN is_quiz_complete THEN 'Поздравляем! Вы прошли викторину!' ELSE 'Правильный ответ!' END, profile.lives, new_balance;
@@ -182,7 +182,7 @@ BEGIN
         profile.lives := profile.lives - 1;
         UPDATE user_quiz_profiles
         SET lives = profile.lives, last_life_lost_at = NOW()
-        WHERE user_quiz_profiles.user_id = user_id;
+        WHERE user_quiz_profiles.user_id = auth_user_id;
 
         RETURN QUERY SELECT true, false, 'Неправильный ответ.', profile.lives, NULL::BIGINT;
     END IF;
@@ -202,11 +202,11 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    user_id UUID := auth.uid();
+    auth_user_id UUID := auth.uid();
     profile RECORD;
 BEGIN
     -- Get user profile and lock the row
-    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = user_id FOR UPDATE;
+    SELECT * INTO profile FROM user_quiz_profiles WHERE user_quiz_profiles.user_id = auth_user_id FOR UPDATE;
 
     -- Check cooldown
     IF profile.last_ad_watched_at IS NOT NULL AND (NOW() - profile.last_ad_watched_at) < interval '8 hours' THEN
@@ -222,7 +222,7 @@ BEGIN
     profile.lives := profile.lives + 1;
     UPDATE user_quiz_profiles
     SET lives = profile.lives, last_ad_watched_at = NOW()
-    WHERE user_quiz_profiles.user_id = user_id;
+    WHERE user_quiz_profiles.user_id = auth_user_id;
 
     RETURN QUERY SELECT true, 'Вы получили одну жизнь!', profile.lives;
 END;
