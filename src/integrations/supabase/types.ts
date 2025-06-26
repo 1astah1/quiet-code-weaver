@@ -45,39 +45,6 @@ export type Database = {
         }
         Relationships: []
       }
-      case_opening_sessions: {
-        Row: {
-          case_id: string
-          coins_debited: boolean | null
-          completed_at: string | null
-          created_at: string | null
-          id: string
-          session_id: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          case_id: string
-          coins_debited?: boolean | null
-          completed_at?: string | null
-          created_at?: string | null
-          id?: string
-          session_id: string
-          status?: string
-          user_id: string
-        }
-        Update: {
-          case_id?: string
-          coins_debited?: boolean | null
-          completed_at?: string | null
-          created_at?: string | null
-          id?: string
-          session_id?: string
-          status?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       case_skins: {
         Row: {
           case_id: string | null
@@ -279,42 +246,80 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_answers: {
+        Row: {
+          answer_text: string
+          id: string
+          is_correct: boolean
+          question_id: string | null
+        }
+        Insert: {
+          answer_text: string
+          id?: string
+          is_correct: boolean
+          question_id?: string | null
+        }
+        Update: {
+          answer_text?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_questions: {
         Row: {
-          correct_answer: string
           created_at: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
-          option_a: string
-          option_b: string
-          option_c: string
-          option_d: string
-          question: string
+          question_text: string
         }
         Insert: {
-          correct_answer: string
           created_at?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
-          option_a: string
-          option_b: string
-          option_c: string
-          option_d: string
-          question: string
+          question_text: string
         }
         Update: {
-          correct_answer?: string
           created_at?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
-          option_a?: string
-          option_b?: string
-          option_c?: string
-          option_d?: string
-          question?: string
+          question_text?: string
+        }
+        Relationships: []
+      }
+      quizzes: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          image_url: string | null
+          question_text: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          question_text: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          question_text?: string
         }
         Relationships: []
       }
@@ -493,6 +498,38 @@ export type Database = {
         }
         Relationships: []
       }
+      suspicious_activities: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: string
+          type: Database["public"]["Enums"]["security_event_type"]
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          type: Database["public"]["Enums"]["security_event_type"]
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          type?: Database["public"]["Enums"]["security_event_type"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suspicious_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string | null
@@ -590,75 +627,26 @@ export type Database = {
       }
       user_favorites: {
         Row: {
-          case_id: string | null
-          created_at: string | null
-          id: string
-          user_id: string | null
-        }
-        Insert: {
-          case_id?: string | null
-          created_at?: string | null
-          id?: string
-          user_id?: string | null
-        }
-        Update: {
-          case_id?: string | null
-          created_at?: string | null
-          id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_favorites_case_id_fkey"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_favorites_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_free_case_openings: {
-        Row: {
-          case_id: string
           created_at: string
-          id: string
-          opened_at: string
+          skin_id: string
           user_id: string
         }
         Insert: {
-          case_id: string
           created_at?: string
-          id?: string
-          opened_at?: string
+          skin_id: string
           user_id: string
         }
         Update: {
-          case_id?: string
           created_at?: string
-          id?: string
-          opened_at?: string
+          skin_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_free_case_openings_case_id_fkey"
-            columns: ["case_id"]
+            foreignKeyName: "user_favorites_skin_id_fkey"
+            columns: ["skin_id"]
             isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_free_case_openings_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "skins"
             referencedColumns: ["id"]
           },
         ]
@@ -744,37 +732,61 @@ export type Database = {
           },
         ]
       }
-      user_quiz_progress: {
+      user_quiz_profiles: {
         Row: {
-          completed: boolean | null
-          correct_answers: number | null
-          date: string | null
-          id: string
-          questions_answered: number | null
-          user_id: string | null
+          created_at: string | null
+          current_streak: number
+          last_ad_watched_at: string | null
+          last_life_lost_at: string | null
+          last_quiz_completed_date: string | null
+          lives: number
+          user_id: string
         }
         Insert: {
-          completed?: boolean | null
-          correct_answers?: number | null
-          date?: string | null
-          id?: string
-          questions_answered?: number | null
-          user_id?: string | null
+          created_at?: string | null
+          current_streak?: number
+          last_ad_watched_at?: string | null
+          last_life_lost_at?: string | null
+          last_quiz_completed_date?: string | null
+          lives?: number
+          user_id: string
         }
         Update: {
-          completed?: boolean | null
-          correct_answers?: number | null
-          date?: string | null
-          id?: string
-          questions_answered?: number | null
-          user_id?: string | null
+          created_at?: string | null
+          current_streak?: number
+          last_ad_watched_at?: string | null
+          last_life_lost_at?: string | null
+          last_quiz_completed_date?: string | null
+          lives?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_quiz_progress: {
+        Row: {
+          answered_at: string | null
+          quiz_id: string
+          user_id: string
+          was_correct: boolean
+        }
+        Insert: {
+          answered_at?: string | null
+          quiz_id: string
+          user_id: string
+          was_correct: boolean
+        }
+        Update: {
+          answered_at?: string | null
+          quiz_id?: string
+          user_id?: string
+          was_correct?: boolean
         }
         Relationships: [
           {
-            foreignKeyName: "user_quiz_progress_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "user_quiz_progress_quiz_id_fkey"
+            columns: ["quiz_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "quizzes"
             referencedColumns: ["id"]
           },
         ]
@@ -966,15 +978,21 @@ export type Database = {
         }
         Relationships: []
       }
-      final_sell_item: {
-        Args: { p_inventory_id: string; p_user_id: string };
-        Returns: Array<{ success: boolean; message: string; new_balance: number }>;
-      };
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      answer_quiz_question: {
+        Args: { p_answer_id: string }
+        Returns: {
+          success: boolean
+          correct: boolean
+          message: string
+          new_lives: number
+          new_balance: number
+        }[]
+      }
       check_rate_limit: {
         Args: {
           p_user_id: string
@@ -987,6 +1005,37 @@ export type Database = {
       cleanup_old_case_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cs2_open_case: {
+        Args: { p_user_id: string; p_case_id: string }
+        Returns: Json
+      }
+      final_sell_item: {
+        Args: { p_inventory_id: string; p_user_id: string }
+        Returns: {
+          success: boolean
+          message: string
+          new_balance: number
+        }[]
+      }
+      get_life_for_ad: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          success: boolean
+          message: string
+          new_lives: number
+        }[]
+      }
+      get_quiz_state: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          lives: number
+          ad_cooldown_seconds: number
+          streak_multiplier: number
+          reward: number
+          current_question: Json
+          quiz_progress: Json
+        }[]
       }
       has_role: {
         Args: {
@@ -1007,6 +1056,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      log_suspicious_activity: {
+        Args: {
+          p_user_id: string
+          p_type: Database["public"]["Enums"]["security_event_type"]
+          p_details: Json
+        }
+        Returns: undefined
+      }
+      purchase_skin: {
+        Args: { p_user_id: string; p_skin_id: string }
+        Returns: Json
+      }
       safe_claim_task_reward: {
         Args: { p_user_id: string; p_task_id: string }
         Returns: Json
@@ -1015,51 +1076,8 @@ export type Database = {
         Args: { p_user_id: string; p_task_id: string }
         Returns: Json
       }
-      safe_open_case: {
-        Args:
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id?: string
-              p_coin_reward_id?: string
-              p_is_free?: boolean
-            }
-          | {
-              p_user_id: string
-              p_case_id: string
-              p_skin_id?: string
-              p_coin_reward_id?: string
-              p_is_free?: boolean
-              p_ad_watched?: boolean
-            }
-        Returns: Json
-      }
-      safe_open_case_with_session: {
-        Args: {
-          p_user_id: string
-          p_case_id: string
-          p_session_id: string
-          p_skin_id?: string
-          p_coin_reward_id?: string
-          p_is_free?: boolean
-          p_ad_watched?: boolean
-        }
-        Returns: Json
-      }
       safe_purchase_skin: {
         Args: { p_user_id: string; p_skin_id: string; p_skin_price: number }
-        Returns: Json
-      }
-      safe_sell_case_reward: {
-        Args: { p_user_id: string; p_skin_id: string; p_sell_price: number }
-        Returns: Json
-      }
-      safe_sell_skin: {
-        Args: {
-          p_user_id: string
-          p_inventory_id: string
-          p_sell_price: number
-        }
         Returns: Json
       }
       safe_update_coins: {
@@ -1070,6 +1088,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      sell_inventory_item: {
+        Args: { p_user_id: string; p_inventory_item_id: string }
+        Returns: Json
+      }
       toggle_admin_role: {
         Args: { p_user_id: string; p_grant_admin: boolean }
         Returns: Json
@@ -1077,6 +1099,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      security_event_type:
+        | "rate_limit"
+        | "validation_error"
+        | "suspicious_activity"
+        | "auth_error"
+        | "manual_flag"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1193,6 +1221,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      security_event_type: [
+        "rate_limit",
+        "validation_error",
+        "suspicious_activity",
+        "auth_error",
+        "manual_flag",
+      ],
     },
   },
 } as const

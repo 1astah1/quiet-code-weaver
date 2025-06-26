@@ -1,8 +1,9 @@
+
 import React from 'react';
 import QuizHearts from './QuizHearts';
-import QuizQuestionCard, { QuizQuestion } from './QuizQuestionCard';
+import QuizQuestionCard from './QuizQuestionCard';
 import QuizRestoreModal from './QuizRestoreModal';
-import { useQuiz } from '../../hooks/useQuiz';
+import { useSecureQuiz } from '../../hooks/useQuiz';
 import { Progress } from '@/components/ui/progress';
 import { Flame, Coins } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -24,10 +25,20 @@ const QuizScreen = () => {
     streak,
     reward,
     resetQuiz,
-  } = useQuiz();
+  } = useSecureQuiz();
+
+  console.log('[QUIZ_SCREEN] Rendering with state:', {
+    hearts,
+    currentQuestion: currentQuestion?.id || null,
+    canAnswer,
+    loading,
+    errorMessage,
+    isRestoreModalOpen
+  });
 
   const progressValue = quizProgress.total > 0 ? (quizProgress.current / quizProgress.total) * 100 : 0;
 
+  // Loading state
   if (loading && !currentQuestion) {
     return (
         <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -46,7 +57,27 @@ const QuizScreen = () => {
                 </div>
             </div>
         </div>
-    )
+    );
+  }
+
+  // Error state
+  if (errorMessage && !currentQuestion && hearts === 0) {
+    return (
+      <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center p-4 font-sans">
+        <div className="w-full max-w-md mx-auto bg-slate-800/50 rounded-2xl shadow-2xl p-6 relative overflow-hidden">
+          <div className="text-center text-red-400 py-20">
+            <h3 className="text-2xl font-bold text-white mb-2">Ошибка загрузки</h3>
+            <p className="mb-4">{errorMessage}</p>
+            <button 
+              onClick={resetQuiz}
+              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition-colors"
+            >
+              Попробовать снова
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -68,7 +99,7 @@ const QuizScreen = () => {
 
         <div className="mb-4">
           <p className="text-sm text-slate-300 text-center mb-2">
-            Вопрос {quizProgress.current > quizProgress.total ? quizProgress.total : quizProgress.current} из {quizProgress.total}
+            Вопрос {Math.min(quizProgress.current, quizProgress.total)} из {quizProgress.total}
           </p>
           <Progress value={progressValue} className="w-full h-2 bg-slate-700" />
         </div>
@@ -90,14 +121,25 @@ const QuizScreen = () => {
                 className="text-center text-slate-300 py-20"
             >
               <h3 className="text-2xl font-bold text-white mb-2">
-                {quizProgress.current > quizProgress.total ? "Викторина пройдена!" : "Время вышло!"}
+                {quizProgress.current >= quizProgress.total ? "Викторина пройдена!" : hearts === 0 ? "Жизни закончились!" : "Время вышло!"}
               </h3>
-              <p>{loading ? "Загрузка..." : "На сегодня все! Заходите завтра за новыми вопросами."}</p>
+              <p>
+                {quizProgress.current >= quizProgress.total 
+                  ? "Поздравляем! Заходите завтра за новыми вопросами." 
+                  : hearts === 0 
+                    ? "Восстановите жизни, чтобы продолжить игру."
+                    : "На сегодня все! Заходите завтра за новыми вопросами."
+                }
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {errorMessage && <div className="text-red-400 text-center font-semibold mt-2">{errorMessage}</div>}
+        {errorMessage && hearts > 0 && (
+          <div className="text-red-400 text-center font-semibold mt-2 text-sm">
+            {errorMessage}
+          </div>
+        )}
         
         <QuizRestoreModal 
           isOpen={isRestoreModalOpen}
@@ -106,12 +148,15 @@ const QuizScreen = () => {
           onWatchAd={handleWatchAd}
         />
         
-        <button className="mt-4 text-xs text-orange-400 underline mx-auto block" onClick={resetQuiz}>
-          Сбросить викторину (для теста)
+        <button 
+          className="mt-4 text-xs text-orange-400 underline mx-auto block opacity-50 hover:opacity-100 transition-opacity" 
+          onClick={resetQuiz}
+        >
+          Обновить состояние
         </button>
       </div>
     </div>
   );
 };
 
-export default QuizScreen; 
+export default QuizScreen;
