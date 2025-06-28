@@ -33,12 +33,13 @@ GROUP BY auth_id
 HAVING COUNT(*) > 1;
 
 -- Очистим дубликаты, оставив только первую запись для каждого auth_id
+-- Используем DISTINCT ON для правильной работы с UUID
 DELETE FROM users 
 WHERE id NOT IN (
-  SELECT MIN(id) 
+  SELECT DISTINCT ON (auth_id) id
   FROM users 
-  WHERE auth_id IS NOT NULL 
-  GROUP BY auth_id
+  WHERE auth_id IS NOT NULL
+  ORDER BY auth_id, created_at ASC
 );
 
 -- Проверим, что дубликаты удалены
