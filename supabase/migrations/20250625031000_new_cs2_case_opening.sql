@@ -63,6 +63,27 @@ BEGIN
   END LOOP;
   -- Добавляем скин в инвентарь
   INSERT INTO user_inventory (user_id, skin_id, obtained_at) VALUES (p_user_id, winner_skin_id, now()) RETURNING id INTO new_inventory_item_id;
+
+  -- Записываем в recent_wins
+  INSERT INTO recent_wins (id, user_id, skin_id, case_id, won_at, reward_type, reward_data)
+  VALUES (
+    gen_random_uuid(),
+    p_user_id,
+    winner_skin_id,
+    p_case_id,
+    now(),
+    'skin',
+    jsonb_build_object(
+      'id', winner_skin.id,
+      'name', winner_skin.name,
+      'weapon_type', winner_skin.weapon_type,
+      'rarity', winner_skin.rarity,
+      'price', winner_skin.price,
+      'image_url', winner_skin.image_url,
+      'type', 'skin'
+    )
+  );
+
   -- Возвращаем результат
   RETURN jsonb_build_object(
     'success', true,
