@@ -3,8 +3,8 @@ import { supabase } from '../integrations/supabase/client';
 
 export interface QuizQuestion {
   id: string;
-  text: string;
-  answers: string[];
+  question: string;
+  options: string[];
   correct_answer: string;
   image_url?: string;
   difficulty: number;
@@ -31,6 +31,12 @@ export interface QuizAnswer {
   correct_answers: number;
 }
 
+export interface QuizReward {
+  type: 'coins' | 'gift';
+  amount: number;
+  milestone: number;
+}
+
 function loadQuizStateFromStorage() {
   try {
     const data = localStorage.getItem('quizState');
@@ -54,13 +60,12 @@ export function useQuiz() {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [canAnswer, setCanAnswer] = useState(true);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
-  const [restoreTimeLeft, setRestoreTimeLeft] = useState(0);
+  const [timeUntilNextHeart, setTimeUntilNextHeart] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [showReward, setShowReward] = useState<{ amount: number; type: string } | null>(null);
-  const [progressBar, setProgressBar] = useState(0);
+  const [reward, setReward] = useState<QuizReward | null>(null);
 
   // Получение текущего пользователя
   const getCurrentUser = useCallback(async () => {
@@ -133,8 +138,8 @@ export function useQuiz() {
         const question = data[0];
         return {
           id: question.id,
-          text: question.text,
-          answers: question.answers,
+          question: question.text,
+          options: question.answers,
           correct_answer: question.correct_answer,
           image_url: question.image_url,
           difficulty: question.difficulty,
@@ -152,10 +157,18 @@ export function useQuiz() {
   // Инициализация викторины
   useEffect(() => {
     const initQuiz = async () => {
-      await loadUserProgress();
-      const question = await fetchRandomQuestion();
-      if (question) {
-        setCurrentQuestion(question);
+      try {
+        setLoading(true);
+        setError(null);
+        await loadUserProgress();
+        const question = await fetchRandomQuestion();
+        if (question) {
+          setCurrentQuestion(question);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -185,7 +198,7 @@ export function useQuiz() {
           await loadUserProgress();
         } else {
           const timeRemaining = data.time_remaining || 0;
-          setRestoreTimeLeft(timeRemaining);
+          setTimeUntilNextHeart(timeRemaining);
         }
       } catch (error) {
         console.error('Ошибка таймера восстановления:', error);
@@ -195,94 +208,72 @@ export function useQuiz() {
     return () => clearInterval(interval);
   }, [hearts, getCurrentUser, loadUserProgress]);
 
-  // Обновление полосы прогресса
-  useEffect(() => {
-    const progress = (questionsAnswered % 10) / 10 * 100;
-    setProgressBar(progress);
-  }, [questionsAnswered]);
-
   // Ответ на вопрос
-  const handleAnswer = useCallback(async (answer: string) => {
-    if (!canAnswer || loading || !currentQuestion) return;
-    
-    setLoading(true);
-    setErrorMessage(null);
-    setShowReward(null);
+  const answerQuestion = useCallback(async (answer: string): Promise<boolean> => {
+    if (!currentQuestion || !canAnswer || hearts === 0) return false;
     
     try {
+      setLoading(true);
       const userId = await getCurrentUser();
       
       const { data, error } = await supabase
         .rpc('process_quiz_answer', {
           user_id_param: userId,
           question_id_param: currentQuestion.id,
-          user_answer_param: answer
+          answer_param: answer
         });
       
       if (error) {
         console.error('Ошибка обработки ответа:', error);
-        setErrorMessage('Ошибка обработки ответа');
-        setLoading(false);
-        return;
+        return false;
       }
       
-      const result: QuizAnswer = data;
-      
-      // Обновляем состояние
-      setHearts(result.hearts);
-      setQuestionsAnswered(result.questions_answered);
-      setCorrectAnswers(result.correct_answers);
-      setCanAnswer(result.hearts > 0);
-      
-      if (result.is_correct) {
-        // Показываем награду если есть
-        if (result.reward_amount > 0) {
-          setShowReward({
-            amount: result.reward_amount,
-            type: result.reward_type
+      if (data) {
+        const isCorrect = data.is_correct;
+        setHearts(data.hearts);
+        setQuestionsAnswered(data.questions_answered);
+        setCorrectAnswers(data.correct_answers);
+        setCanAnswer(data.hearts > 0);
+        
+        // Проверяем награды
+        if (data.reward_amount > 0) {
+          const milestone = data.correct_answers;
+          const rewardType = milestone === 30 ? 'gift' : 'coins';
+          setReward({
+            type: rewardType,
+            amount: data.reward_amount,
+            milestone
           });
         }
         
-        // Получаем следующий вопрос
+        // Загружаем следующий вопрос
         const nextQuestion = await fetchRandomQuestion();
         if (nextQuestion) {
           setCurrentQuestion(nextQuestion);
         }
-      } else {
-        setErrorMessage('Неправильный ответ!');
         
-        if (result.hearts <= 0) {
-          setIsRestoreModalOpen(true);
-        }
+        return isCorrect;
       }
       
-      // Обновляем прогресс
-      await loadUserProgress();
-      
+      return false;
     } catch (error) {
-      console.error('Ошибка ответа:', error);
-      setErrorMessage('Ошибка обработки ответа');
+      console.error('Ошибка ответа на вопрос:', error);
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [canAnswer, loading, currentQuestion, getCurrentUser, fetchRandomQuestion, loadUserProgress]);
+  }, [currentQuestion, canAnswer, hearts, getCurrentUser, fetchRandomQuestion]);
 
-  // Просмотр рекламы для восстановления сердца
-  const handleWatchAd = useCallback(async () => {
-    if (loading) return;
-    
-    setLoading(true);
-    
+  // Восстановление сердца
+  const restoreHeart = useCallback(async () => {
     try {
       const userId = await getCurrentUser();
       
       const { data, error } = await supabase
-        .rpc('restore_heart_by_ad', { user_id_param: userId });
+        .rpc('restore_heart_with_ad', { user_id_param: userId });
       
       if (error) {
         console.error('Ошибка восстановления сердца:', error);
-        setErrorMessage('Ошибка восстановления сердца');
-        setLoading(false);
         return;
       }
       
@@ -291,100 +282,66 @@ export function useQuiz() {
         setCanAnswer(true);
         setIsRestoreModalOpen(false);
         await loadUserProgress();
-      } else {
-        setErrorMessage('Нельзя смотреть рекламу так часто');
       }
     } catch (error) {
-      console.error('Ошибка просмотра рекламы:', error);
-      setErrorMessage('Ошибка просмотра рекламы');
-    } finally {
-      setLoading(false);
+      console.error('Ошибка восстановления сердца:', error);
     }
-  }, [loading, getCurrentUser, loadUserProgress]);
+  }, [getCurrentUser, loadUserProgress]);
 
-  const closeRestoreModal = () => setIsRestoreModalOpen(false);
+  // Проверка возможности восстановления рекламой
+  const canRestoreWithAd = useCallback(() => {
+    if (!lastAdWatch) return true;
+    
+    const timeSinceLastAd = Date.now() - lastAdWatch.getTime();
+    const eightHours = 8 * 60 * 60 * 1000;
+    
+    return timeSinceLastAd >= eightHours;
+  }, [lastAdWatch]);
 
-  const resetQuiz = async () => {
-    try {
-      const userId = await getCurrentUser();
-      
-      // Удаляем прогресс пользователя
-      await supabase
-        .from('user_quiz_progress')
-        .delete()
-        .eq('user_id', userId);
-      
-      // Удаляем ответы пользователя
-      await supabase
-        .from('user_quiz_answers')
-        .delete()
-        .eq('user_id', userId);
-      
-      // Сбрасываем состояние
-      setHearts(2);
-      setLastHeartRestore(new Date());
-      setLastAdWatch(null);
-      setCurrentQuestion(null);
-      setCanAnswer(true);
-      setIsRestoreModalOpen(false);
-      setErrorMessage(null);
-      setQuestionsAnswered(0);
-      setCorrectAnswers(0);
-      setShowReward(null);
-      setProgressBar(0);
-      
-      // Получаем новый вопрос
-      const question = await fetchRandomQuestion();
-      if (question) {
-        setCurrentQuestion(question);
-      }
-    } catch (error) {
-      console.error('Ошибка сброса викторины:', error);
-    }
-  };
+  // Очистка награды
+  const clearReward = useCallback(() => {
+    setReward(null);
+  }, []);
 
   return {
-    hearts,
-    isRestoreModalOpen,
     currentQuestion,
-    canAnswer,
-    handleAnswer,
-    handleWatchAd,
-    restoreTimeLeft,
-    closeRestoreModal,
-    loading,
-    errorMessage,
-    resetQuiz,
     questionsAnswered,
     correctAnswers,
-    showReward,
-    progressBar,
-    setShowReward
+    hearts,
+    timeUntilNextHeart,
+    loading,
+    error,
+    answerQuestion,
+    restoreHeart,
+    canRestoreWithAd: canRestoreWithAd(),
+    reward,
+    clearReward
   };
 }
 
 export function useSecureQuiz() {
   const quiz = useQuiz();
-  const lastActionRef = useRef<number>(0);
 
-  // Защита от спама и двойных кликов
-  const safeHandleAnswer = async (answer: string) => {
-    const now = Date.now();
-    if (now - lastActionRef.current < 1000) return; // не чаще 1 раза в секунду
-    lastActionRef.current = now;
-    await quiz.handleAnswer(answer);
+  const safeAnswerQuestion = async (answer: string) => {
+    try {
+      return await quiz.answerQuestion(answer);
+    } catch (error) {
+      console.error('Ошибка безопасного ответа:', error);
+      return false;
+    }
   };
 
-  const safeHandleWatchAd = async () => {
-    const now = Date.now();
-    if (now - lastActionRef.current < 1000) return;
-    lastActionRef.current = now;
-    await quiz.handleWatchAd();
+  const safeRestoreHeart = async () => {
+    try {
+      await quiz.restoreHeart();
+    } catch (error) {
+      console.error('Ошибка безопасного восстановления:', error);
+    }
   };
 
   return {
     ...quiz,
-    handleAnswer: safeHandleAnswer,
-    handleWatchAd: safeHandleWatchAd,
+    answerQuestion: safeAnswerQuestion,
+    restoreHeart: safeRestoreHeart
   };
 } 

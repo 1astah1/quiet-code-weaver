@@ -214,7 +214,7 @@ BEGIN
   IF is_correct THEN
     -- Награда за 5 вопросов
     IF progress_record.questions_answered + 1 = 5 THEN
-      reward_amount := 30;
+      reward_amount := 1;
       reward_type := 'balance';
       INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required)
       VALUES (user_id_param, reward_type, reward_amount, 5);
@@ -225,10 +225,32 @@ BEGIN
     
     -- Награда за 10 вопросов
     IF progress_record.questions_answered + 1 = 10 THEN
-      reward_amount := 100;
+      reward_amount := 4;
       reward_type := 'balance';
       INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required)
       VALUES (user_id_param, reward_type, reward_amount, 10);
+      
+      -- Обновляем баланс пользователя
+      UPDATE users SET coins = coins + reward_amount WHERE id = user_id_param;
+    END IF;
+    
+    -- Награда за 20 вопросов
+    IF progress_record.questions_answered + 1 = 20 THEN
+      reward_amount := 5;
+      reward_type := 'balance';
+      INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required)
+      VALUES (user_id_param, reward_type, reward_amount, 20);
+      
+      -- Обновляем баланс пользователя
+      UPDATE users SET coins = coins + reward_amount WHERE id = user_id_param;
+    END IF;
+    
+    -- Награда за 30 вопросов
+    IF progress_record.questions_answered + 1 = 30 THEN
+      reward_amount := 10;
+      reward_type := 'balance';
+      INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required)
+      VALUES (user_id_param, reward_type, reward_amount, 30);
       
       -- Обновляем баланс пользователя
       UPDATE users SET coins = coins + reward_amount WHERE id = user_id_param;
@@ -358,6 +380,39 @@ INSERT INTO quiz_questions (text, answers, correct_answer, category) VALUES
 ('Какой язык программирования создал Брендан Эйх?', '["Python", "Java", "JavaScript", "C++"]', 'JavaScript', 'technology'),
 ('В каком году была основана компания Apple?', '["1975", "1976", "1977", "1978"]', '1976', 'technology'),
 ('Кто написал "Гарри Поттера"?', '["Толкин", "Роулинг", "Льюис", "Даль"]', 'Роулинг', 'literature');
+
+-- Вставляем 30 вопросов по CS2
+INSERT INTO quiz_questions (text, answers, correct_answer, category) VALUES
+('Какое оружие позволяет бегать быстрее всех?', '["SSG 08", "P250", "FAMAS", "Нож"]', 'Нож', 'cs2'),
+('Какой максимальный запас здоровья у игрока?', '["100", "120", "150", "200"]', '100', 'cs2'),
+('Какой пистолет доступен только террористам?', '["USP-S", "Glock-18", "Five-Seven", "P2000"]', 'Glock-18', 'cs2'),
+('Какой автоматический дробовик есть в игре?', '["Nova", "MAG-7", "XM1014", "Sawed-Off"]', 'XM1014', 'cs2'),
+('Какой скин считается самым дорогим в CS2?', '["AWP | Dragon Lore", "AK-47 | Redline", "M4A4 | Howl", "AK-47 | Case Hardened (Blue Gem)"]', 'AK-47 | Case Hardened (Blue Gem)', 'cs2'),
+('Какой режим игры самый популярный?', '["Обычный", "Соревновательный", "Бой насмерть", "Гонка вооружений"]', 'Соревновательный', 'cs2'),
+('Какой гранатой можно ослепить противника?', '["Осколочная", "Светошумовая", "Дымовая", "Зажигательная"]', 'Светошумовая', 'cs2'),
+('Какой нож был добавлен одним из последних?', '["Керамбит", "Наваха", "Бабочка", "Фальшион"]', 'Наваха', 'cs2'),
+('Какой урон наносит AWP в тело без брони?', '["50", "80", "115", "150"]', '115', 'cs2'),
+('Какой из этих автоматов дешевле всего?', '["AK-47", "Galil AR", "FAMAS", "M4A1-S"]', 'Galil AR', 'cs2'),
+('Какой максимальный запас денег у игрока?', '["10000", "12000", "16000", "20000"]', '16000', 'cs2'),
+('Какой пистолет можно купить обеим сторонам?', '["Desert Eagle", "Dual Berettas", "Tec-9", "CZ75-Auto"]', 'Desert Eagle', 'cs2'),
+('Какой скин был эксклюзивом для операции "Hydra"?', '["M4A4 | Hellfire", "AWP | Asiimov", "AK-47 | Neon Rider", "USP-S | Cortex"]', 'M4A4 | Hellfire', 'cs2'),
+('Какой из этих карт нет в соревновательном пуле?', '["Mirage", "Inferno", "Italy", "Nuke"]', 'Italy', 'cs2'),
+('Какой урон наносит HE-граната при прямом попадании?', '["50", "57", "80", "100"]', '57', 'cs2'),
+('Какой SMG самый дешевый?', '["MP7", "MAC-10", "UMP-45", "MP9"]', 'MAC-10', 'cs2'),
+('Какой снайперский прицел увеличивает в 2 раза?', '["SSG 08", "SCAR-20", "AWP", "G3SG1"]', 'SCAR-20', 'cs2'),
+('Какой нож был первым добавлен в кейсы?', '["Керамбит", "Бабочка", "Фальшион", "Штык-нож"]', 'Керамбит', 'cs2'),
+('Какой урон у USP-S в голову без брони?', '["100", "140", "200", "80"]', '140', 'cs2'),
+('Какой дробовик используют только спецназ?', '["Nova", "MAG-7", "XM1014", "Sawed-Off"]', 'MAG-7', 'cs2'),
+('Какой автоматический пистолет есть у террористов?', '["Five-Seven", "Tec-9", "CZ75-Auto", "P250"]', 'Tec-9', 'cs2'),
+('Какой скин был самым дорогим на старте CS2?', '["AWP | Dragon Lore", "AK-47 | Case Hardened (Blue Gem)", "M4A4 | Howl", "AWP | Medusa"]', 'AK-47 | Case Hardened (Blue Gem)', 'cs2'),
+('Какой урон у ножа в спину?', '["100", "150", "195", "250"]', '195', 'cs2'),
+('Какой SMG популярен у спецназа?', '["MP9", "MAC-10", "UMP-45", "MP7"]', 'MP9', 'cs2'),
+('Какой пистолет имеет наибольшую скорострельность?', '["CZ75-Auto", "Desert Eagle", "P250", "Five-Seven"]', 'CZ75-Auto', 'cs2'),
+('Какой автоматический дробовик есть у обеих сторон?', '["Nova", "MAG-7", "XM1014", "Sawed-Off"]', 'XM1014', 'cs2'),
+('Какой скин был эксклюзивом для коллекции "Cobblestone"?', '["AWP | Dragon Lore", "M4A4 | Griffin", "AK-47 | Emerald Pinstripe", "USP-S | Royal Blue"]', 'AWP | Dragon Lore', 'cs2'),
+('Какой урон у AWP в голову?', '["200", "459", "300", "150"]', '459', 'cs2'),
+('Какой SMG популярен у террористов?', '["MP9", "MAC-10", "UMP-45", "MP7"]', 'MAC-10', 'cs2'),
+('Какой кейс был первым в CS2?', '["Revolution Case", "Prisma Case", "Clutch Case", "Snakebite Case"]', 'Revolution Case', 'cs2');
 
 -- Обновляем существующие вопросы, добавляя категории если их нет
 UPDATE quiz_questions 
