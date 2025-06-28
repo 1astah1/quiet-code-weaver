@@ -1,0 +1,194 @@
+# Настройка системы викторины
+
+## Описание системы
+
+Система викторины включает в себя:
+
+1. **Вопросы и ответы** - пользователь видит вопросы и может отвечать на них
+2. **Система жизней** - у пользователя есть 2 сердца, которые теряются при неправильных ответах
+3. **Восстановление жизней** - сердца восстанавливаются каждые 8 часов или через просмотр рекламы
+4. **Система наград** - за 5 правильных ответов дается 30 монет, за 10 ответов - 100 монет
+5. **Полоса прогресса** - показывает прогресс до следующей награды
+6. **Статистика** - отображает количество отвеченных вопросов и точность
+
+## Применение миграции
+
+### Способ 1: Через Supabase Dashboard
+
+1. Откройте ваш проект в Supabase Dashboard
+2. Перейдите в раздел "SQL Editor"
+3. Скопируйте содержимое файла `apply_quiz_migration.sql`
+4. Вставьте и выполните SQL код
+
+### Способ 2: Через Supabase CLI
+
+```bash
+# Установите Supabase CLI
+npm install -g supabase
+
+# Войдите в аккаунт
+supabase login
+
+# Примените миграцию
+supabase db push
+```
+
+### Способ 3: Ручное выполнение
+
+Если у вас есть доступ к базе данных PostgreSQL, выполните SQL код из файла `apply_quiz_migration.sql`.
+
+## Исправление ошибки "column category does not exist"
+
+Если вы получаете ошибку `ERROR: 42703: column "category" does not exist`, выполните следующий SQL код:
+
+```sql
+-- Исправление ошибки с колонкой category
+-- Добавляем колонку category если её нет
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'quiz_questions' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE quiz_questions ADD COLUMN category TEXT DEFAULT 'general';
+  END IF;
+END $$;
+
+-- Добавляем колонку difficulty если её нет
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'quiz_questions' AND column_name = 'difficulty'
+  ) THEN
+    ALTER TABLE quiz_questions ADD COLUMN difficulty INTEGER DEFAULT 1;
+  END IF;
+END $$;
+
+-- Обновляем существующие вопросы
+UPDATE quiz_questions 
+SET category = 'general' 
+WHERE category IS NULL;
+
+UPDATE quiz_questions 
+SET difficulty = 1 
+WHERE difficulty IS NULL;
+
+-- Пересоздаем функцию с исправлениями
+CREATE OR REPLACE FUNCTION get_random_quiz_question(
+  user_id_param UUID,
+  category_param TEXT DEFAULT 'general'
+)
+RETURNS TABLE (
+  id UUID,
+  text TEXT,
+  answers JSONB,
+  correct_answer TEXT,
+  image_url TEXT,
+  difficulty INTEGER,
+  category TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    qq.id,
+    qq.text,
+    qq.answers,
+    qq.correct_answer,
+    qq.image_url,
+    COALESCE(qq.difficulty, 1) as difficulty,
+    COALESCE(qq.category, 'general') as category
+  FROM quiz_questions qq
+  WHERE COALESCE(qq.category, 'general') = category_param
+    AND qq.id NOT IN (
+      SELECT uqa.question_id 
+      FROM user_quiz_answers uqa 
+      WHERE uqa.user_id = user_id_param
+    )
+  ORDER BY RANDOM()
+  LIMIT 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+Или используйте готовый файл `fix_quiz_error.sql`.
+
+## Структура базы данных
+
+### Таблицы
+
+1. **quiz_questions** - вопросы викторины
+2. **user_quiz_progress** - прогресс пользователя
+3. **user_quiz_answers** - история ответов
+4. **quiz_rewards** - награды пользователей
+
+### Функции
+
+1. **get_random_quiz_question** - получение случайного вопроса
+2. **process_quiz_answer** - обработка ответа на вопрос
+3. **restore_heart_by_ad** - восстановление сердца через рекламу
+4. **auto_restore_heart** - автоматическое восстановление сердца
+
+## Компоненты React
+
+### Основные компоненты
+
+1. **QuizScreen** - главный экран викторины
+2. **QuizHearts** - отображение сердец (жизней)
+3. **QuizQuestionCard** - карточка с вопросом и вариантами ответов
+4. **QuizProgressBar** - полоса прогресса
+5. **QuizRewardModal** - модальное окно с наградой
+6. **QuizRestoreModal** - модальное окно восстановления жизней
+
+### Хуки
+
+1. **useQuiz** - основной хук для управления состоянием викторины
+2. **useSecureQuiz** - защищенная версия хука с защитой от спама
+
+## Логика работы
+
+### Система жизней
+
+- У пользователя максимум 2 сердца
+- При неправильном ответе теряется 1 сердце
+- Сердце восстанавливается каждые 8 часов автоматически
+- Можно восстановить сердце через рекламу (раз в 8 часов)
+
+### Система наград
+
+- За 5 правильных ответов: 30 монет
+- За 10 правильных ответов: 100 монет
+- Награды добавляются на баланс пользователя
+
+### Прогресс
+
+- Полоса прогресса показывает прогресс до следующей награды
+- Прогресс сбрасывается после получения награды
+- Отображается статистика: количество вопросов, правильных ответов, точность
+
+## Безопасность
+
+- Все таблицы защищены RLS (Row Level Security)
+- Пользователи могут видеть только свои данные
+- Функции выполняются с правами SECURITY DEFINER
+- Защита от спама в хуках (не чаще 1 раза в секунду)
+
+## Тестирование
+
+После применения миграции система готова к использованию. Тестовые вопросы уже добавлены в базу данных.
+
+## Возможные проблемы
+
+1. **Ошибки TypeScript** - могут быть связаны с отсутствием типов React
+2. **Ошибки подключения к Supabase** - проверьте настройки подключения
+3. **Ошибки RLS** - убедитесь, что пользователь авторизован
+4. **Ошибка "column category does not exist"** - выполните SQL код из раздела исправления
+
+## Дополнительные возможности
+
+Система легко расширяется для добавления:
+- Новых категорий вопросов
+- Дополнительных наград
+- Системы достижений
+- Мультиплеера
+- Рейтингов 
