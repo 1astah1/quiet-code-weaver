@@ -1,168 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Trophy, Target, Zap } from 'lucide-react';
-import QuizProgressBar from './QuizProgressBar';
-import QuizQuestionCard from './QuizQuestionCard';
+import React from 'react';
 import QuizHearts from './QuizHearts';
-import QuizRewardModal from './QuizRewardModal';
+import QuizQuestionCard from './QuizQuestionCard';
 import QuizRestoreModal from './QuizRestoreModal';
-import { useQuiz } from '@/hooks/useQuiz';
+import QuizProgressBar from './QuizProgressBar';
+import QuizRewardModal from './QuizRewardModal';
+import { useQuiz } from '../../hooks/useQuiz';
+import type { QuizQuestion } from '../../hooks/useQuiz';
 
-interface QuizScreenProps {
-  onBack: () => void;
-}
-
-const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
+const QuizScreen = () => {
   const {
+    hearts,
+    isRestoreModalOpen,
     currentQuestion,
+    canAnswer,
+    handleAnswer,
+    handleWatchAd,
+    restoreTimeLeft,
+    closeRestoreModal,
+    loading,
+    errorMessage,
+    resetQuiz,
     questionsAnswered,
     correctAnswers,
-    hearts,
-    timeUntilNextHeart,
-    loading,
-    error,
-    answerQuestion,
-    restoreHeart,
-    canRestoreWithAd,
-    reward,
-    clearReward
+    showReward,
+    progressBar,
+    setShowReward
   } = useQuiz();
 
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState(false);
-
-  const handleAnswer = async (answer: string) => {
-    if (loading || hearts === 0) return;
-    
-    setSelectedAnswer(answer);
-    setIsAnswered(true);
-    
-    const correct = await answerQuestion(answer);
-    setIsCorrect(correct);
-    
-    // Reset after showing feedback
-    setTimeout(() => {
-      setIsAnswered(false);
-      setSelectedAnswer(null);
-    }, 1500);
-  };
-
-  const handleRestoreHeart = () => {
-    if (canRestoreWithAd) {
-      setShowRestoreModal(true);
-    } else {
-      restoreHeart();
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-          <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Ошибка загрузки</h2>
-          <p className="text-slate-300 mb-6">{error}</p>
-          <Button onClick={onBack} className="bg-gradient-to-r from-blue-600 to-purple-600">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Header */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            onClick={onBack}
-            variant="ghost"
-            className="text-slate-300 hover:text-white hover:bg-slate-800/50"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Назад
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <span className="text-lg font-bold text-white">Викторина</span>
-          </div>
-          
-          <div className="w-10" /> {/* Spacer */}
-        </div>
-
-        {/* Progress Bar */}
-        <QuizProgressBar
-          currentQuestion={questionsAnswered + 1}
-          totalQuestions={30}
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black/90 px-2 py-8">
+      <div className="w-full max-w-md mx-auto bg-slate-900 rounded-xl shadow-lg p-6 relative">
+        <h1 className="text-3xl font-bold text-center text-white mb-4">Викторина</h1>
+        
+        {/* Полоса прогресса */}
+        <QuizProgressBar 
+          questionsAnswered={questionsAnswered}
           correctAnswers={correctAnswers}
+          progressBar={progressBar}
         />
-      </div>
-
-      {/* Main Content */}
-      <div className="px-4 pb-4">
-        {loading ? (
-          <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-slate-300">Загрузка вопроса...</p>
-          </Card>
-        ) : currentQuestion ? (
-          <QuizQuestionCard
-            question={currentQuestion}
-            questionNumber={questionsAnswered + 1}
-            onAnswer={handleAnswer}
-            isAnswered={isAnswered}
-            correctAnswer={currentQuestion.correct_answer}
-            selectedAnswer={selectedAnswer}
-            isCorrect={isCorrect}
-          />
-        ) : (
-          <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-            <Target className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-4">Викторина завершена!</h2>
-            <p className="text-slate-300 mb-6">
-              Вы ответили на {questionsAnswered} вопросов и получили {correctAnswers} правильных ответов!
-            </p>
-            <Button onClick={onBack} className="bg-gradient-to-r from-blue-600 to-purple-600">
-              Вернуться в меню
-            </Button>
-          </Card>
+        
+        {/* Сердца */}
+        <QuizHearts hearts={hearts} />
+        
+        {/* Вопрос */}
+        {canAnswer && currentQuestion && (
+          <>
+            <QuizQuestionCard 
+              question={currentQuestion as QuizQuestion} 
+              onAnswer={handleAnswer} 
+              loading={loading} 
+            />
+            {errorMessage && (
+              <div className="text-red-400 text-center font-semibold mt-2 animate-pulse">
+                {errorMessage}
+              </div>
+            )}
+          </>
         )}
-      </div>
-
-      {/* Hearts */}
-      <div className="px-4 pb-4">
-        <QuizHearts
-          hearts={hearts}
-          maxHearts={2}
-          timeUntilNextHeart={timeUntilNextHeart}
-          onRestoreHeart={handleRestoreHeart}
-          canRestoreWithAd={canRestoreWithAd}
+        
+        {/* Модальное окно восстановления */}
+        {!canAnswer && (
+          <QuizRestoreModal 
+            isOpen={isRestoreModalOpen}
+            onClose={closeRestoreModal}
+            restoreTimeLeft={restoreTimeLeft}
+            onWatchAd={handleWatchAd}
+            loading={loading}
+          />
+        )}
+        
+        {/* Модальное окно награды */}
+        <QuizRewardModal 
+          reward={showReward}
+          onClose={() => setShowReward(null)}
         />
+        
+        {/* Кнопка сброса */}
+        <button 
+          className="mt-4 text-xs text-orange-400 underline hover:text-orange-300 transition" 
+          onClick={resetQuiz}
+        >
+          Сбросить викторину
+        </button>
+        
+        {/* Статистика */}
+        <div className="mt-4 text-center text-xs text-slate-400">
+          <p>Отвечено вопросов: {questionsAnswered}</p>
+          <p>Правильных ответов: {correctAnswers}</p>
+          {questionsAnswered > 0 && (
+            <p>Точность: {Math.round((correctAnswers / questionsAnswered) * 100)}%</p>
+          )}
+        </div>
       </div>
-
-      {/* Reward Modal */}
-      {reward && (
-        <QuizRewardModal
-          isOpen={!!reward}
-          onClose={clearReward}
-          reward={reward}
-        />
-      )}
-
-      {/* Restore Modal */}
-      <QuizRestoreModal
-        isOpen={showRestoreModal}
-        onClose={() => setShowRestoreModal(false)}
-        onRestore={restoreHeart}
-        timeUntilNextHeart={timeUntilNextHeart}
-      />
     </div>
   );
 };

@@ -1,127 +1,60 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Trophy, Gift, Coins } from 'lucide-react';
 
 interface QuizProgressBarProps {
-  currentQuestion: number;
-  totalQuestions: number;
+  questionsAnswered: number;
   correctAnswers: number;
+  progressBar: number;
 }
 
-const QuizProgressBar: React.FC<QuizProgressBarProps> = ({
-  currentQuestion,
-  totalQuestions,
-  correctAnswers
-}) => {
-  const milestones = [4, 5, 10, 20, 30];
-  const progress = (correctAnswers / 30) * 100;
-
-  const getMilestoneIcon = (milestone: number) => {
-    switch (milestone) {
-      case 5:
-        return <Coins className="w-4 h-4 text-yellow-500" />;
-      case 10:
-        return <Coins className="w-4 h-4 text-yellow-500" />;
-      case 20:
-        return <Coins className="w-4 h-4 text-yellow-500" />;
-      case 30:
-        return <Gift className="w-4 h-4 text-purple-500" />;
-      default:
-        return <Trophy className="w-4 h-4 text-blue-500" />;
-    }
+const QuizProgressBar = ({ questionsAnswered, correctAnswers, progressBar }: QuizProgressBarProps) => {
+  const getProgressColor = () => {
+    if (questionsAnswered >= 10) return 'bg-green-500';
+    if (questionsAnswered >= 5) return 'bg-yellow-500';
+    return 'bg-orange-500';
   };
 
-  const getMilestoneReward = (milestone: number) => {
-    switch (milestone) {
-      case 5:
-        return '+1';
-      case 10:
-        return '+4';
-      case 20:
-        return '+5';
-      case 30:
-        return '+10';
-      default:
-        return '';
-    }
+  const getRewardText = () => {
+    if (questionsAnswered >= 10) return 'Награда: 100 монет';
+    if (questionsAnswered >= 5) return 'Награда: 30 монет';
+    return 'Следующая награда: 30 монет (5 вопросов)';
   };
 
   return (
-    <Card className="p-4 bg-gradient-to-r from-slate-900/50 to-slate-800/50 border-slate-700/50 backdrop-blur-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-300">
-            Вопрос {currentQuestion}
-          </span>
-          <Badge variant="secondary" className="bg-slate-700/50 text-slate-300">
-            {correctAnswers}/30
-          </Badge>
+    <div className="w-full mb-6">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-white text-sm font-semibold">
+          Прогресс: {questionsAnswered}/10
         </div>
-        <div className="text-sm font-medium text-slate-300">
-          {Math.round(progress)}%
+        <div className="text-white text-sm font-semibold">
+          Правильно: {correctAnswers}
         </div>
       </div>
-
-      {/* Main Progress Bar */}
-      <div className="relative h-3 bg-slate-800/50 rounded-full overflow-hidden mb-4">
+      
+      <div className="w-full bg-slate-700 rounded-full h-3 mb-2">
         <div 
-          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
+          className={`h-3 rounded-full transition-all duration-500 ${getProgressColor()}`}
+          style={{ width: `${progressBar}%` }}
         />
-        
-        {/* Milestone Markers */}
-        {milestones.map((milestone) => {
-          const milestoneProgress = (milestone / 30) * 100;
-          const isReached = correctAnswers >= milestone;
-          
-          return (
-            <div
-              key={milestone}
-              className="absolute top-0 bottom-0 flex items-center justify-center"
-              style={{ left: `${milestoneProgress}%` }}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
-                isReached 
-                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 shadow-lg shadow-yellow-500/25' 
-                  : 'bg-slate-600/50 border border-slate-500/50'
-              }`}>
-                {getMilestoneIcon(milestone)}
-              </div>
-              
-              {/* Reward Label */}
-              <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 rounded-md text-xs font-medium transition-all duration-300 ${
-                isReached 
-                  ? 'bg-gradient-to-r from-yellow-400/90 to-orange-500/90 text-white shadow-lg' 
-                  : 'bg-slate-700/80 text-slate-400'
-              }`}>
-                {getMilestoneReward(milestone)}
-              </div>
-            </div>
-          );
-        })}
       </div>
-
-      {/* Milestone Legend */}
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <div className="flex items-center gap-1">
-          <Coins className="w-3 h-3 text-yellow-500" />
-          <span>5 = +1</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Coins className="w-3 h-3 text-yellow-500" />
-          <span>10 = +4</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Coins className="w-3 h-3 text-yellow-500" />
-          <span>20 = +5</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Gift className="w-3 h-3 text-purple-500" />
-          <span>30 = +10</span>
+      
+      <div className="text-center">
+        <div className="text-orange-400 text-sm font-semibold">
+          {getRewardText()}
         </div>
       </div>
-    </Card>
+      
+      {/* Маркеры для наград */}
+      <div className="flex justify-between mt-2">
+        <div className="flex flex-col items-center">
+          <div className={`w-2 h-2 rounded-full ${questionsAnswered >= 5 ? 'bg-yellow-400' : 'bg-slate-600'}`} />
+          <div className="text-xs text-slate-400 mt-1">5</div>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className={`w-2 h-2 rounded-full ${questionsAnswered >= 10 ? 'bg-green-400' : 'bg-slate-600'}`} />
+          <div className="text-xs text-slate-400 mt-1">10</div>
+        </div>
+      </div>
+    </div>
   );
 };
 
