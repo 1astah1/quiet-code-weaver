@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/table"
 import { PromoCode } from "@/utils/supabaseTypes";
 
+interface BulkPromoCodeData {
+  code: string;
+  reward_coins: number;
+  max_uses?: number;
+  expires_at?: string;
+  is_active: boolean;
+}
+
 const PromoCodeManagement = () => {
   const [newPromoCode, setNewPromoCode] = useState<Partial<PromoCode>>({
     code: '',
@@ -174,7 +182,7 @@ const PromoCodeManagement = () => {
       return;
     }
 
-    const promoData = codes.map(code => ({
+    const promoData: BulkPromoCodeData[] = codes.map(code => ({
       code: code.trim(),
       reward_coins: bulkReward,
       max_uses: bulkMaxUses ?? undefined,

@@ -73,7 +73,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       }
       
       console.log('✅ [CASE_SKINS] Fetched data:', data);
-      return data || [];
+      return (data || []) as CaseSkinWithRelations[];
     },
     staleTime: 0,
     gcTime: 0,
@@ -119,7 +119,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   });
 
   const totalProbability = caseSkins?.reduce((sum, item) => {
-    return sum + (Number((item as any).custom_probability) ?? Number((item as any).probability) ?? 0);
+    return sum + (Number(item.custom_probability) ?? Number(item.probability) ?? 0);
   }, 0) || 0;
 
   const isProbabilityValid = totalProbability <= 100;
@@ -127,9 +127,9 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   const handleEditItem = (item: CaseSkinWithRelations) => {
     setEditingItemId(item.id ? String(item.id) : '');
     setEditData({
-      probability: Number((item as any).probability) || undefined,
-      custom_probability: (item as any).custom_probability ? Number((item as any).custom_probability) : undefined,
-      never_drop: Boolean((item as any).never_drop)
+      probability: Number(item.probability) || undefined,
+      custom_probability: item.custom_probability ? Number(item.custom_probability) : undefined,
+      never_drop: Boolean(item.never_drop)
     });
   };
 
@@ -323,13 +323,13 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
           </div>
           <div>
             <div className="text-2xl font-bold text-blue-400">
-              {caseSkins?.filter(item => !(item as any).never_drop).length || 0}
+              {caseSkins?.filter(item => !item.never_drop).length || 0}
             </div>
             <div className="text-gray-400 text-sm">Выпадающих</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-yellow-400">
-              {caseSkins?.filter(item => (item as any).never_drop).length || 0}
+              {caseSkins?.filter(item => item.never_drop).length || 0}
             </div>
             <div className="text-gray-400 text-sm">Не выпадают</div>
           </div>
@@ -497,14 +497,14 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       {/* Список скинов с улучшенным отображением изображений */}
       <div className="space-y-4">
         {caseSkins && caseSkins.map((caseSkin) => (
-          <div key={(caseSkin as any).id} className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+          <div key={caseSkin.id} className="bg-gray-900 rounded-lg p-4 border border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                {(caseSkin as any).reward_type === 'skin' ? (
+                {caseSkin.reward_type === 'skin' ? (
                   <>
                     <InstantImage 
-                      src={(caseSkin as any).skins?.image_url} 
-                      alt={(caseSkin as any).skins?.name || 'Скин'}
+                      src={caseSkin.skins?.image_url} 
+                      alt={caseSkin.skins?.name || 'Скин'}
                       className="w-12 h-12 object-cover rounded"
                       fallback={
                         <div className="w-12 h-12 bg-gray-600 rounded flex items-center justify-center text-gray-400 text-xs">
@@ -513,10 +513,10 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       }
                     />
                     <div>
-                      <h6 className="text-white font-medium">{(caseSkin as any).skins?.name}</h6>
+                      <h6 className="text-white font-medium">{caseSkin.skins?.name}</h6>
                       <p className="text-gray-400 text-sm">
-                        {(caseSkin as any).skins?.weapon_type} • {(caseSkin as any).skins?.price} монет
-                        {!(caseSkin as any).skins?.image_url && (
+                        {caseSkin.skins?.weapon_type} • {caseSkin.skins?.price} монет
+                        {!caseSkin.skins?.image_url && (
                           <span className="text-yellow-400 ml-2">• Нет изображения</span>
                         )}
                       </p>
@@ -528,15 +528,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       <span className="text-white text-xl">🪙</span>
                     </div>
                     <div>
-                      <h6 className="text-white font-medium">{(caseSkin as any).coin_rewards?.name}</h6>
-                      <p className="text-gray-400 text-sm">{(caseSkin as any).coin_rewards?.amount} монет</p>
+                      <h6 className="text-white font-medium">{caseSkin.coin_rewards?.name}</h6>
+                      <p className="text-gray-400 text-sm">{caseSkin.coin_rewards?.amount} монет</p>
                     </div>
                   </>
                 )}
               </div>
 
               <div className="flex items-center space-x-4">
-                {editingItemId === (caseSkin as any).id ? (
+                {editingItemId === caseSkin.id ? (
                   <div className="flex items-center space-x-2">
                     <div className="text-right">
                       <Input
@@ -583,21 +583,21 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
                       <div className="text-white font-medium">
-                        {(caseSkin as any).custom_probability ?? (caseSkin as any).probability}%
+                        {caseSkin.custom_probability ?? caseSkin.probability}%
                       </div>
-                      {(caseSkin as any).never_drop && (
+                      {caseSkin.never_drop && (
                         <div className="text-red-400 text-sm">Не выпадает</div>
                       )}
                     </div>
                     <Button 
-                      onClick={() => handleEditItem(caseSkin as CaseSkinWithRelations)} 
+                      onClick={() => handleEditItem(caseSkin)} 
                       size="sm" 
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Edit2 className="w-3 h-3" />
                     </Button>
                     <Button 
-                      onClick={() => handleDeleteItem((caseSkin as any).id ? String((caseSkin as any).id) : '')} 
+                      onClick={() => handleDeleteItem(caseSkin.id ? String(caseSkin.id) : '')} 
                       size="sm" 
                       className="bg-red-600 hover:bg-red-700"
                     >
@@ -608,7 +608,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               </div>
             </div>
             <div className="text-xs text-gray-400 mt-2">
-              ID: {(caseSkin as any).id}
+              ID: {caseSkin.id}
             </div>
           </div>
         ))}

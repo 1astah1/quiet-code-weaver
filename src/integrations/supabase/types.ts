@@ -91,6 +91,13 @@ export type Database = {
             referencedRelation: "skins"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_case_skins_coin_reward"
+            columns: ["coin_reward_id"]
+            isOneToOne: false
+            referencedRelation: "coin_rewards"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cases: {
