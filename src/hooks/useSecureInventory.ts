@@ -1,6 +1,6 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { SafeSellSkinResponse } from '@/types/rpc';
 import { useQuery } from '@tanstack/react-query';
 
 export const useSecureInventory = () => {
@@ -77,12 +77,33 @@ export function useUserInventory(userId: string) {
   return useQuery({
     queryKey: ['user-inventory', userId],
     queryFn: async () => {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
       const { data, error } = await supabase
         .from('user_inventory')
-        .select('*, skins(*)')
+        .select(`
+          *,
+          skins (
+            id,
+            name,
+            weapon_type,
+            rarity,
+            price,
+            image_url
+          )
+        `)
         .eq('user_id', userId)
+        .eq('is_sold', false)
         .order('obtained_at', { ascending: false });
-      if (error) throw error;
+      
+      if (error) {
+        console.error('❌ [USER_INVENTORY] Error loading inventory:', error);
+        throw error;
+      }
+      
+      console.log('✅ [USER_INVENTORY] Loaded inventory items:', data?.length || 0);
       return data || [];
     },
     refetchOnWindowFocus: true,

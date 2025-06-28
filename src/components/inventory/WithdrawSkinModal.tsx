@@ -1,13 +1,12 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ExternalLink, Info, Loader2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/toast";
-import { useTranslation } from "@/components/ui/use-translation";
+import { useWithdrawSkin } from "@/hooks/useWithdrawSkin";
 
 interface WithdrawSkinModalProps {
   isOpen: boolean;
