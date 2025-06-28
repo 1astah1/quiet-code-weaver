@@ -77,7 +77,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     
     // Проверяем, получал ли уже награду сегодня
     const hasClaimedToday = userProgress.claimedRewards.some(reward => {
-      const claimedDate = new Date(reward.claimed_at).toISOString().split('T')[0];
+      const claimedDate = reward.claimed_at ? new Date(reward.claimed_at).toISOString().split('T')[0] : null;
       return claimedDate === todayString;
     });
     
@@ -114,10 +114,11 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
       if (claimError) throw claimError;
 
       // Обновляем баланс пользователя и стрик
+      const currentCoins = userProgress.dailyStreak || 0;
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
-          coins: userProgress.dailyStreak + reward.reward_coins,
+          coins: currentCoins + reward.reward_coins,
           daily_streak: nextDay,
           last_daily_login: new Date().toISOString().split('T')[0]
         })
@@ -134,7 +135,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
 
       // Обновляем баланс в родительском компоненте
       if (onCoinsUpdate && updatedUser) {
-        onCoinsUpdate(updatedUser.coins);
+        onCoinsUpdate(updatedUser.coins || 0);
       }
 
       // Обновляем данные

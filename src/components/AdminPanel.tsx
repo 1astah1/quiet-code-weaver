@@ -392,6 +392,7 @@ const AdminPanel = () => {
       {activeTable === 'promo_codes' && <PromoCodeManagement />}
       {activeTable === 'suspicious_activities' && <SuspiciousActivityManagement />}
       {activeTable === 'faq_items' && <DatabaseImageCleanup />}
+      
       {/* Универсальная таблица и форма добавления */}
       {['cases','skins','tasks','quiz_questions','coin_rewards','daily_rewards','faq_items'].includes(activeTable) && (
         <>
@@ -415,6 +416,7 @@ const AdminPanel = () => {
           />
         </>
       )}
+      
       {/* Утилиты */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <UserDuplicatesCleaner />
