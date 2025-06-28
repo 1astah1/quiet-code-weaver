@@ -12,6 +12,27 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Добавляем колонки если их нет (для совместимости)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'quiz_questions' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE quiz_questions ADD COLUMN category TEXT DEFAULT 'general';
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'quiz_questions' AND column_name = 'difficulty'
+  ) THEN
+    ALTER TABLE quiz_questions ADD COLUMN difficulty INTEGER DEFAULT 1;
+  END IF;
+END $$;
+
 -- Таблица для прогресса пользователя в викторине
 CREATE TABLE IF NOT EXISTS user_quiz_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -120,10 +141,10 @@ BEGIN
     qq.answers,
     qq.correct_answer,
     qq.image_url,
-    qq.difficulty,
-    qq.category
+    COALESCE(qq.difficulty, 1) as difficulty,
+    COALESCE(qq.category, 'general') as category
   FROM quiz_questions qq
-  WHERE qq.category = category_param
+  WHERE COALESCE(qq.category, 'general') = category_param
     AND qq.id NOT IN (
       SELECT uqa.question_id 
       FROM user_quiz_answers uqa 
@@ -337,6 +358,15 @@ INSERT INTO quiz_questions (text, answers, correct_answer, category) VALUES
 ('Какой язык программирования создал Брендан Эйх?', '["Python", "Java", "JavaScript", "C++"]', 'JavaScript', 'technology'),
 ('В каком году была основана компания Apple?', '["1975", "1976", "1977", "1978"]', '1976', 'technology'),
 ('Кто написал "Гарри Поттера"?', '["Толкин", "Роулинг", "Льюис", "Даль"]', 'Роулинг', 'literature');
+
+-- Обновляем существующие вопросы, добавляя категории если их нет
+UPDATE quiz_questions 
+SET category = 'general' 
+WHERE category IS NULL;
+
+UPDATE quiz_questions 
+SET difficulty = 1 
+WHERE difficulty IS NULL;
 
 -- Создаем триггер для автоматического обновления updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
