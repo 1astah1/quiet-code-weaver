@@ -1,15 +1,16 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import SkinRaritySelector from "./SkinRaritySelector";
-import { Case, Skin } from "@/utils/supabaseTypes";
+import { Case, Skin, Task } from "@/utils/supabaseTypes";
 
 interface AddItemFormProps {
   activeTable: string;
-  newItem: Case | Skin | Record<string, unknown>;
-  setNewItem: (item: Case | Skin | Record<string, unknown>) => void;
+  newItem: Case | Skin | Task | Record<string, unknown>;
+  setNewItem: (item: Case | Skin | Task | Record<string, unknown>) => void;
   onAdd: () => void;
   onImageUpload: (file: File, isEdit?: boolean, itemId?: string, fieldName?: string) => Promise<string | undefined>;
   uploadingImage: boolean;
@@ -60,11 +61,12 @@ const AddItemForm = ({
   const handleAdd = async () => {
     // Валидация обязательных полей для задач
     if (activeTable === 'tasks') {
-      if (!newItem.title || !newItem.description || !newItem.reward_coins || !newItem.image_url) {
+      const taskItem = newItem as Task;
+      if (!taskItem.title || !taskItem.description || !taskItem.reward_coins || !taskItem.image_url) {
         alert('Заполните все обязательные поля: название, описание, награда, картинка');
         return;
       }
-      if (isNaN(Number(newItem.reward_coins)) || Number(newItem.reward_coins) <= 0) {
+      if (isNaN(Number(taskItem.reward_coins)) || Number(taskItem.reward_coins) <= 0) {
         alert('Награда должна быть положительным числом');
         return;
       }
@@ -77,12 +79,13 @@ const AddItemForm = ({
   const getFormFields = () => {
     switch (activeTable) {
       case 'skins':
+        const skinItem = newItem as Skin;
         return (
           <>
             <div>
               <Label>Название *</Label>
               <Input
-                value={typeof newItem.name === 'string' ? newItem.name : ''}
+                value={skinItem.name || ''}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                 placeholder="Название скина"
                 required
@@ -92,7 +95,7 @@ const AddItemForm = ({
             <div>
               <Label>Тип оружия *</Label>
               <Input
-                value={('weapon_type' in newItem && typeof newItem.weapon_type === 'string') ? newItem.weapon_type : ''}
+                value={skinItem.weapon_type || ''}
                 onChange={(e) => setNewItem({ ...newItem, weapon_type: e.target.value })}
                 placeholder="AK-47, M4A4, AWP и т.д."
                 required
@@ -102,7 +105,7 @@ const AddItemForm = ({
             <div>
               <Label>Редкость *</Label>
               <SkinRaritySelector
-                value={('rarity' in newItem && typeof newItem.rarity === 'string') ? newItem.rarity : ''}
+                value={skinItem.rarity || ''}
                 onChange={(value) => setNewItem({ ...newItem, rarity: value })}
               />
             </div>
@@ -111,7 +114,7 @@ const AddItemForm = ({
               <Label>Цена (монеты) *</Label>
               <Input
                 type="number"
-                value={typeof newItem.price === 'number' ? newItem.price.toString() : ''}
+                value={skinItem.price?.toString() || ''}
                 onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
                 placeholder="100"
                 min="1"
@@ -128,10 +131,10 @@ const AddItemForm = ({
                   onDrop={(e) => { e.preventDefault(); handleImageChange(e, 'image_url'); }}
                   onDragOver={(e) => e.preventDefault()}
                 >
-                  {previewUrl || newItem.image_url ? (
+                  {previewUrl || skinItem.image_url ? (
                     <div className="relative inline-block">
                       <img
-                        src={previewUrl || newItem.image_url}
+                        src={previewUrl || skinItem.image_url || ''}
                         alt="Preview"
                         className="w-32 h-32 object-cover rounded mb-2 mx-auto border border-gray-600"
                       />
@@ -163,12 +166,13 @@ const AddItemForm = ({
         );
         
       case 'cases':
+        const caseItem = newItem as Case;
         return (
           <>
             <div>
               <Label>Название</Label>
               <Input
-                value={typeof newItem.name === 'string' ? newItem.name : ''}
+                value={caseItem.name || ''}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                 placeholder="Название кейса"
               />
@@ -177,7 +181,7 @@ const AddItemForm = ({
             <div>
               <Label>Описание</Label>
               <Input
-                value={('description' in newItem && typeof newItem.description === 'string') ? newItem.description : ''}
+                value={caseItem.description || ''}
                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                 placeholder="Описание кейса"
               />
@@ -187,7 +191,7 @@ const AddItemForm = ({
               <Label>Цена</Label>
               <Input
                 type="number"
-                value={typeof newItem.price === 'number' ? newItem.price.toString() : ''}
+                value={caseItem.price?.toString() || ''}
                 onChange={(e) => setNewItem({ ...newItem, price: parseInt(e.target.value) || 0 })}
                 placeholder="100"
               />
@@ -222,12 +226,13 @@ const AddItemForm = ({
         );
         
       case 'tasks':
+        const taskItem = newItem as Task;
         return (
           <>
             <div>
               <Label>Название</Label>
               <Input
-                value={typeof newItem.title === 'string' ? newItem.title : ''}
+                value={taskItem.title || ''}
                 onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
                 placeholder="Название задания"
               />
@@ -235,7 +240,7 @@ const AddItemForm = ({
             <div>
               <Label>Описание</Label>
               <Input
-                value={typeof newItem.description === 'string' ? newItem.description : ''}
+                value={taskItem.description || ''}
                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                 placeholder="Описание задания"
               />
@@ -244,7 +249,7 @@ const AddItemForm = ({
               <Label>Награда (монеты)</Label>
               <Input
                 type="number"
-                value={typeof newItem.reward_coins === 'number' ? newItem.reward_coins : ''}
+                value={taskItem.reward_coins?.toString() || ''}
                 onChange={(e) => setNewItem({ ...newItem, reward_coins: parseInt(e.target.value) || 0 })}
                 placeholder="100"
               />
@@ -257,10 +262,10 @@ const AddItemForm = ({
                 onDrop={(e) => { e.preventDefault(); handleImageChange(e, 'image_url'); }}
                 onDragOver={(e) => e.preventDefault()}
               >
-                {previewUrl || newItem.image_url ? (
+                {previewUrl || taskItem.image_url ? (
                   <div className="relative inline-block">
                     <img
-                      src={previewUrl || newItem.image_url}
+                      src={previewUrl || taskItem.image_url || ''}
                       alt="Preview"
                       className="w-32 h-32 object-cover rounded mb-2 mx-auto border border-gray-600"
                     />
@@ -295,7 +300,7 @@ const AddItemForm = ({
           <div key={key}>
             <Label>{key}</Label>
             <Input
-              value={typeof (newItem as Record<string, unknown>)[key] === 'string' ? (newItem as Record<string, unknown>)[key] : ''}
+              value={String((newItem as Record<string, unknown>)[key] || '')}
               onChange={(e) => setNewItem({ ...newItem, [key]: e.target.value })}
               placeholder={`Введите ${key}`}
             />

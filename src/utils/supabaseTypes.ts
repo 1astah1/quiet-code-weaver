@@ -1,3 +1,4 @@
+
 // Базовые типы для всех таблиц
 export interface Case {
   id: string;
@@ -54,6 +55,17 @@ export interface PromoCode {
   max_uses?: number;
   current_uses?: number;
   expires_at?: string;
+  is_active?: boolean;
+  created_at?: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  reward_coins: number;
+  task_url?: string;
+  image_url?: string;
   is_active?: boolean;
   created_at?: string;
 }
@@ -123,18 +135,6 @@ export interface SecurityEvent {
   type: string;
   details?: any;
   created_at: string;
-}
-
-// Типы для задач и наград
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  reward_coins: number;
-  task_url?: string;
-  image_url?: string;
-  is_active?: boolean;
-  created_at?: string;
 }
 
 export interface DailyReward {
