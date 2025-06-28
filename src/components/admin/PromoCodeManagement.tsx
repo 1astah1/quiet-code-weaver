@@ -177,8 +177,9 @@ const PromoCodeManagement = () => {
     const promoData = codes.map(code => ({
       code: code.trim(),
       reward_coins: bulkReward,
-      max_uses: bulkMaxUses || undefined,
-      expires_at: bulkExpiresAt || undefined
+      max_uses: bulkMaxUses ?? undefined,
+      expires_at: bulkExpiresAt ?? undefined,
+      is_active: true
     }));
 
     try {

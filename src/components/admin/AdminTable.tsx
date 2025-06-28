@@ -62,7 +62,7 @@ const AdminTable = ({
 
     try {
       const { error } = await supabase
-        .from(activeTable)
+        .from(activeTable as any)
         .update(editItemData)
         .eq('id', editItemId);
 
@@ -86,7 +86,7 @@ const AdminTable = ({
     if (window.confirm(`Вы уверены, что хотите удалить элемент с ID ${id}?`)) {
       try {
         const { error } = await supabase
-          .from(activeTable)
+          .from(activeTable as any)
           .delete()
           .eq('id', id);
 
