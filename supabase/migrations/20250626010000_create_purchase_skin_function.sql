@@ -37,6 +37,25 @@ BEGIN
   VALUES (p_user_id, p_skin_id, now())
   RETURNING id INTO new_inventory_item_id;
 
+  -- Добавляем покупку в recent_wins
+  INSERT INTO public.recent_wins (id, user_id, skin_id, won_at, reward_type, reward_data)
+  VALUES (
+    gen_random_uuid(),
+    p_user_id,
+    p_skin_id,
+    now(),
+    'skin',
+    jsonb_build_object(
+      'id', skin_record.id,
+      'name', skin_record.name,
+      'weapon_type', skin_record.weapon_type,
+      'rarity', skin_record.rarity,
+      'price', skin_record.price,
+      'image_url', skin_record.image_url,
+      'type', 'skin'
+    )
+  );
+
   -- Return success with new balance and inventory item ID
   RETURN jsonb_build_object(
     'success', true,

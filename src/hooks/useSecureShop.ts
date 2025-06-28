@@ -126,25 +126,6 @@ export const useSecureShop = (currentUser: CurrentUser) => {
         throw new Error(errorMsg);
       }
 
-      // Добавляем покупку в recent_wins
-      try {
-        await supabase.from('recent_wins').insert({
-          user_id: currentUser.id,
-          reward_data: {
-            name: skin.name,
-            rarity: skin.rarity,
-            price: skin.price,
-            image_url: skin.image_url,
-            type: 'skin',
-            weapon_type: skin.weapon_type
-          },
-          won_at: new Date().toISOString(),
-          source: 'shop'
-        });
-      } catch (e) {
-        console.error('Не удалось добавить покупку в recent_wins:', e);
-      }
-
       console.log('✅ [SECURE_SHOP] Purchase successful:', {
         newBalance: response.new_balance,
         inventoryId: response.inventory_id
