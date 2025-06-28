@@ -1,82 +1,150 @@
 import React, { useState } from 'react';
-import type { QuizQuestion } from '../../hooks/useQuiz';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface QuizQuestionCardProps {
-  question: QuizQuestion;
+  question: {
+    id: string;
+    question: string;
+    options: string[];
+    image_url?: string;
+  };
+  questionNumber: number;
   onAnswer: (answer: string) => void;
-  loading: boolean;
+  isAnswered: boolean;
+  correctAnswer?: string;
+  selectedAnswer?: string;
+  isCorrect?: boolean;
 }
 
-const QuizQuestionCard = ({ question, onAnswer, loading }: QuizQuestionCardProps) => {
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
+const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
+  question,
+  questionNumber,
+  onAnswer,
+  isAnswered,
+  correctAnswer,
+  selectedAnswer,
+  isCorrect
+}) => {
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  const handleAnswerClick = async (answer: string) => {
-    if (loading || selectedAnswer !== null) return;
+  const handleAnswerClick = (answer: string) => {
+    if (isAnswered) return;
     
-    setSelectedAnswer(answer);
-    setIsCorrect(answer === question.correct_answer);
-    setShowResult(true);
+    setIsAnimating(true);
+    onAnswer(answer);
     
-    // Небольшая задержка для показа результата
-    setTimeout(() => {
-      onAnswer(answer);
-      setSelectedAnswer(null);
-      setShowResult(false);
-    }, 1500);
+    // Reset animation after feedback
+    setTimeout(() => setIsAnimating(false), 1500);
   };
 
-  const getButtonClass = (answer: string) => {
-    if (!showResult) {
-      return "w-full py-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold transition disabled:opacity-50 disabled:cursor-not-allowed";
+  const getButtonVariant = (answer: string) => {
+    if (!isAnswered) return 'default';
+    
+    if (answer === correctAnswer) {
+      return 'success';
     }
     
-    if (answer === question.correct_answer) {
-      return "w-full py-3 rounded-lg bg-green-500 text-white font-bold transition";
+    if (answer === selectedAnswer && answer !== correctAnswer) {
+      return 'destructive';
     }
     
-    if (answer === selectedAnswer && answer !== question.correct_answer) {
-      return "w-full py-3 rounded-lg bg-red-500 text-white font-bold transition";
+    return 'secondary';
+  };
+
+  const getButtonStyle = (answer: string) => {
+    const baseStyle = "w-full h-16 text-lg font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95";
+    
+    if (!isAnswered) {
+      return `${baseStyle} bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl`;
     }
     
-    return "w-full py-3 rounded-lg bg-slate-600 text-slate-300 font-bold transition";
+    if (answer === correctAnswer) {
+      return `${baseStyle} bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse`;
+    }
+    
+    if (answer === selectedAnswer && answer !== correctAnswer) {
+      return `${baseStyle} bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg`;
+    }
+    
+    return `${baseStyle} bg-slate-700/50 text-slate-400 border border-slate-600/50`;
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg p-6 mb-4 shadow-lg">
+    <Card className="p-6 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm">
+      {/* Question Header */}
+      <div className="flex items-center justify-between mb-4">
+        <Badge variant="outline" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+          Вопрос {questionNumber}
+        </Badge>
+        {isAnswered && (
+          <div className="flex items-center gap-2">
+            {isCorrect ? (
+              <CheckCircle className="w-5 h-5 text-green-400" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-400" />
+            )}
+            <span className={`text-sm font-medium ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+              {isCorrect ? 'Правильно!' : 'Неправильно'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Question Image */}
       {question.image_url && (
-        <div className="flex justify-center mb-4">
-          <img src={question.image_url} alt="quiz" className="max-h-40 rounded shadow" />
+        <div className="mb-6 rounded-xl overflow-hidden bg-slate-800/50">
+          <img 
+            src={question.image_url} 
+            alt="Question" 
+            className="w-full h-48 object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         </div>
       )}
-      <div className="text-white text-lg font-semibold mb-4 text-center">{question.text}</div>
-      <div className="flex flex-col gap-3">
-        {question.answers.map((answer: string, idx: number) => (
-          <button
-            key={idx}
-            className={getButtonClass(answer)}
-            onClick={() => handleAnswerClick(answer)}
-            disabled={loading || selectedAnswer !== null}
+
+      {/* Question Text */}
+      <div className="mb-6">
+        <h3 className="text-xl font-bold text-white leading-relaxed">
+          {question.question}
+        </h3>
+      </div>
+
+      {/* Answer Options */}
+      <div className="space-y-3">
+        {question.options.map((option, index) => (
+          <Button
+            key={index}
+            variant="ghost"
+            className={getButtonStyle(option)}
+            onClick={() => handleAnswerClick(option)}
+            disabled={isAnswered}
           >
-            {answer}
-            {showResult && answer === question.correct_answer && (
-              <span className="ml-2">✓</span>
-            )}
-            {showResult && answer === selectedAnswer && answer !== question.correct_answer && (
-              <span className="ml-2">✗</span>
-            )}
-          </button>
+            <span className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
+                {String.fromCharCode(65 + index)}
+              </span>
+              {option}
+            </span>
+          </Button>
         ))}
       </div>
-      {showResult && (
-        <div className={`mt-4 text-center font-bold text-lg ${
-          isCorrect ? 'text-green-400' : 'text-red-400'
+
+      {/* Feedback Animation */}
+      {isAnimating && (
+        <div className={`absolute inset-0 flex items-center justify-center rounded-xl ${
+          isCorrect ? 'bg-green-500/20' : 'bg-red-500/20'
         }`}>
-          {isCorrect ? 'Правильно! 🎉' : 'Неправильно! 😔'}
+          <div className={`text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+            {isCorrect ? '✓' : '✗'}
+          </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
