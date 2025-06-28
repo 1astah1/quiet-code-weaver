@@ -1,266 +1,211 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
-import { QuizQuestion } from '../components/quiz/QuizQuestionCard';
-import { toast } from 'sonner';
-import React from 'react';
-
-// Type for the entire quiz state, based on the `get_quiz_state` RPC function
-export interface QuizState {
-  lives: number;
-  ad_cooldown_seconds: number;
-  streak_multiplier: number;
-  reward: number;
-  current_question: QuizQuestion | null;
-  quiz_progress: {
-    current: number;
-    total: number;
-  };
-}
-
-// 1. Function to fetch the quiz state
-const fetchQuizState = async (): Promise<QuizState> => {
-  console.log('🎯 [QUIZ] Fetching quiz state...');
-  
-  const { data, error } = await supabase.rpc('get_quiz_state');
-  
-  if (error) {
-    console.error('❌ [QUIZ] Error fetching quiz state:', error);
-    throw new Error(error.message);
-  }
-
-  console.log('✅ [QUIZ] Raw data from get_quiz_state:', data);
-
-  // If there's no data, it means the quiz is over or not started.
-  // Return a default state to prevent errors.
-  if (!data || data.length === 0) {
-    console.log('⚠️ [QUIZ] No data returned, using default state');
-    return {
-      lives: 2,
-      ad_cooldown_seconds: 0,
-      streak_multiplier: 1.0,
-      reward: 100,
-      current_question: null,
-      quiz_progress: { current: 0, total: 0 },
-    };
-  }
-
-  // The RPC returns an array with a single object, we need to extract it.
-  const result = data[0] as QuizState;
-  console.log('✅ [QUIZ] Processed quiz state:', result);
-  
-  return result;
-};
-
-// 2. Function to answer a question
-const answerQuestion = async (answerId: string) => {
-  console.log('🎯 [QUIZ] Answering question with ID:', answerId);
-  
-  const { data, error } = await supabase.rpc('answer_quiz_question', { p_answer_id: answerId });
-
-  if (error) {
-    console.error('❌ [QUIZ] Error answering question:', error);
-    throw new Error(error.message);
-  }
-  
-  const result = data[0];
-  console.log('✅ [QUIZ] Answer result:', result);
-  
-  if (!result.success) {
-    throw new Error(result.message || 'Произошла неизвестная ошибка');
-  }
-
-  toast.success(result.message);
-  
-  if (result.correct && result.new_balance) {
-    toast.success(`+${result.reward || 100} 💰 на ваш баланс!`);
-  } else if (!result.correct) {
-      toast.error('Неверный ответ! Вы потеряли одну жизнь.');
-  }
-
-  return result;
-};
-
-// 3. Function to get a life for an ad
-const getLifeForAd = async () => {
-    console.log('🎯 [QUIZ] Getting life for ad...');
-    
-    const { data, error } = await supabase.rpc('get_life_for_ad');
-
-    if (error) {
-        console.error('❌ [QUIZ] Error getting life for ad:', error);
-        throw new Error(error.message);
-    }
-
-    const result = data[0];
-    console.log('✅ [QUIZ] Ad life result:', result);
-    
-    if (result.success) {
-        toast.success(result.message);
-    } else {
-        toast.error(result.message);
-    }
-    return result;
-}
-
-// The main hook that will be used in the component
-export function useQuiz() {
-  const queryClient = useQueryClient();
-
-  // Query for fetching the quiz state
-  const { 
-    data: quizState, 
-    isLoading: loading, 
-    error,
-    isError 
-  } = useQuery<QuizState>({
-    queryKey: ['quizState'],
-    queryFn: fetchQuizState,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: true,
-    retry: 3,
-    retryDelay: 1000,
-  });
-
-  // Mutation for answering a question
-  const { mutate: submitAnswer, isPending: isAnswering } = useMutation({
-    mutationFn: answerQuestion,
-    onSuccess: () => {
-      console.log('✅ [QUIZ] Answer submitted successfully, invalidating queries');
-      // When an answer is successfully submitted, refetch the quiz state
-      // to get the next question and updated user profile.
-      queryClient.invalidateQueries({ queryKey: ['quizState'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] }); // Also refetch user balance
+// Заглушки для API
+const fetchQuizState = async () => {
+  // Здесь должен быть запрос к серверу
+  return {
+    hearts: 5,
+    lastRestore: Date.now(),
+    adWatchedAt: null,
+    currentQuestion: {
+      text: 'Какой цвет у неба?',
+      answers: ['Синий', 'Зелёный', 'Красный', 'Жёлтый'],
+      correct: 'Синий',
     },
-    onError: (e) => {
-        console.error('❌ [QUIZ] Error submitting answer:', e);
-        toast.error(e.message);
-    }
-  });
+  };
+};
+const sendAnswer = async (answer: string) => {
+  // Здесь должен быть запрос к серверу
+  return { correct: answer === 'Синий' };
+};
+const restoreHeartByAd = async () => {
+  // Здесь должен быть запрос к серверу
+  return { success: true };
+};
 
-  // Mutation for watching an ad
-  const { mutate: watchAd, isPending: isWatchingAd } = useMutation({
-      mutationFn: getLifeForAd,
-      onSuccess: () => {
-          console.log('✅ [QUIZ] Ad watched successfully, invalidating queries');
-          queryClient.invalidateQueries({ queryKey: ['quizState'] });
-      },
-      onError: (e) => {
-          console.error('❌ [QUIZ] Error watching ad:', e);
-          toast.error(e.message);
+export interface QuizQuestion {
+  text: string;
+  answers: string[];
+  correct: string;
+  image_url?: string;
+}
+
+function loadQuizStateFromStorage() {
+  try {
+    const data = localStorage.getItem('quizState');
+    if (!data) return null;
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+function saveQuizStateToStorage(state: any) {
+  try {
+    localStorage.setItem('quizState', JSON.stringify(state));
+  } catch {}
+}
+
+export function useQuiz() {
+  const [hearts, setHearts] = useState(5);
+  const [lastRestore, setLastRestore] = useState(Date.now());
+  const [adWatchedAt, setAdWatchedAt] = useState<number|null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
+  const [canAnswer, setCanAnswer] = useState(true);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreTimeLeft, setRestoreTimeLeft] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Загрузка состояния викторины из localStorage
+  useEffect(() => {
+    const saved = loadQuizStateFromStorage();
+    if (saved) {
+      setHearts(saved.hearts ?? 5);
+      setLastRestore(saved.lastRestore ?? Date.now());
+      setAdWatchedAt(saved.adWatchedAt ?? null);
+      setCurrentQuestion(saved.currentQuestion ?? null);
+      setCanAnswer(saved.canAnswer ?? true);
+      setIsRestoreModalOpen(saved.isRestoreModalOpen ?? false);
+    } else {
+      fetchQuizState().then(state => {
+        setHearts(state.hearts);
+        setLastRestore(state.lastRestore);
+        setAdWatchedAt(state.adWatchedAt);
+        setCurrentQuestion(state.currentQuestion as QuizQuestion);
+        setCanAnswer(state.hearts > 0);
+        setIsRestoreModalOpen(state.hearts === 0);
+      });
+    }
+  }, []);
+
+  // Сохраняем состояние при изменениях
+  useEffect(() => {
+    saveQuizStateToStorage({
+      hearts,
+      lastRestore,
+      adWatchedAt,
+      currentQuestion,
+      canAnswer,
+      isRestoreModalOpen
+    });
+  }, [hearts, lastRestore, adWatchedAt, currentQuestion, canAnswer, isRestoreModalOpen]);
+
+  // Таймер восстановления сердец
+  useEffect(() => {
+    if (hearts > 0) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = Math.max(0, 8 * 3600 - Math.floor((now - lastRestore) / 1000));
+      setRestoreTimeLeft(diff);
+      if (diff === 0) {
+        setHearts(1);
+        setCanAnswer(true);
+        setIsRestoreModalOpen(false);
       }
-  });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [hearts, lastRestore]);
 
-  // Safe state calculations with fallbacks
-  const lives = quizState?.lives ?? 2;
-  const currentQuestion = quizState?.current_question ?? null;
-  const quizProgress = quizState?.quiz_progress ?? { current: 0, total: 0 };
-  const adCooldownSeconds = quizState?.ad_cooldown_seconds ?? 0;
-  
-  const canAnswer = lives > 0 && !!currentQuestion && !isAnswering;
-  const isRestoreModalOpen = lives === 0 && !loading;
-  
-  const [restoreTimeLeft, setRestoreTimeLeft] = React.useState(adCooldownSeconds);
-
-  React.useEffect(() => {
-    if (isRestoreModalOpen && adCooldownSeconds > 0) {
-      console.log('⏰ [QUIZ] Starting restore countdown:', adCooldownSeconds);
-      setRestoreTimeLeft(adCooldownSeconds);
-      
-      const interval = setInterval(() => {
-        setRestoreTimeLeft(prev => {
-          if (prev <= 1) {
-            console.log('⏰ [QUIZ] Countdown finished, refreshing quiz state');
-            clearInterval(interval);
-            queryClient.invalidateQueries({ queryKey: ['quizState'] });
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => {
-        console.log('⏰ [QUIZ] Cleaning up countdown interval');
-        clearInterval(interval);
-      };
+  // Ответ на вопрос
+  const handleAnswer = useCallback(async (answer: string) => {
+    if (!canAnswer || loading) return;
+    setLoading(true);
+    setErrorMessage(null);
+    const res = await sendAnswer(answer);
+    setLoading(false);
+    if (res.correct) {
+      // Следующий вопрос (заглушка)
+      setCurrentQuestion({
+        text: 'Столица Франции?',
+        answers: ['Париж', 'Берлин', 'Лондон', 'Мадрид'],
+        correct: 'Париж',
+        image_url: undefined
+      });
+    } else {
+      setErrorMessage('Неправильный ответ!');
+      setHearts(h => {
+        const newHearts = Math.max(0, h - 1);
+        if (newHearts <= 0) {
+          setCanAnswer(false);
+          setIsRestoreModalOpen(true);
+          setLastRestore(Date.now());
+        }
+        return newHearts;
+      });
     }
-  }, [isRestoreModalOpen, adCooldownSeconds, queryClient]);
+  }, [canAnswer, loading]);
 
-  // Error message handling
-  const errorMessage = isError ? (error?.message || 'Ошибка загрузки викторины') : undefined;
+  // Просмотр рекламы для восстановления сердца
+  const handleWatchAd = useCallback(async () => {
+    if (adWatchedAt && Date.now() - adWatchedAt < 24 * 3600 * 1000) return;
+    const res = await restoreHeartByAd();
+    if (res.success) {
+      setHearts(h => Math.min(5, h + 1));
+      setAdWatchedAt(Date.now());
+      setCanAnswer(true);
+      setIsRestoreModalOpen(false);
+    }
+  }, [adWatchedAt]);
 
-  console.log('[QUIZ DEBUG] State:', {
-    lives,
-    currentQuestion: currentQuestion?.id || null,
-    quizProgress,
-    loading,
-    errorMessage,
-    canAnswer,
-    isRestoreModalOpen
-  });
+  const closeRestoreModal = () => setIsRestoreModalOpen(false);
+
+  const resetQuiz = () => {
+    setHearts(5);
+    setLastRestore(Date.now());
+    setAdWatchedAt(null);
+    setCurrentQuestion(null);
+    setCanAnswer(true);
+    setIsRestoreModalOpen(false);
+    setErrorMessage(null);
+    localStorage.removeItem('quizState');
+    fetchQuizState().then(state => {
+      setHearts(state.hearts);
+      setLastRestore(state.lastRestore);
+      setAdWatchedAt(state.adWatchedAt);
+      setCurrentQuestion(state.currentQuestion as QuizQuestion);
+      setCanAnswer(state.hearts > 0);
+      setIsRestoreModalOpen(state.hearts === 0);
+    });
+  };
 
   return {
-    // State
-    hearts: lives,
-    currentQuestion,
-    quizProgress,
-    streak: quizState?.streak_multiplier ?? 1.0,
-    reward: quizState?.reward ?? 100,
-    
-    // Status
-    loading: loading || isAnswering,
+    hearts,
     isRestoreModalOpen,
+    currentQuestion,
     canAnswer,
-    errorMessage,
+    handleAnswer,
+    handleWatchAd,
     restoreTimeLeft,
-
-    // Actions
-    handleAnswer: submitAnswer,
-    handleWatchAd: watchAd,
-    closeRestoreModal: () => {
-      console.log('🔄 [QUIZ] Closing restore modal by refreshing state');
-      queryClient.invalidateQueries({ queryKey: ['quizState'] });
-    },
-    resetQuiz: () => {
-        console.log('🔄 [QUIZ] Resetting quiz state');
-        queryClient.invalidateQueries({ queryKey: ['quizState'] });
-        toast.info("Состояние викторины обновлено с сервера.");
-    }
+    closeRestoreModal,
+    loading,
+    errorMessage,
+    resetQuiz,
   };
 }
 
 export function useSecureQuiz() {
   const quiz = useQuiz();
-  const lastActionRef = React.useRef<number>(0);
+  const lastActionRef = useRef<number>(0);
 
   // Защита от спама и двойных кликов
-  const safeHandleAnswer = React.useCallback(async (answer: string) => {
+  const safeHandleAnswer = async (answer: string) => {
     const now = Date.now();
-    if (now - lastActionRef.current < 1000) {
-      console.log('⚠️ [QUIZ] Rate limit: ignoring rapid click');
-      return;
-    }
+    if (now - lastActionRef.current < 1000) return; // не чаще 1 раза в секунду
     lastActionRef.current = now;
-    
-    console.log('🎯 [QUIZ] Safe answer submission:', answer);
-    quiz.handleAnswer(answer);
-  }, [quiz.handleAnswer]);
+    await quiz.handleAnswer(answer);
+  };
 
-  const safeHandleWatchAd = React.useCallback(async () => {
+  const safeHandleWatchAd = async () => {
     const now = Date.now();
-    if (now - lastActionRef.current < 1000) {
-      console.log('⚠️ [QUIZ] Rate limit: ignoring rapid ad click');
-      return;
-    }
+    if (now - lastActionRef.current < 1000) return;
     lastActionRef.current = now;
-    
-    console.log('🎯 [QUIZ] Safe ad watch');
-    quiz.handleWatchAd();
-  }, [quiz.handleWatchAd]);
+    await quiz.handleWatchAd();
+  };
 
   return {
     ...quiz,
     handleAnswer: safeHandleAnswer,
     handleWatchAd: safeHandleWatchAd,
   };
-}
+} 

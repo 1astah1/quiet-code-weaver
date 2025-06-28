@@ -1,85 +1,34 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import InstantImage from '../ui/InstantImage';
+import React from 'react';
 
-export interface QuizQuestion {
-  id: string;
-  question_text: string;
+interface QuizQuestion {
+  text: string;
+  answers: string[];
+  correct: string;
   image_url?: string;
-  answers: { id: string; answer_text: string }[];
 }
 
-interface Props {
-  question: QuizQuestion;
-  onAnswer: (answerId: string) => void;
-  loading: boolean;
-}
-
-const QuizQuestionCard = ({ question, onAnswer, loading }: Props) => {
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-
-  const handleAnswerClick = (answerId: string) => {
-    if (loading) return;
-    setSelectedAnswer(answerId);
-    // Даем время на анимацию перед вызовом onAnswer
-    setTimeout(() => {
-      onAnswer(answerId);
-      setSelectedAnswer(null);
-    }, 500);
-  };
-
-  if (loading && !question) {
-    return (
-        <div className="bg-slate-800 rounded-lg p-6 mb-4 shadow-lg w-full">
-            <Skeleton className="h-40 w-full rounded-md mb-4" />
-            <Skeleton className="h-8 w-3/4 mb-6" />
-            <div className="flex flex-col gap-3">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        </div>
-    )
-  }
-
+const QuizQuestionCard = ({ question, onAnswer, loading }: { question: QuizQuestion, onAnswer: (answer: string) => void, loading: boolean }) => {
   return (
-    <motion.div 
-      key={question.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className="bg-slate-800 rounded-lg p-6 mb-4 shadow-lg w-full"
-    >
+    <div className="bg-slate-800 rounded-lg p-4 mb-4 shadow">
       {question.image_url && (
-        <div className="flex justify-center mb-6 rounded-md overflow-hidden relative aspect-video">
-           <div className="absolute inset-0 bg-black/30 z-10" />
-            <InstantImage 
-              src={question.image_url} 
-              alt="quiz content" 
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-800 to-transparent z-20" />
+        <div className="flex justify-center mb-3">
+          <img src={question.image_url} alt="quiz" className="max-h-40 rounded shadow" />
         </div>
       )}
-      <h2 className="text-white text-xl font-bold mb-6 text-center -mt-10 z-30 relative">{question.question_text}</h2>
-      <div className="flex flex-col gap-3">
-        {question.answers && question.answers.map((ans) => (
-          <Button
-            key={ans.id}
-            variant={selectedAnswer === ans.id ? 'default' : 'secondary'}
-            className="w-full py-6 text-lg rounded-lg font-bold transition-all duration-300 ease-in-out transform hover:scale-105"
-            onClick={() => handleAnswerClick(ans.id)}
-            disabled={loading || selectedAnswer !== null}
+      <div className="text-white text-lg font-semibold mb-2">{question.text}</div>
+      <div className="flex flex-col gap-2">
+        {question.answers.map((ans: string, idx: number) => (
+          <button
+            key={idx}
+            className="w-full py-2 rounded bg-orange-500 hover:bg-orange-600 text-white font-bold transition disabled:opacity-50"
+            onClick={() => onAnswer(ans)}
+            disabled={loading}
           >
-            {ans.answer_text}
-          </Button>
+            {ans}
+          </button>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

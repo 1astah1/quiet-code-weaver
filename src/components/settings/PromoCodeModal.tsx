@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Gift } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { useTranslation } from "@/components/ui/use-translation";
 
 interface PromoCodeModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ interface PromoCodeModalProps {
 const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCodeModalProps) => {
   const [promoCode, setPromoCode] = useState("");
   const { toast } = useToast();
+  const { t } = useTranslation(currentUser.language_code);
 
   const usePromoCodeMutation = useMutation({
     mutationFn: async (code: string) => {
@@ -32,7 +33,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
         .single();
 
       if (promoError || !promoData) {
-        throw new Error('Промокод не найден или неактивен');
+        throw new Error(t('promoCodeNotFound') || 'Промокод не найден или неактивен');
       }
 
       // Проверяем, не использовал ли пользователь уже этот промокод
@@ -44,17 +45,17 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
         .maybeSingle();
 
       if (usedPromo) {
-        throw new Error('Промокод уже был использован');
+        throw new Error(t('promoCodeAlreadyUsed') || 'Промокод уже был использован');
       }
 
       // Проверяем лимит использований
-      if (promoData.max_uses && (promoData.current_uses || 0) >= promoData.max_uses) {
-        throw new Error('Превышен лимит использований промокода');
+      if (promoData.max_uses && promoData.current_uses >= promoData.max_uses) {
+        throw new Error(t('promoCodeLimitExceeded') || 'Превышен лимит использований промокода');
       }
 
       // Проверяем срок действия
       if (promoData.expires_at && new Date(promoData.expires_at) < new Date()) {
-        throw new Error('Срок действия промокода истек');
+        throw new Error(t('promoCodeExpired') || 'Срок действия промокода истек');
       }
 
       // Начисляем монеты
@@ -79,7 +80,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
       // Обновляем счетчик использований
       const { error: updateError } = await supabase
         .from('promo_codes')
-        .update({ current_uses: (promoData.current_uses || 0) + 1 })
+        .update({ current_uses: promoData.current_uses + 1 })
         .eq('id', promoData.id);
 
       if (updateError) throw updateError;
@@ -89,15 +90,15 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
     onSuccess: (data) => {
       onCoinsUpdate(data.newCoins);
       toast({
-        title: "Промокод активирован!",
-        description: `Получено ${data.reward} монет`,
+        title: t('promoCodeActivated') || "Промокод активирован!",
+        description: t('coinsReceived')?.replace('{amount}', data.reward.toString()) || `Получено ${data.reward} монет`,
       });
       setPromoCode("");
       onClose();
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
+        title: t('error') || "Ошибка",
         description: error.message,
         variant: "destructive",
       });
@@ -122,7 +123,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
             <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
               <Gift className="w-5 h-5 text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-white">Промокоды</h3>
+            <h3 className="text-2xl font-bold text-white">{t('promoCodes') || 'Промокоды'}</h3>
           </div>
           <button 
             onClick={onClose}
@@ -135,7 +136,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
         {/* Content */}
         <div className="p-6">
           <p className="text-slate-300 mb-6">
-            Введите промокод для получения бонусных монет
+            {t('enterPromoCodeDesc') || 'Введите промокод для получения бонусных монет'}
           </p>
           
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -144,7 +145,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
                 type="text"
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                placeholder="Введите промокод"
+                placeholder={t('enterPromoCode') || 'Введите промокод'}
                 className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 transition-colors"
               />
             </div>
@@ -154,7 +155,7 @@ const PromoCodeModal = ({ isOpen, onClose, currentUser, onCoinsUpdate }: PromoCo
               disabled={!promoCode.trim() || usePromoCodeMutation.isPending}
               className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 rounded-lg transition-all hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed"
             >
-              {usePromoCodeMutation.isPending ? "Активация..." : "Активировать"}
+              {usePromoCodeMutation.isPending ? (t('activating') || "Активация...") : (t('activatePromoCode') || "Активировать")}
             </button>
           </form>
         </div>

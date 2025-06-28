@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,11 +31,11 @@ const PromoCodeManagement = () => {
     mutationFn: async (promoData: typeof newPromoCode) => {
       const { error } = await supabase
         .from('promo_codes')
-        .insert({
+        .insert([{
           ...promoData,
           code: promoData.code.toUpperCase(),
           expires_at: promoData.expires_at || null
-        });
+        }]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -195,7 +194,7 @@ const PromoCodeManagement = () => {
                   {promo.max_uses && (
                     <div className="flex items-center gap-1">
                       <Users className="w-4 h-4" />
-                      <span>{promo.current_uses || 0}/{promo.max_uses} использований</span>
+                      <span>{promo.current_uses}/{promo.max_uses} использований</span>
                     </div>
                   )}
                   {promo.expires_at && (
