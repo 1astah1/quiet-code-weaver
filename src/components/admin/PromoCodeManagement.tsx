@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,6 +17,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PromoCode } from "@/utils/supabaseTypes";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Edit, Plus, Download, Upload } from "lucide-react";
+
+// Type for creating new promo codes (required fields)
+type PromoCodeCreate = {
+  code: string;
+  reward_coins: number;
+  max_uses?: number;
+  expires_at?: string;
+  is_active?: boolean;
+};
 
 interface BulkPromoCodeData {
   code: string;
@@ -28,7 +40,7 @@ interface BulkPromoCodeData {
 }
 
 const PromoCodeManagement = () => {
-  const [newPromoCode, setNewPromoCode] = useState<Partial<PromoCode>>({
+  const [newPromoCode, setNewPromoCode] = useState<PromoCodeCreate>({
     code: '',
     reward_coins: 0,
     max_uses: undefined,
@@ -55,7 +67,7 @@ const PromoCodeManagement = () => {
   });
 
   const createPromoCodeMutation = useMutation({
-    mutationFn: async (promoCode: Partial<PromoCode>) => {
+    mutationFn: async (promoCode: PromoCodeCreate) => {
       const { error } = await supabase
         .from('promo_codes')
         .insert([promoCode]);
