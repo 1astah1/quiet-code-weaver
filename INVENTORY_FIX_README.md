@@ -138,8 +138,17 @@ CREATE POLICY "Users can insert their own free case openings"
 ON user_free_case_openings FOR INSERT 
 WITH CHECK (user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1));
 
--- Add unique constraint on auth_id to prevent duplicates
-ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
+-- Add unique constraint on auth_id to prevent duplicates (only if it doesn't exist)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'users' 
+        AND constraint_name = 'unique_auth_id'
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
+    END IF;
+END $$;
 ```
 
 5. **Нажмите "Run"** для выполнения запроса
@@ -152,6 +161,37 @@ ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
 3. Проверьте, что ошибка больше не появляется в консоли
 
 ## Возможные ошибки и их решения
+
+### Ошибка: "relation 'unique_auth_id' already exists"
+
+Если вы получаете ошибку:
+```
+ERROR: 42P07: relation "unique_auth_id" already exists
+```
+
+Это означает, что ограничение `unique_auth_id` уже существует в базе данных.
+
+**Решение**: Используйте безопасный подход с проверкой существования:
+
+```sql
+-- Проверим, существует ли уже ограничение unique_auth_id
+SELECT constraint_name 
+FROM information_schema.table_constraints 
+WHERE table_name = 'users' 
+AND constraint_name = 'unique_auth_id';
+
+-- Если ограничение не существует, добавим его
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'users' 
+        AND constraint_name = 'unique_auth_id'
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
+    END IF;
+END $$;
+```
 
 ### Ошибка: "could not create unique index 'unique_auth_id'"
 
