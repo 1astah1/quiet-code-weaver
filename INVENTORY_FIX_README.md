@@ -9,11 +9,21 @@
 ## Причина
 Ошибка возникает из-за проблем с политиками RLS (Row Level Security) в базе данных Supabase. Подзапрос в политике безопасности возвращает несколько строк вместо одной, что вызывает ошибку PostgreSQL.
 
-## Решение
+## Решение (Рекомендуемый способ)
 
-### 1. Применить миграцию для исправления RLS политик
+### Применить миграцию через Supabase Dashboard
 
-Создайте и примените миграцию `20250628120000_fix_inventory_rls.sql`:
+1. **Откройте Supabase Dashboard**:
+   - Перейдите на https://supabase.com/dashboard
+   - Войдите в свой аккаунт
+   - Выберите проект `vrxtrkabuasyfosmvgzp`
+
+2. **Перейдите в SQL Editor**:
+   - В левом меню найдите "SQL Editor"
+   - Нажмите "New query"
+
+3. **Выполните SQL миграцию**:
+   Скопируйте и вставьте следующий код:
 
 ```sql
 -- Fix RLS policies for user_inventory to prevent "more than one row returned by a subquery" error
@@ -36,6 +46,71 @@ CREATE POLICY "Users can manage own inventory" ON user_inventory
     user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
   );
 
+-- Also fix other tables that might have the same issue
+DROP POLICY IF EXISTS "Users can read own favorites" ON user_favorites;
+DROP POLICY IF EXISTS "Users can manage own favorites" ON user_favorites;
+
+CREATE POLICY "Users can read own favorites" ON user_favorites
+  FOR SELECT USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+CREATE POLICY "Users can manage own favorites" ON user_favorites
+  FOR ALL USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+DROP POLICY IF EXISTS "Users can read own quiz progress" ON user_quiz_progress;
+DROP POLICY IF EXISTS "Users can manage own quiz progress" ON user_quiz_progress;
+
+CREATE POLICY "Users can read own quiz progress" ON user_quiz_progress
+  FOR SELECT USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+CREATE POLICY "Users can manage own quiz progress" ON user_quiz_progress
+  FOR ALL USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+DROP POLICY IF EXISTS "Users can read own promo usage" ON user_promo_codes;
+DROP POLICY IF EXISTS "Users can use promo codes" ON user_promo_codes;
+
+CREATE POLICY "Users can read own promo usage" ON user_promo_codes
+  FOR SELECT USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+CREATE POLICY "Users can use promo codes" ON user_promo_codes
+  FOR INSERT WITH CHECK (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+DROP POLICY IF EXISTS "Users can read own steam settings" ON user_steam_settings;
+DROP POLICY IF EXISTS "Users can manage own steam settings" ON user_steam_settings;
+
+CREATE POLICY "Users can read own steam settings" ON user_steam_settings
+  FOR SELECT USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+CREATE POLICY "Users can manage own steam settings" ON user_steam_settings
+  FOR ALL USING (
+    user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1)
+  );
+
+-- Fix user_free_case_openings policies
+DROP POLICY IF EXISTS "Users can view their own free case openings" ON user_free_case_openings;
+DROP POLICY IF EXISTS "Users can insert their own free case openings" ON user_free_case_openings;
+
+CREATE POLICY "Users can view their own free case openings" 
+ON user_free_case_openings FOR SELECT 
+USING (user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1));
+
+CREATE POLICY "Users can insert their own free case openings" 
+ON user_free_case_openings FOR INSERT 
+WITH CHECK (user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1));
+
 -- Add unique constraint on auth_id to prevent duplicates
 ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
 
@@ -44,40 +119,39 @@ DELETE FROM users a USING users b
 WHERE a.id > b.id AND a.auth_id = b.auth_id AND a.auth_id IS NOT NULL;
 ```
 
-### 2. Как применить миграцию
+4. **Нажмите "Run"** для выполнения запроса
 
-#### Вариант A: Через Supabase Dashboard
-1. Откройте [Supabase Dashboard](https://supabase.com/dashboard)
-2. Выберите проект `vrxtrkabuasyfosmvgzp`
-3. Перейдите в раздел "SQL Editor"
-4. Вставьте SQL код выше и выполните
-
-#### Вариант B: Через Supabase CLI
-```bash
-# Установите Supabase CLI
-npm install -g supabase
-
-# Войдите в аккаунт
-supabase login
-
-# Примените миграцию
-supabase db push
-```
-
-### 3. Проверка исправления
+### Проверка исправления
 
 После применения миграции:
 1. Перезапустите приложение
 2. Перейдите в раздел "Инвентарь"
 3. Проверьте, что ошибка больше не появляется в консоли
 
-## Альтернативное решение
+## Альтернативные способы
 
-Если миграция не может быть применена немедленно, код уже обновлен для лучшей обработки ошибок:
+### Через Supabase CLI (если установлен)
 
-- Добавлено подробное логирование
-- Улучшена обработка ошибок
-- Добавлено сообщение пользователю о проблеме с конфигурацией
+Если у вас уже установлен Supabase CLI:
+```bash
+supabase db push
+```
+
+### Через Docker (для разработчиков)
+
+```bash
+# Установите Supabase CLI через Docker
+docker run --rm -it supabase/cli:latest db push
+```
+
+## Что было исправлено в коде
+
+Код уже обновлен для лучшей обработки ошибок:
+
+- ✅ Добавлено подробное логирование
+- ✅ Улучшена обработка ошибок
+- ✅ Добавлено информативное сообщение пользователю
+- ✅ Добавлена логика повторных попыток
 
 ## Дополнительные рекомендации
 
