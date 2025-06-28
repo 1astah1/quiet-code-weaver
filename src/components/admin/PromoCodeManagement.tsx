@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -153,6 +155,25 @@ const PromoCodeManagement = () => {
 
   const handleBulkCreate = async () => {
     const codes = bulkCodes.split('\n').filter(code => code.trim());
+    
+    if (codes.length === 0) {
+      toast({
+        title: "Ошибка",
+        description: "Введите коды для создания",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!bulkReward) {
+      toast({
+        title: "Ошибка", 
+        description: "Укажите награду",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const promoData = codes.map(code => ({
       code: code.trim(),
       reward_coins: bulkReward,
@@ -245,11 +266,10 @@ const PromoCodeManagement = () => {
         <div className="space-y-4">
           <div>
             <Label>Список кодов (каждый с новой строки)</Label>
-            <Input
-              as="textarea"
+            <Textarea
               value={bulkCodes}
               onChange={(e) => setBulkCodes(e.target.value)}
-              placeholder="Код1\nКод2\nКод3"
+              placeholder="Код1&#10;Код2&#10;Код3"
               className="min-h-[100px]"
             />
           </div>

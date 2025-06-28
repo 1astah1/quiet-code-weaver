@@ -1,902 +1,387 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Plus, Upload, X, Shuffle, Image } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Eye, Upload, Settings, Users, Plus, Package, DollarSign, Calendar, Heart, Tag, Clock, Image } from "lucide-react";
+import { format } from "date-fns";
 import CaseSkinManagement from "./CaseSkinManagement";
-import { Case } from "@/utils/supabaseTypes";
+import CaseJSONImporter from "./CaseJSONImporter";
+import type { Case } from "@/utils/supabaseTypes";
 
 interface CaseManagementProps {
   tableData: Case[];
   selectedCase: string | null;
   setSelectedCase: (caseId: string | null) => void;
   uploadingImage: boolean;
-  onSkinImageUpload: (file: File, skinId: string) => void;
+  onSkinImageUpload: (file: File, skinId: string) => Promise<void>;
 }
 
-const CaseManagement = ({ 
-  tableData, 
-  selectedCase, 
-  setSelectedCase, 
-  uploadingImage, 
-  onSkinImageUpload 
+const CaseManagement = ({
+  tableData,
+  selectedCase,
+  setSelectedCase,
+  uploadingImage,
+  onSkinImageUpload
 }: CaseManagementProps) => {
-  const [editingCase, setEditingCase] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Case | Record<string, unknown>>({} as Case);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showAddSkinForm, setShowAddSkinForm] = useState(false);
-  const [newCaseData, setNewCaseData] = useState({
-    name: '',
-    description: '',
-    price: 0,
-    is_free: false,
-    cover_image_url: '',
-    image_url: ''
-  });
-  const [newSkinData, setNewSkinData] = useState({
-    reward_type: 'skin',
-    skin_id: '',
-    coin_reward_id: '',
-    probability: 1.0,
-    never_drop: false,
-    custom_probability: null as number | null
-  });
-  const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
-  const [uploadingMainImage, setUploadingMainImage] = useState(false);
-  const [uploadingEditImage, setUploadingEditImage] = useState<{ [key: string]: boolean }>({});
-  const [isAutoSelectingSkns, setIsAutoSelectingSkins] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Query for all available skins to add to case
-  const { data: allSkins } = useQuery({
-    queryKey: ['all_skins'],
+  const { data: caseStats } = useQuery({
+    queryKey: ['case_stats'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('skins')
-        .select('*')
-        .order('name');
-      
-      if (error) {
-        console.error('Error loading skins:', error);
-        throw error;
-      }
-      return data || [];
-    }
-  });
-
-  // Query for all coin rewards
-  const { data: coinRewards } = useQuery({
-    queryKey: ['coin_rewards'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('coin_rewards')
-        .select('*')
-        .order('amount');
-      
-      if (error) {
-        console.error('Error loading coin rewards:', error);
-        throw error;
-      }
-      return data || [];
-    }
-  });
-
-  // ИСПРАВЛЕНО: Валидация вероятности с учетом ограничений БД
-  const validateProbability = (value: number): boolean => {
-    return value >= 0 && value <= 9.9999 && !isNaN(value);
-  };
-
-  const { data: caseSkins } = useQuery({
-    queryKey: ['case_skins', selectedCase],
-    queryFn: async () => {
-      if (!selectedCase) return [];
-      console.log('Loading case skins for case:', selectedCase);
-      const { data, error } = await supabase
-        .from('case_skins')
+        .from('cases')
         .select(`
           id,
-          probability,
-          never_drop,
-          custom_probability,
-          reward_type,
-          skins (*),
-          coin_rewards (*)
-        `)
-        .eq('case_id', selectedCase);
+          name,
+          price,
+          case_skins(count)
+        `);
       
-      if (error) {
-        console.error('Error loading case skins:', error);
-        throw error;
-      }
-      console.log('Loaded case skins:', data);
-      return data || [];
-    },
-    enabled: !!selectedCase
+      if (error) throw error;
+      return data;
+    }
   });
 
-  // ИСПРАВЛЕНО: Функция автоподбора скинов с правильным синтаксисом Supabase
-  const handleAutoSelectSkins = async () => {
-    if (!selectedCase) {
-      toast({ 
-        title: "Ошибка", 
-        description: "Выберите кейс для автоподбора скинов",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    setIsAutoSelectingSkins(true);
-    try {
-      // Получаем уже добавленные скины
-      const { data: existingSkins } = await supabase
-        .from('case_skins')
-        .select('skin_id')
-        .eq('case_id', selectedCase)
-        .not('skin_id', 'is', null);
-
-      const existingSkinIds = existingSkins?.map(item => item.skin_id) || [];
-
-      // ИСПРАВЛЕНО: Получаем случайные скины с правильным синтаксисом
-      let availableSkinsQuery = supabase
-        .from('skins')
-        .select('id, name, rarity, price')
-        .order('id', { ascending: false })
-        .limit(50);
-
-      // Исключаем уже добавленные скины
-      if (existingSkinIds.length > 0) {
-        availableSkinsQuery = availableSkinsQuery.not('id', 'in', `(${existingSkinIds.map(id => `'${id}'`).join(',')})`);
-      }
-
-      const { data: availableSkins, error: skinsError } = await availableSkinsQuery;
-
-      if (skinsError) {
-        throw skinsError;
-      }
-
-      if (!availableSkins || availableSkins.length === 0) {
-        toast({ 
-          title: "Нет доступных скинов", 
-          description: "Все скины уже добавлены в кейс или нет скинов в базе",
-          variant: "destructive" 
-        });
-        return;
-      }
-
-      // Перемешиваем и берем первые 10
-      const shuffledSkins = availableSkins.sort(() => Math.random() - 0.5).slice(0, 10);
-
-      // ИСПРАВЛЕНО: Добавляем каждый скин с вероятностью в пределах БД (максимум 9.9999)
-      const rarityProbabilities: { [key: string]: number } = {
-        'Consumer Grade': 8.5,
-        'Industrial Grade': 6.0,
-        'Mil-Spec': 4.5,
-        'Restricted': 2.5,
-        'Classified': 1.5,
-        'Covert': 0.8,
-        'Contraband': 0.3
-      };
-
-      const insertPromises = shuffledSkins.map(async (skin) => {
-        const probability = Math.min(rarityProbabilities[skin.rarity] || 5.0, 9.9999);
-        
-        return supabase
-          .from('case_skins')
-          .insert({
-            case_id: selectedCase,
-            skin_id: skin.id,
-            reward_type: 'skin',
-            probability: probability,
-            never_drop: false,
-            custom_probability: null
-          });
-      });
-
-      const results = await Promise.all(insertPromises);
-      
-      // Проверяем на ошибки
-      const errors = results.filter(result => result.error);
-      if (errors.length > 0) {
-        console.error('Errors during auto-select:', errors);
-        throw new Error(`Не удалось добавить ${errors.length} скинов`);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-      
-      toast({ 
-        title: "Автоподбор завершен!", 
-        description: `Добавлено ${shuffledSkins.length} скинов в кейс` 
-      });
-
-    } catch (error) {
-      console.error('Auto-select error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка автоподбора", 
-        description: errorMessage,
-        variant: "destructive" 
-      });
-    } finally {
-      setIsAutoSelectingSkins(false);
-    }
-  };
-
-  // НОВОЕ: Функция загрузки изображений для новых кейсов
-  const handleImageUpload = async (file: File, fieldName: string) => {
-    if (!file) return;
-    
-    const setLoading = fieldName === 'cover_image_url' ? setUploadingCoverImage : setUploadingMainImage;
-    setLoading(true);
+  const handleImageUpload = async (file: File, caseId: string, fieldName: 'image_url' | 'cover_image_url') => {
+    console.log('🖼️ [CASE_MANAGEMENT] Uploading case image:', { caseId, fieldName, fileName: file.name });
     
     try {
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Файл слишком большой. Максимальный размер: 5MB');
-      }
-
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Файл должен быть изображением');
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const bucketName = 'case-images';
       const folder = fieldName === 'cover_image_url' ? 'case-covers' : 'case-images';
+      
+      const fileExt = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const fileName = `case_${caseId}_${fieldName}_${timestamp}_${randomId}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
-      console.log('Uploading case image to:', filePath);
-
       const { error: uploadError } = await supabase.storage
-        .from('case-images')
+        .from(bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
+        console.error('❌ [CASE_MANAGEMENT] Upload error:', uploadError);
+        throw uploadError;
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('case-images')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
-      console.log('Generated public URL:', publicUrl);
+      console.log('✅ [CASE_MANAGEMENT] File uploaded, updating database:', publicUrl);
 
-      setNewCaseData({ ...newCaseData, [fieldName]: publicUrl });
-      toast({ title: "Изображение загружено" });
-    } catch (error) {
-      console.error('Upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка загрузки", 
-        description: errorMessage,
-        variant: "destructive" 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // НОВОЕ: Функция загрузки изображений для редактирования кейсов
-  const handleEditImageUpload = async (file: File, caseId: string, fieldName: string) => {
-    if (!file) return;
-    
-    setUploadingEditImage({ ...uploadingEditImage, [`${caseId}_${fieldName}`]: true });
-    
-    try {
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Файл слишком большой. Максимальный размер: 5MB');
-      }
-
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Файл должен быть изображением');
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const folder = fieldName === 'cover_image_url' ? 'case-covers' : 'case-images';
-      const filePath = `${folder}/${fileName}`;
-
-      console.log('Uploading case image to:', filePath);
-
-      const { error: uploadError } = await supabase.storage
-        .from('case-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw new Error(`Ошибка загрузки: ${uploadError.message}`);
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('case-images')
-        .getPublicUrl(filePath);
-
-      // Обновляем данные в режиме редактирования
-      if (editingCase === caseId) {
-        setEditData({ ...editData, [fieldName]: publicUrl });
-      }
-
-      // Также обновляем в базе данных
       const { error: updateError } = await supabase
         .from('cases')
         .update({ [fieldName]: publicUrl })
         .eq('id', caseId);
 
       if (updateError) {
-        throw new Error(`Ошибка обновления: ${updateError.message}`);
+        console.error('❌ [CASE_MANAGEMENT] Database update error:', updateError);
+        throw updateError;
       }
 
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({ title: "Изображение обновлено" });
-    } catch (error) {
-      console.error('Upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
+      // Агрессивная инвалидация кэша
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cases'] }),
+        queryClient.invalidateQueries({ queryKey: ['case_stats'] }),
+        queryClient.refetchQueries({ queryKey: ['cases'] })
+      ]);
+
+      console.log('✅ [CASE_MANAGEMENT] Case image updated successfully');
+      toast({ 
+        title: "Изображение кейса обновлено",
+        description: `Изображение успешно загружено. URL: ${publicUrl}`
+      });
+    } catch (error: any) {
+      console.error('❌ [CASE_MANAGEMENT] Upload failed:', error);
       toast({ 
         title: "Ошибка загрузки", 
-        description: errorMessage,
+        description: error.message || "Неизвестная ошибка",
         variant: "destructive" 
       });
-    } finally {
-      setUploadingEditImage(prev => ({ ...prev, [`${caseId}_${fieldName}`]: false }));
     }
   };
 
-  const handleAddCase = async () => {
+  const handleFreeCaseOpen = async (caseId: string) => {
+    console.log('🆓 [CASE_MANAGEMENT] Opening free case:', caseId);
     try {
+      const caseToUpdate = tableData.find(c => c.id === caseId);
+      if (!caseToUpdate) {
+        throw new Error('Кейс не найден');
+      }
+      
       const { error } = await supabase
         .from('cases')
-        .insert([newCaseData]);
-      
-      if (error) throw error;
-      
-      setNewCaseData({
-        name: '',
-        description: '',
-        price: 0,
-        is_free: false,
-        cover_image_url: '',
-        image_url: ''
-      });
-      setShowAddForm(false);
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({ title: "Кейс успешно добавлен" });
-    } catch (error) {
-      console.error('Error adding case:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка", 
-        description: `Не удалось добавить кейс: ${errorMessage}`, 
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const handleDeleteCase = async (caseId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот кейс? Это действие нельзя отменить.')) {
-      return;
-    }
-
-    try {
-      const { error: skinsError } = await supabase
-        .from('case_skins')
-        .delete()
-        .eq('case_id', caseId);
-
-      if (skinsError) throw skinsError;
-
-      const { error: caseError } = await supabase
-        .from('cases')
-        .delete()
+        .update({ 
+          last_free_open: new Date().toISOString(),
+          is_free: true
+        })
         .eq('id', caseId);
 
-      if (caseError) throw caseError;
+      if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({ title: "Кейс успешно удален" });
-      
-      if (selectedCase === caseId) {
-        setSelectedCase(null);
-      }
-    } catch (error) {
-      console.error('Error deleting case:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
+      await queryClient.invalidateQueries({ queryKey: ['cases'] });
+      toast({ title: "Бесплатное открытие активировано" });
+    } catch (error: any) {
+      console.error('❌ [CASE_MANAGEMENT] Free case open failed:', error);
       toast({ 
         title: "Ошибка", 
-        description: `Не удалось удалить кейс: ${errorMessage}`, 
+        description: error.message,
         variant: "destructive" 
       });
     }
   };
 
-  const handleEditCase = (caseItem: Case) => {
-    setEditingCase(caseItem.id);
-    setEditData(caseItem);
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('ru-RU').format(price);
   };
 
-  const handleSaveCase = async () => {
+  const handleLikeCase = async (caseId: string) => {
     try {
+      const caseToUpdate = tableData.find(c => c.id === caseId);
+      if (!caseToUpdate) return;
+      
+      const newLikesCount = (caseToUpdate.likes_count || 0) + 1;
+      
       const { error } = await supabase
         .from('cases')
-        .update(editData)
-        .eq('id', editingCase);
-      
-      if (error) throw error;
-      
-      setEditingCase(null);
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      toast({ title: "Кейс обновлен" });
-    } catch (error) {
-      console.error('Error saving case:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка", 
-        description: `Не удалось сохранить кейс: ${errorMessage}`, 
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const handleAddSkinToCase = async () => {
-    const currentCaseId = selectedCase;
-    if (!currentCaseId) {
-      toast({
-        title: "Ошибка",
-        description: "Сначала выберите кейс, в который хотите добавить предмет.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (newSkinData.reward_type === 'skin' && !newSkinData.skin_id) {
-      toast({ 
-        title: "Ошибка", 
-        description: "Выберите скин",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    if (newSkinData.reward_type === 'coin_reward' && !newSkinData.coin_reward_id) {
-      toast({ 
-        title: "Ошибка", 
-        description: "Выберите монетную награду",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    // ИСПРАВЛЕНО: Валидация вероятностей с учетом ограничений БД
-    if (!validateProbability(newSkinData.probability)) {
-      toast({ 
-        title: "Ошибка вероятности", 
-        description: "Вероятность должна быть от 0 до 9.9999% (ограничение БД)",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    if (newSkinData.custom_probability !== null && !validateProbability(newSkinData.custom_probability)) {
-      toast({ 
-        title: "Ошибка кастомной вероятности", 
-        description: "Кастомная вероятность должна быть от 0 до 9.9999% (ограничение БД)",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('case_skins')
-        .insert({
-          case_id: currentCaseId,
-          skin_id: newSkinData.reward_type === 'skin' ? newSkinData.skin_id : null,
-          coin_reward_id: newSkinData.reward_type === 'coin' ? newSkinData.coin_reward_id : null,
-          reward_type: newSkinData.reward_type,
-          probability: newSkinData.custom_probability ?? newSkinData.probability,
-          never_drop: newSkinData.never_drop,
-        })
-        .select();
+        .update({ likes_count: newLikesCount })
+        .eq('id', caseId);
 
       if (error) throw error;
-      
-      toast({ title: "Предмет добавлен в кейс" });
-      setShowAddSkinForm(false);
-      queryClient.invalidateQueries({ queryKey: ['case_skins', currentCaseId] });
-      
-    } catch (error) {
-      console.error('Error adding skin to case:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
+
+      await queryClient.invalidateQueries({ queryKey: ['cases'] });
+      toast({ title: "Лайк добавлен!" });
+    } catch (error: any) {
+      console.error('❌ [CASE_MANAGEMENT] Like failed:', error);
       toast({ 
         title: "Ошибка", 
-        description: `Не удалось добавить предмет: ${errorMessage}`, 
+        description: error.message,
         variant: "destructive" 
       });
     }
   };
 
-  const handleRemoveSkinFromCase = async (caseSkinId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот скин из кейса?')) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('case_skins')
-        .delete()
-        .eq('id', caseSkinId);
-      
-      if (error) throw error;
-      
-      queryClient.invalidateQueries({ queryKey: ['case_skins', selectedCase] });
-      toast({ title: "Скин удален из кейса" });
-    } catch (error) {
-      console.error('Error removing skin from case:', error);
-      const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка", 
-        description: `Не удалось удалить предмет: ${errorMessage}`, 
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const handleSkinsButtonClick = (caseId: string) => {
-    console.log('Скины кнопка нажата для кейса:', caseId);
-    console.log('Текущий выбранный кейс:', selectedCase);
-    
-    // Если кейс уже выбран, скрываем его. Иначе показываем скины для этого кейса
-    if (selectedCase === caseId) {
-      setSelectedCase(null);
-    } else {
-      setSelectedCase(caseId ? String(caseId) : null);
-    }
-  };
-
-  const handleSkinImageUpload = async (file: File, skinId: string) => {
-    if (!skinId) {
-      console.warn('⚠️ [SKIN_UPLOAD] No skin ID provided');
-      return;
-    }
-    
-    await onSkinImageUpload(file, skinId);
-  };
+  if (selectedCase) {
+    const selectedCaseData = tableData.find(c => c.id === selectedCase);
+    return (
+      <CaseSkinManagement
+        caseId={selectedCase}
+        caseName={selectedCaseData?.name || 'Неизвестный кейс'}
+        onClose={() => setSelectedCase(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Заголовок и кнопки управления */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-white">Управление кейсами</h3>
-        <Button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Добавить кейс
-        </Button>
+        <div>
+          <h3 className="text-2xl font-bold text-white">Управление кейсами</h3>
+          <p className="text-gray-400">Всего кейсов: {tableData.length}</p>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          <Button
+            onClick={() => setShowImporter(!showImporter)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {showImporter ? 'Скрыть импорт' : 'Импорт JSON'}
+          </Button>
+        </div>
       </div>
 
-      {showAddForm && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h4 className="text-white font-medium mb-4">Добавить новый кейс</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Название кейса"
-              value={typeof newCaseData.name === 'string' ? newCaseData.name : ''}
-              onChange={(e) => setNewCaseData({ ...newCaseData, name: e.target.value })}
-              className="bg-gray-700 text-white px-3 py-2 rounded"
-            />
-            <input
-              type="number"
-              placeholder="Цена"
-              value={typeof newCaseData.price === 'number' ? newCaseData.price : Number(newCaseData.price) || ''}
-              onChange={(e) => setNewCaseData({ ...newCaseData, price: parseInt(e.target.value) || 0 })}
-              className="bg-gray-700 text-white px-3 py-2 rounded"
-            />
-            <div className="col-span-1 md:col-span-2">
-              <textarea
-                placeholder="Описание кейса"
-                value={typeof newCaseData.description === 'string' ? newCaseData.description : ''}
-                onChange={(e) => setNewCaseData({ ...newCaseData, description: e.target.value })}
-                className="bg-gray-700 text-white px-3 py-2 rounded w-full"
-                rows={3}
-              />
-            </div>
-            
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-gray-300 text-sm mb-2">Обложка кейса:</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file, 'cover_image_url');
-                }}
-                className="bg-gray-700 text-white px-3 py-2 rounded w-full"
-                disabled={uploadingCoverImage}
-              />
-              <p className="text-gray-400 text-xs mt-1">Рекомендуемый размер: 800x600px, форматы: JPG, PNG, WebP, максимум 5MB</p>
-              {newCaseData.cover_image_url && (
-                <div className="mt-2 relative">
-                  <img 
-                    src={newCaseData.cover_image_url} 
-                    alt="Cover Preview" 
-                    className="w-20 h-15 object-cover rounded"
-                  />
-                  <button
-                    onClick={() => setNewCaseData({ ...newCaseData, cover_image_url: '' })}
-                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-gray-300 text-sm mb-2">Основное изображение кейса:</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file, 'image_url');
-                }}
-                className="bg-gray-700 text-white px-3 py-2 rounded w-full"
-                disabled={uploadingMainImage}
-              />
-              <p className="text-gray-400 text-xs mt-1">Рекомендуемый размер: 512x512px, форматы: JPG, PNG, WebP, максимум 5MB</p>
-              {newCaseData.image_url && (
-                <div className="mt-2 relative">
-                  <img 
-                    src={newCaseData.image_url} 
-                    alt="Main Preview" 
-                    className="w-20 h-20 object-cover rounded"
-                  />
-                  <button
-                    onClick={() => setNewCaseData({ ...newCaseData, image_url: '' })}
-                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <label className="flex items-center space-x-2 col-span-1 md:col-span-2">
-              <input
-                type="checkbox"
-                checked={typeof newCaseData.is_free === 'boolean' ? newCaseData.is_free : false}
-                onChange={(e) => setNewCaseData({ ...newCaseData, is_free: e.target.checked })}
-                className="text-orange-500"
-              />
-              <span className="text-gray-300">Бесплатный кейс</span>
-            </label>
-          </div>
-          <div className="flex space-x-2 mt-4">
-            <Button
-              onClick={handleAddCase}
-              disabled={uploadingCoverImage || uploadingMainImage || !newCaseData.name}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {(uploadingCoverImage || uploadingMainImage) ? (
-                <>
-                  <Upload className="w-4 h-4 mr-2 animate-spin" />
-                  Загружаем...
-                </>
-              ) : (
-                'Добавить'
-              )}
-            </Button>
-            <Button 
-              onClick={() => setShowAddForm(false)} 
-              variant="outline"
-            >
-              Отмена
-            </Button>
-          </div>
-        </div>
+      {/* JSON Импортер */}
+      {showImporter && (
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white">Импорт кейсов из JSON</CardTitle>
+            <CardDescription className="text-gray-400">
+              Загрузите JSON файл для массового создания кейсов и скинов
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CaseJSONImporter />
+          </CardContent>
+        </Card>
       )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {tableData?.map((caseItem) => (
-          <div key={caseItem.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            {editingCase === caseItem.id ? (
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={typeof editData.name === 'string' ? editData.name : ''}
-                  onChange={(e) => setEditData({...editData, name: e.target.value})}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded"
-                  placeholder="Название кейса"
-                />
-                <textarea
-                  value={typeof editData.description === 'string' ? editData.description : ''}
-                  onChange={(e) => setEditData({...editData, description: e.target.value})}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded"
-                  placeholder="Описание"
-                  rows={2}
-                />
-                <input
-                  type="number"
-                  value={typeof editData.price === 'number' ? editData.price : Number(editData.price) || ''}
-                  onChange={(e) => setEditData({...editData, price: parseInt(e.target.value) || 0})}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded"
-                  placeholder="Цена"
-                />
 
-                <div className="space-y-2">
-                  <label className="block text-gray-300 text-sm">Обложка кейса:</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleEditImageUpload(file, caseItem.id, 'cover_image_url');
-                      }}
-                      className="bg-gray-700 text-white px-2 py-1 rounded text-sm flex-1"
-                      disabled={uploadingEditImage[`${caseItem.id}_cover_image_url`]}
-                    />
-                    {uploadingEditImage[`${caseItem.id}_cover_image_url`] && (
-                      <Upload className="w-4 h-4 animate-spin text-orange-500" />
-                    )}
-                  </div>
-                  {(typeof editData.cover_image_url === 'string' && editData.cover_image_url) && (
-                    <img 
-                      src={editData.cover_image_url} 
-                      alt="Cover" 
-                      className="w-16 h-12 object-cover rounded"
-                    />
+      {/* Сетка кейсов */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {tableData.map((caseItem) => (
+          <Card key={caseItem.id} className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <CardTitle className="text-white text-lg font-semibold line-clamp-2">
+                    {caseItem.name}
+                  </CardTitle>
+                  {caseItem.description && (
+                    <CardDescription className="text-gray-400 text-sm mt-1 line-clamp-2">
+                      {caseItem.description}
+                    </CardDescription>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <label className="block text-gray-300 text-sm">Основное изображение:</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleEditImageUpload(file, caseItem.id, 'image_url');
-                      }}
-                      className="bg-gray-700 text-white px-2 py-1 rounded text-sm flex-1"
-                      disabled={uploadingEditImage[`${caseItem.id}_image_url`]}
-                    />
-                    {uploadingEditImage[`${caseItem.id}_image_url`] && (
-                      <Upload className="w-4 h-4 animate-spin text-orange-500" />
-                    )}
-                  </div>
-                  {(typeof editData.image_url === 'string' && editData.image_url) && (
-                    <img 
-                      src={editData.image_url} 
-                      alt="Main" 
-                      className="w-16 h-16 object-cover rounded"
-                    />
+                <div className="flex flex-col items-end space-y-1">
+                  {caseItem.is_free && (
+                    <Badge variant="secondary" className="bg-green-600 text-white">
+                      Бесплатный
+                    </Badge>
                   )}
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={typeof editData.is_free === 'boolean' ? editData.is_free : false}
-                    onChange={(e) => setEditData({...editData, is_free: e.target.checked})}
-                    className="rounded"
-                  />
-                  <label className="text-gray-300">Бесплатный</label>
-                </div>
-                <div className="flex space-x-2">
-                  <Button onClick={handleSaveCase} className="bg-green-600 hover:bg-green-700 px-3 py-1 text-sm">
-                    Сохранить
-                  </Button>
-                  <Button 
-                    onClick={() => setEditingCase(null)} 
-                    variant="outline"
-                    className="px-3 py-1 text-sm"
-                  >
-                    Отмена
-                  </Button>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center space-x-3 mb-3">
-                  {(typeof caseItem.cover_image_url === 'string' && caseItem.cover_image_url) && (
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {/* Изображение кейса */}
+              <div className="space-y-3">
+                <div className="aspect-video bg-gray-700 rounded-lg overflow-hidden relative group">
+                  {caseItem.image_url ? (
+                    <img 
+                      src={caseItem.image_url} 
+                      alt={caseItem.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <Package className="w-8 h-8" />
+                    </div>
+                  )}
+                  
+                  <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Загрузить
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageUpload(file, caseItem.id, 'image_url');
+                          }
+                        }}
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Cover Image */}
+                <div className="aspect-[3/1] bg-gray-700 rounded-lg overflow-hidden relative group">
+                  {caseItem.cover_image_url ? (
                     <img 
                       src={caseItem.cover_image_url} 
-                      alt={caseItem.name}
-                      className="w-12 h-12 object-cover rounded"
+                      alt={`${caseItem.name} Cover`}
+                      className="w-full h-full object-cover"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <Image className="w-6 h-6" />
+                      <span className="ml-2 text-sm">Cover</span>
+                    </div>
                   )}
-                  <div className="flex-1">
-                    <h4 className="text-white font-medium">{caseItem.name}</h4>
-                    <p className="text-gray-400 text-sm">{caseItem.price} монет</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex space-x-2">
-                    <Button
-                      onClick={() => handleEditCase(caseItem)}
-                      className="bg-blue-600 hover:bg-blue-700 px-2 py-1 text-xs"
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Изменить
-                    </Button>
-                    <Button
-                      onClick={() => handleSkinsButtonClick(caseItem.id)}
-                      variant={selectedCase === caseItem.id ? "default" : "outline"}
-                      className={`px-2 py-1 text-xs ${
-                        selectedCase === caseItem.id 
-                          ? "bg-orange-600 hover:bg-orange-700" 
-                          : ""
-                      }`}
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      {selectedCase === caseItem.id ? "Скрыть скины" : "Управление скинами"}
-                    </Button>
-                  </div>
                   
-                  <Button
-                    onClick={() => handleDeleteCase(caseItem.id)}
-                    className="bg-red-600 hover:bg-red-700 px-2 py-1 text-xs"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <label className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg flex items-center">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Cover
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageUpload(file, caseItem.id, 'cover_image_url');
+                          }
+                        }}
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* Статистики кейса */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center text-green-400">
+                  <DollarSign className="w-4 h-4 mr-1" />
+                  {formatPrice(caseItem.price)} монет
+                </div>
+                <div className="flex items-center text-red-400">
+                  <Heart className="w-4 h-4 mr-1" />
+                  {(caseItem.likes_count || 0)} лайков
+                </div>
+                <div className="flex items-center text-blue-400">
+                  <Package className="w-4 h-4 mr-1" />
+                  ID: {caseItem.id.substring(0, 8)}...
+                </div>
+                <div className="flex items-center text-gray-400">
+                  <Calendar className="w-4 h-4 mr-1" />
+                  {caseItem.created_at ? format(new Date(caseItem.created_at), 'dd.MM.yy') : '—'}
+                </div>
+              </div>
+
+              {/* Последнее бесплатное открытие */}
+              {caseItem.last_free_open && (
+                <div className="flex items-center text-yellow-400 text-sm">
+                  <Clock className="w-4 h-4 mr-1" />
+                  Бесплатно: {format(new Date(caseItem.last_free_open), 'dd.MM.yyyy HH:mm')}
+                </div>
+              )}
+
+              {/* Кнопки действий */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => setSelectedCase(caseItem.id)}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 flex-1"
+                >
+                  <Settings className="w-4 h-4 mr-1" />
+                  Скины
+                </Button>
+                
+                <Button
+                  onClick={() => handleFreeCaseOpen(caseItem.id)}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Tag className="w-4 h-4 mr-1" />
+                  Бесплатно
+                </Button>
+                
+                <Button
+                  onClick={() => handleLikeCase(caseItem.id)}
+                  size="sm"
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
+                  <Heart className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {selectedCase && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-white font-medium">
-              Автоподбор скинов для: {tableData?.find(c => c.id === selectedCase)?.name}
-            </h4>
-            <Button
-              onClick={handleAutoSelectSkins}
-              disabled={isAutoSelectingSkns}
-              className="bg-purple-600 hover:bg-purple-700 px-3 py-2 text-sm"
-            >
-              {isAutoSelectingSkns ? (
-                <>
-                  <Upload className="w-4 h-4 mr-2 animate-spin" />
-                  Подбираем...
-                </>
-              ) : (
-                <>
-                  <Shuffle className="w-4 h-4 mr-2" />
-                  Автоподбор скинов (до 10)
-                </>
-              )}
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <p className="text-gray-400 text-sm">
-              Автоматически добавит до 10 случайных скинов в кейс с вероятностями по редкости.
-            </p>
-            <p className="text-yellow-400 text-xs bg-yellow-900/20 p-2 rounded">
-              ⚠️ Максимальная вероятность: 9.9999% (ограничение базы данных)
-            </p>
-          </div>
+      {tableData.length === 0 && (
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-300 mb-2">Кейсы не найдены</h3>
+          <p className="text-gray-500">Создайте первый кейс или импортируйте из JSON</p>
         </div>
-      )}
-
-      {selectedCase && (
-        <CaseSkinManagement
-          caseId={selectedCase}
-          caseName={tableData?.find(c => c.id === selectedCase)?.name || 'Неизвестный кейс'}
-          onClose={() => setSelectedCase(null)}
-        />
       )}
     </div>
   );

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, Plus, Save, X, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import InstantImage from "@/components/ui/InstantImage";
+import { format } from 'date-fns';
 import { CaseSkin } from "@/utils/supabaseTypes";
 
 interface CaseSkinManagementProps {
@@ -14,9 +15,27 @@ interface CaseSkinManagementProps {
   onClose: () => void;
 }
 
+interface CaseSkinWithRelations extends CaseSkin {
+  skins?: {
+    id: string;
+    name: string;
+    weapon_type: string;
+    rarity: string;
+    price: number;
+    image_url?: string;
+    created_at?: string;
+  } | null;
+  coin_rewards?: {
+    id: string;
+    name: string;
+    amount: number;
+    image_url?: string;
+  } | null;
+}
+
 const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementProps) => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<CaseSkin | Record<string, unknown>>({} as CaseSkin);
+  const [editData, setEditData] = useState<Partial<CaseSkin>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSkinData, setNewSkinData] = useState({
     reward_type: 'skin',
@@ -27,8 +46,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     custom_probability: null as number | null
   });
   const [cloneFromCase, setCloneFromCase] = useState('');
-  const [editingSkin, setEditingSkin] = useState<CaseSkin | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -45,6 +62,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
           never_drop,
           custom_probability,
           reward_type,
+          created_at,
           skins (*),
           coin_rewards (*)
         `)
@@ -58,13 +76,12 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       console.log('✅ [CASE_SKINS] Fetched data:', data);
       return data || [];
     },
-    staleTime: 0, // Всегда считать данные устаревшими
-    gcTime: 0, // Не кэшировать данные (was cacheTime in older versions)
+    staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true
   });
 
-  // Загружаем все доступные скины
   const { data: allSkins } = useQuery({
     queryKey: ['all_skins'],
     queryFn: async () => {
@@ -77,7 +94,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
   });
 
-  // Загружаем монетные награды
   const { data: coinRewards } = useQuery({
     queryKey: ['coin_rewards'],
     queryFn: async () => {
@@ -90,7 +106,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
   });
 
-  // Загружаем все кейсы для клонирования
   const { data: allCases } = useQuery({
     queryKey: ['all_cases'],
     queryFn: async () => {
@@ -105,17 +120,17 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
   });
 
   const totalProbability = caseSkins?.reduce((sum, item) => {
-    return sum + (item.custom_probability || item.probability || 0);
+    return sum + (item.custom_probability ?? item.probability ?? 0);
   }, 0) || 0;
 
   const isProbabilityValid = totalProbability <= 100;
 
-  const handleEditItem = (item: CaseSkin) => {
+  const handleEditItem = (item: CaseSkinWithRelations) => {
     setEditingItemId(item.id ? String(item.id) : '');
     setEditData({
-      probability: item.probability,
-      custom_probability: item.custom_probability,
-      never_drop: item.never_drop
+      probability: Number(item.probability) || undefined,
+      custom_probability: item.custom_probability ? Number(item.custom_probability) : undefined,
+      never_drop: Boolean(item.never_drop)
     });
   };
 
@@ -135,7 +150,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       
       setEditingItemId(null);
       
-      // Принудительное обновление данных
       await refetchCaseSkins();
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
@@ -161,7 +175,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       
       if (error) throw error;
       
-      // Принудительное обновление данных
       await refetchCaseSkins();
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
@@ -213,7 +226,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       });
       setShowAddForm(false);
       
-      // Принудительное обновление данных
       await refetchCaseSkins();
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
@@ -235,7 +247,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
 
     try {
-      // Получаем скины из исходного кейса
       const { data: sourceSkins, error: fetchError } = await supabase
         .from('case_skins')
         .select('*')
@@ -248,11 +259,10 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         return;
       }
 
-      // Копируем скины в текущий кейс
       const itemsToInsert = sourceSkins.map(item => {
-        const { id, created_at, ...remaningItem } = item;
+        const { id, created_at, ...remainingItem } = item;
         return {
-          ...remaningItem,
+          ...remainingItem,
           case_id: caseId,
         }
       });
@@ -265,7 +275,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
       setCloneFromCase('');
       
-      // Принудительное обновление данных
       await refetchCaseSkins();
       await queryClient.invalidateQueries({ queryKey: ['case_skins', caseId] });
       
@@ -278,39 +287,6 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
         variant: "destructive" 
       });
     }
-  };
-
-  const handleUpdateProbabilities = async () => {
-    if (!caseSkins) return;
-    try {
-      const updates = caseSkins.map(item => {
-        const newProb = item.custom_probability ?? item.probability ?? 0;
-        return supabase
-          .from('case_skins')
-          .update({ probability: newProb })
-          .eq('id', item.id);
-      });
-      await Promise.all(updates);
-      toast({ title: "Вероятности обновлены" });
-      await refetchCaseSkins();
-    } catch (error) {
-       const errorMessage = error instanceof Error ? error.message : "Произошла неизвестная ошибка";
-      toast({ 
-        title: "Ошибка обновления вероятностей", 
-        description: errorMessage,
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const handleEditSkin = (caseSkin: any) => {
-    setEditingSkin({
-      ...caseSkin,
-      probability: Number(caseSkin.probability) || 0,
-      custom_probability: Number(caseSkin.custom_probability) || 0,
-      never_drop: Boolean(caseSkin.never_drop)
-    });
-    setShowEditModal(true);
   };
 
   if (isLoading) {
@@ -459,7 +435,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="block text-gray-300 text-sm mb-2">Вероятность (%):</label>
               <Input
                 type="number"
-                value={typeof newSkinData.probability === 'number' ? newSkinData.probability : ''}
+                value={newSkinData.probability}
                 onChange={(e) => setNewSkinData({ ...newSkinData, probability: parseFloat(e.target.value) || 0 })}
                 className="bg-gray-600 text-white border-gray-500"
                 min="0"
@@ -472,7 +448,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="block text-gray-300 text-sm mb-2">Кастомная вероятность (%):</label>
               <Input
                 type="number"
-                value={typeof newSkinData.custom_probability === 'number' ? newSkinData.custom_probability : ''}
+                value={newSkinData.custom_probability || ''}
                 onChange={(e) => setNewSkinData({ 
                   ...newSkinData, 
                   custom_probability: e.target.value ? parseFloat(e.target.value) : null 
@@ -489,7 +465,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={typeof newSkinData.never_drop === 'boolean' ? newSkinData.never_drop : false}
+                  checked={newSkinData.never_drop}
                   onChange={(e) => setNewSkinData({ ...newSkinData, never_drop: e.target.checked })}
                   className="rounded"
                 />
@@ -521,7 +497,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
 
       {/* Список скинов с улучшенным отображением изображений */}
       <div className="space-y-4">
-        {caseSkins.map((caseSkin) => (
+        {caseSkins && caseSkins.map((caseSkin) => (
           <div key={caseSkin.id} className="bg-gray-900 rounded-lg p-4 border border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -566,8 +542,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                     <div className="text-right">
                       <Input
                         type="number"
-                        value={typeof editData.probability === 'number' ? editData.probability : ''}
-                        onChange={(e) => setEditData({ ...editData, probability: parseFloat(e.target.value) || 0 })}
+                        value={editData.probability || ''}
+                        onChange={(e) => setEditData({ ...editData, probability: parseFloat(e.target.value) || undefined })}
                         placeholder="Вероятность"
                         className="w-20 bg-gray-600 text-white border-gray-500 text-sm"
                         min="0"
@@ -576,10 +552,10 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       />
                       <Input
                         type="number"
-                        value={typeof editData.custom_probability === 'number' ? editData.custom_probability : ''}
+                        value={editData.custom_probability || ''}
                         onChange={(e) => setEditData({ 
                           ...editData, 
-                          custom_probability: e.target.value ? parseFloat(e.target.value) : null 
+                          custom_probability: e.target.value ? parseFloat(e.target.value) : undefined 
                         })}
                         placeholder="Кастом"
                         className="w-20 bg-gray-600 text-white border-gray-500 text-sm mt-1"
@@ -591,7 +567,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={typeof editData.never_drop === 'boolean' ? editData.never_drop : false}
+                        checked={editData.never_drop || false}
                         onChange={(e) => setEditData({ ...editData, never_drop: e.target.checked })}
                         className="rounded"
                       />
@@ -608,7 +584,7 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
                       <div className="text-white font-medium">
-                        {caseSkin.custom_probability || caseSkin.probability}%
+                        {caseSkin.custom_probability ?? caseSkin.probability}%
                       </div>
                       {caseSkin.never_drop && (
                         <div className="text-red-400 text-sm">Не выпадает</div>
