@@ -22,8 +22,34 @@
    - В левом меню найдите "SQL Editor"
    - Нажмите "New query"
 
-3. **Выполните SQL миграцию**:
-   Скопируйте и вставьте следующий код:
+3. **Сначала очистите дубликаты пользователей** (если есть ошибка с уникальным индексом):
+
+```sql
+-- Проверим дубликаты
+SELECT auth_id, COUNT(*) as count
+FROM users 
+WHERE auth_id IS NOT NULL
+GROUP BY auth_id 
+HAVING COUNT(*) > 1;
+
+-- Очистим дубликаты, оставив только первую запись для каждого auth_id
+DELETE FROM users 
+WHERE id NOT IN (
+  SELECT MIN(id) 
+  FROM users 
+  WHERE auth_id IS NOT NULL 
+  GROUP BY auth_id
+);
+
+-- Проверим, что дубликаты удалены
+SELECT auth_id, COUNT(*) as count
+FROM users 
+WHERE auth_id IS NOT NULL
+GROUP BY auth_id 
+HAVING COUNT(*) > 1;
+```
+
+4. **Выполните основную миграцию**:
 
 ```sql
 -- Fix RLS policies for user_inventory to prevent "more than one row returned by a subquery" error
@@ -113,13 +139,9 @@ WITH CHECK (user_id = (SELECT id FROM users WHERE auth_id = auth.uid() LIMIT 1))
 
 -- Add unique constraint on auth_id to prevent duplicates
 ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
-
--- Clean up any duplicate auth_id entries (keep the first one)
-DELETE FROM users a USING users b 
-WHERE a.id > b.id AND a.auth_id = b.auth_id AND a.auth_id IS NOT NULL;
 ```
 
-4. **Нажмите "Run"** для выполнения запроса
+5. **Нажмите "Run"** для выполнения запроса
 
 ### Проверка исправления
 
@@ -127,6 +149,44 @@ WHERE a.id > b.id AND a.auth_id = b.auth_id AND a.auth_id IS NOT NULL;
 1. Перезапустите приложение
 2. Перейдите в раздел "Инвентарь"
 3. Проверьте, что ошибка больше не появляется в консоли
+
+## Возможные ошибки и их решения
+
+### Ошибка: "could not create unique index 'unique_auth_id'"
+
+Если вы получаете ошибку:
+```
+ERROR: 23505: could not create unique index "unique_auth_id"
+DETAIL: Key (auth_id)=(...) is duplicated.
+```
+
+Это означает, что в таблице `users` есть дублирующиеся записи с одинаковым `auth_id`. 
+
+**Решение**: Сначала выполните очистку дубликатов (шаг 3 выше), а затем основную миграцию.
+
+### Безопасная очистка дубликатов (альтернативный способ)
+
+Если вы хотите быть более осторожными с данными:
+
+```sql
+-- Создаем временную таблицу с уникальными записями
+CREATE TEMP TABLE temp_unique_users AS
+SELECT DISTINCT ON (auth_id) *
+FROM users
+WHERE auth_id IS NOT NULL
+ORDER BY auth_id, created_at ASC;
+
+-- Проверяем, что все данные на месте
+SELECT COUNT(*) FROM users WHERE auth_id IS NOT NULL;
+SELECT COUNT(*) FROM temp_unique_users;
+
+-- Если все в порядке, заменяем данные
+DELETE FROM users WHERE auth_id IS NOT NULL;
+INSERT INTO users SELECT * FROM temp_unique_users;
+
+-- Добавляем уникальное ограничение
+ALTER TABLE users ADD CONSTRAINT unique_auth_id UNIQUE (auth_id);
+```
 
 ## Альтернативные способы
 
