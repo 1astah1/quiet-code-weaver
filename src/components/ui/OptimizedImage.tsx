@@ -72,11 +72,10 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       onLoad?.();
     };
 
-    const handleError = (error?: Event) => {
+    const handleError = () => {
       console.error('❌ [OPTIMIZED_IMAGE] Image failed to load:', { 
         src: finalSrc, 
-        retryCount,
-        error: error || 'Unknown error'
+        retryCount
       });
       clearTimeout(timeoutId);
       
@@ -150,10 +149,9 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       alt={alt}
       className={`${className} transition-opacity duration-300`}
       loading="lazy"
-      onError={(e) => {
+      onError={() => {
         console.error('🖼️ [OPTIMIZED_IMAGE] IMG element error:', {
-          src: imageSrc,
-          error: e
+          src: imageSrc
         });
         setImageState('error');
       }}

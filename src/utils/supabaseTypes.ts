@@ -1,4 +1,3 @@
-
 // Базовые типы для всех таблиц
 export interface Case {
   id: string;
@@ -63,7 +62,7 @@ export interface ExtendedUser {
   id: string;
   username: string;
   email?: string;
-  coins?: number;
+  coins: number;
   is_admin?: boolean;
   created_at?: string;
   auth_id?: string;
@@ -86,6 +85,7 @@ export interface ExtendedUser {
   last_life_restore?: string;
   last_ad_life_restore?: string;
   last_quiz_date?: string;
+  user_roles?: Array<{ role: string }>;
 }
 
 // Типы для реляционных запросов

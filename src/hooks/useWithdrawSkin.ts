@@ -35,6 +35,10 @@ export const useWithdrawSkin = () => {
         throw new Error('Этот предмет уже продан');
       }
 
+      if (!inventoryItem.user_id) {
+        throw new Error('Не удалось определить владельца предмета');
+      }
+
       // Создаем запрос на вывод
       const { data: withdrawalRequest, error: withdrawalError } = await supabase
         .from('skin_withdrawal_requests')

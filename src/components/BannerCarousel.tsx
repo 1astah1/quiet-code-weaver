@@ -32,7 +32,12 @@ const BannerCarousel = ({ onBannerAction }: BannerCarouselProps) => {
 
         console.log('✅ [BANNER_CAROUSEL] Banners loaded:', data?.length || 0);
         if (data && Array.isArray(data)) {
-          setBanners(data);
+          // Convert null to undefined for image_url to match Banner type
+          const convertedBanners: Banner[] = data.map(banner => ({
+            ...banner,
+            image_url: banner.image_url || undefined
+          }));
+          setBanners(convertedBanners);
           setCurrentIndex(0);
         }
       } catch (error) {
