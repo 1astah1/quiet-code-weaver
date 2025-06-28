@@ -134,7 +134,21 @@ export default {
         "shimmer": {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" }
-        }
+        },
+        shake: {
+          '10%, 90%': { transform: 'translateX(-2px)' },
+          '20%, 80%': { transform: 'translateX(4px)' },
+          '30%, 50%, 70%': { transform: 'translateX(-8px)' },
+          '40%, 60%': { transform: 'translateX(8px)' },
+        },
+        bounce: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-12px)' },
+        },
+        fadeIn: {
+          '0%': { opacity: 0 },
+          '100%': { opacity: 1 },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -147,7 +161,10 @@ export default {
         "slide-out-right": "slide-out-right 0.3s ease-out",
         "enter": "fade-in 0.3s ease-out, scale-in 0.2s ease-out",
         "exit": "fade-out 0.3s ease-out, scale-out 0.2s ease-out",
-        "shimmer": "shimmer 1.5s ease-in-out infinite"
+        "shimmer": "shimmer 1.5s ease-in-out infinite",
+        shake: 'shake 0.4s',
+        bounce: 'bounce 0.5s',
+        fadeIn: 'fadeIn 0.5s',
       },
       perspective: {
         '500': '500px',
