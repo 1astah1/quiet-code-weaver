@@ -1,54 +1,100 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/toast";
-import { Gift, Plus, Calendar, Users, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { PromoCode } from "@/utils/supabaseTypes";
 
 const PromoCodeManagement = () => {
-  const [newPromoCode, setNewPromoCode] = useState<Omit<PromoCode, 'id' | 'current_uses' | 'is_active' | 'created_at'>>({
+  const [newPromoCode, setNewPromoCode] = useState<Partial<PromoCode>>({
     code: '',
-    reward_coins: 100,
-    max_uses: null,
-    expires_at: ''
+    reward_coins: 0,
+    max_uses: undefined,
+    expires_at: undefined,
+    is_active: true
   });
+  const [bulkCodes, setBulkCodes] = useState('');
+  const [bulkReward, setBulkReward] = useState(0);
+  const [bulkMaxUses, setBulkMaxUses] = useState<number | undefined>(undefined);
+  const [bulkExpiresAt, setBulkExpiresAt] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: promoCodes, isLoading } = useQuery<PromoCode[]>({
-    queryKey: ['promo_codes'],
+  const { data: promoCodes, isLoading, isError } = useQuery({
+    queryKey: ['promoCodes'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('promo_codes')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as PromoCode[];
+      return data;
     }
   });
 
   const createPromoCodeMutation = useMutation({
-    mutationFn: async (promoData: typeof newPromoCode) => {
+    mutationFn: async (promoCode: Partial<PromoCode>) => {
       const { error } = await supabase
         .from('promo_codes')
-        .insert([{
-          ...promoData,
-          code: promoData.code.toUpperCase(),
-          expires_at: promoData.expires_at || null
-        }]);
+        .insert([promoCode]);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Промокод создан успешно" });
-      setNewPromoCode({ code: '', reward_coins: 100, max_uses: null, expires_at: '' });
-      queryClient.invalidateQueries({ queryKey: ['promo_codes'] });
+      queryClient.invalidateQueries({ queryKey: ['promoCodes'] });
+      setNewPromoCode({
+        code: '',
+        reward_coins: 0,
+        max_uses: undefined,
+        expires_at: undefined,
+        is_active: true
+      });
+      toast({
+        title: "Промокод создан!",
+        description: "Промокод успешно добавлен.",
+      })
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Ошибка", 
+      toast({
+        title: "Ошибка создания промокода",
         description: error.message,
-        variant: "destructive" 
-      });
+        variant: "destructive"
+      })
+    }
+  });
+
+  const updatePromoCodeMutation = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<PromoCode> & { id: string }) => {
+      const { error } = await supabase
+        .from('promo_codes')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promoCodes'] });
+      toast({
+        title: "Промокод обновлен!",
+        description: "Промокод успешно изменен.",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка обновления промокода",
+        description: error.message,
+        variant: "destructive"
+      })
     }
   });
 
@@ -61,163 +107,240 @@ const PromoCodeManagement = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Промокод удален" });
-      queryClient.invalidateQueries({ queryKey: ['promo_codes'] });
+      queryClient.invalidateQueries({ queryKey: ['promoCodes'] });
+      toast({
+        title: "Промокод удален!",
+        description: "Промокод успешно удален.",
+      })
     },
-    onError: () => {
-      toast({ title: "Ошибка удаления", variant: "destructive" });
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка удаления промокода",
+        description: error.message,
+        variant: "destructive"
+      })
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPromoCode.code.trim()) {
-      toast({ title: "Введите код промокода", variant: "destructive" });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'reward_coins') {
+      setNewPromoCode({ ...newPromoCode, [name]: parseInt(value) });
+    } else if (name === 'max_uses') {
+      setNewPromoCode({ ...newPromoCode, [name]: value ? parseInt(value) : undefined });
+    } else {
+      setNewPromoCode({ ...newPromoCode, [name]: value });
+    }
+  };
+
+  const handleCreatePromoCode = async () => {
+    if (!newPromoCode.code || !newPromoCode.reward_coins) {
+      alert('Пожалуйста, заполните код и награду.');
       return;
     }
     createPromoCodeMutation.mutate(newPromoCode);
   };
 
-  const generateRandomCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setNewPromoCode({ ...newPromoCode, code: result });
+  const handleUpdatePromoCode = async (id: string, updates: Partial<PromoCode>) => {
+    updatePromoCodeMutation.mutate({ id, ...updates });
   };
 
-  if (isLoading) {
-    return <div className="text-white">Загрузка промокодов...</div>;
-  }
+  const handleDeletePromoCode = async (id: string) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот промокод?')) {
+      deletePromoCodeMutation.mutate(id);
+    }
+  };
+
+  const handleBulkCreate = async () => {
+    const codes = bulkCodes.split('\n').filter(code => code.trim());
+    const promoData = codes.map(code => ({
+      code: code.trim(),
+      reward_coins: bulkReward,
+      max_uses: bulkMaxUses || undefined,
+      expires_at: bulkExpiresAt || undefined
+    }));
+
+    try {
+      const { error } = await supabase
+        .from('promo_codes')
+        .insert(promoData);
+
+      if (error) {
+        throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['promoCodes'] });
+      setBulkCodes('');
+      setBulkReward(0);
+      setBulkMaxUses(undefined);
+      setBulkExpiresAt(undefined);
+
+      toast({
+        title: "Промокоды созданы!",
+        description: `${codes.length} промокодов успешно добавлены.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Ошибка массового создания промокодов",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
-          <Gift className="w-5 h-5 text-white" />
-        </div>
-        <h2 className="text-2xl font-bold text-white">Управление промокодами</h2>
-      </div>
-
-      {/* Форма создания промокода */}
-      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Создать новый промокод</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white font-medium mb-2">Код промокода</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newPromoCode.code}
-                  onChange={(e) => setNewPromoCode({ ...newPromoCode, code: e.target.value.toUpperCase() })}
-                  placeholder="PROMOCODE123"
-                  className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white"
-                  maxLength={20}
-                />
-                <button
-                  type="button"
-                  onClick={generateRandomCode}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg"
-                >
-                  Генерировать
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">Награда (монеты)</label>
-              <input
-                type="number"
-                value={newPromoCode.reward_coins}
-                onChange={(e) => setNewPromoCode({ ...newPromoCode, reward_coins: parseInt(e.target.value) || 0 })}
-                min="1"
-                max="100000"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">Максимум использований</label>
-              <input
-                type="number"
-                value={newPromoCode.max_uses != null ? String(newPromoCode.max_uses) : ''}
-                onChange={(e) => setNewPromoCode({ ...newPromoCode, max_uses: e.target.value ? parseInt(e.target.value) : null })}
-                placeholder="Без ограничений"
-                min="1"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">Дата истечения</label>
-              <input
-                type="datetime-local"
-                value={newPromoCode.expires_at}
-                onChange={(e) => setNewPromoCode({ ...newPromoCode, expires_at: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white"
-              />
-            </div>
+      {/* Single promo code creation form */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4">Создать промокод</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Код</Label>
+            <Input
+              type="text"
+              name="code"
+              value={newPromoCode.code || ''}
+              onChange={handleInputChange}
+              placeholder="Введите код"
+            />
           </div>
-
-          <button
-            type="submit"
-            disabled={createPromoCodeMutation.isPending}
-            className="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-2 px-6 rounded-lg transition-all flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            {createPromoCodeMutation.isPending ? "Создание..." : "Создать промокод"}
-          </button>
-        </form>
+          <div>
+            <Label>Награда (монеты)</Label>
+            <Input
+              type="number"
+              name="reward_coins"
+              value={newPromoCode.reward_coins || ''}
+              onChange={handleInputChange}
+              placeholder="Введите награду"
+            />
+          </div>
+          <div>
+            <Label>Максимальное количество использований (опционально)</Label>
+            <Input
+              type="number"
+              name="max_uses"
+              value={newPromoCode.max_uses || ''}
+              onChange={handleInputChange}
+              placeholder="Без ограничений"
+            />
+          </div>
+          <div>
+            <Label>Дата истечения (опционально)</Label>
+            <Input
+              type="datetime-local"
+              name="expires_at"
+              value={newPromoCode.expires_at || ''}
+              onChange={handleInputChange}
+            />
+          </div>
+        </div>
+        <Button onClick={handleCreatePromoCode} className="mt-4 bg-green-600 hover:bg-green-700">
+          Создать промокод
+        </Button>
       </div>
 
-      {/* Список промокодов */}
-      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Существующие промокоды</h3>
-        <div className="space-y-3">
-          {promoCodes?.map((promo) => (
-            <div key={promo.id} className="bg-slate-700 rounded-lg p-4 flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-lg text-white bg-slate-600 px-3 py-1 rounded">
-                    {promo.code}
-                  </span>
-                  <span className="text-green-400 font-semibold">
-                    +{promo.reward_coins} монет
-                  </span>
-                  {!promo.is_active && (
-                    <span className="text-red-400 text-sm">Неактивен</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-4 text-sm text-slate-300">
-                  {promo.max_uses && (
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>{promo.current_uses}/{promo.max_uses} использований</span>
-                    </div>
-                  )}
-                  {promo.expires_at && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>До {new Date(promo.expires_at).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => deletePromoCodeMutation.mutate(promo.id)}
-                disabled={deletePromoCodeMutation.isPending}
-                className="text-red-400 hover:text-red-300 p-2 hover:bg-slate-600 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
-          ))}
-          {!promoCodes?.length && (
-            <p className="text-slate-400 text-center py-8">Промокоды еще не созданы</p>
-          )}
+      {/* Bulk creation form */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4">Массовое создание промокодов</h3>
+        <div className="space-y-4">
+          <div>
+            <Label>Список кодов (каждый с новой строки)</Label>
+            <Input
+              as="textarea"
+              value={bulkCodes}
+              onChange={(e) => setBulkCodes(e.target.value)}
+              placeholder="Код1\nКод2\nКод3"
+              className="min-h-[100px]"
+            />
+          </div>
+          <div>
+            <Label>Награда (монеты)</Label>
+            <Input
+              type="number"
+              value={bulkReward}
+              onChange={(e) => setBulkReward(parseInt(e.target.value))}
+              placeholder="Введите награду"
+            />
+          </div>
+          <div>
+            <Label>Максимальное количество использований (опционально)</Label>
+            <Input
+              type="number"
+              value={bulkMaxUses || ''}
+              onChange={(e) => setBulkMaxUses(e.target.value ? parseInt(e.target.value) : undefined)}
+              placeholder="Без ограничений"
+            />
+          </div>
+          <div>
+            <Label>Дата истечения (опционально)</Label>
+            <Input
+              type="datetime-local"
+              value={bulkExpiresAt || ''}
+              onChange={(e) => setBulkExpiresAt(e.target.value)}
+            />
+          </div>
         </div>
+        <Button onClick={handleBulkCreate} className="mt-4 bg-blue-600 hover:bg-blue-700">
+          Создать промокоды массово
+        </Button>
+      </div>
+
+      {/* Promo codes table */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h3 className="text-lg font-semibold text-white mb-4">Список промокодов</h3>
+        {isLoading ? (
+          <p className="text-gray-400">Загрузка...</p>
+        ) : isError ? (
+          <p className="text-red-500">Ошибка загрузки промокодов.</p>
+        ) : promoCodes && promoCodes.length > 0 ? (
+          <Table>
+            <TableCaption>Список всех активных промокодов.</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">Код</TableHead>
+                <TableHead>Награда</TableHead>
+                <TableHead>Макс. использований</TableHead>
+                <TableHead>Использовано</TableHead>
+                <TableHead>Истекает</TableHead>
+                <TableHead>Активен</TableHead>
+                <TableHead className="text-right">Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {promoCodes.map((promoCode) => (
+                <TableRow key={promoCode.id}>
+                  <TableCell className="font-medium">{promoCode.code}</TableCell>
+                  <TableCell>{promoCode.reward_coins}</TableCell>
+                  <TableCell>{promoCode.max_uses === null || promoCode.max_uses === undefined ? 'Без ограничений' : promoCode.max_uses}</TableCell>
+                  <TableCell>{promoCode.current_uses || 0}</TableCell>
+                  <TableCell>
+                    {promoCode.expires_at ? new Date(promoCode.expires_at).toLocaleString() : 'Никогда'}
+                  </TableCell>
+                  <TableCell>{promoCode.is_active ? 'Да' : 'Нет'}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleUpdatePromoCode(promoCode.id, { is_active: !promoCode.is_active })}
+                    >
+                      {promoCode.is_active ? 'Деактивировать' : 'Активировать'}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeletePromoCode(promoCode.id)}
+                      className="ml-2"
+                    >
+                      Удалить
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-gray-400">Промокоды не найдены.</p>
+        )}
       </div>
     </div>
   );

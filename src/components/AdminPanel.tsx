@@ -13,7 +13,7 @@ import PromoCodeManagement from "./admin/PromoCodeManagement";
 import SuspiciousActivityManagement from "./admin/SuspiciousActivityManagement";
 import DatabaseImageCleanup from "./admin/DatabaseImageCleanup";
 import type { TableName, RealTableName } from "@/types/admin";
-import { Case, Skin } from "@/utils/supabaseTypes";
+import { Case, Skin, Task } from "@/utils/supabaseTypes";
 
 const isRealTable = (table: TableName): table is RealTableName => {
   return table !== 'users' && table !== 'suspicious_activities';
@@ -21,7 +21,7 @@ const isRealTable = (table: TableName): table is RealTableName => {
 
 const AdminPanel = () => {
   const [activeTable, setActiveTable] = useState<TableName>("cases");
-  const [newItem, setNewItem] = useState<Case | Skin | Record<string, unknown>>({} as Case);
+  const [newItem, setNewItem] = useState<Case | Skin | Task | Record<string, unknown>>({} as Case);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const { toast } = useToast();
@@ -399,7 +399,7 @@ const AdminPanel = () => {
           <AddItemForm
             activeTable={activeTable}
             newItem={newItem}
-            setNewItem={setNewItem}
+            setNewItem={(item: Case | Skin | Task | Record<string, unknown>) => setNewItem(item)}
             onAdd={() => queryClient.invalidateQueries({ queryKey: [activeTable] })}
             onImageUpload={handleImageUpload}
             uploadingImage={uploadingImage}

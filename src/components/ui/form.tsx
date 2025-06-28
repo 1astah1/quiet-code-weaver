@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as LabelPrimitive from "@radix-ui/react-label"
 import { Slot } from "@radix-ui/react-slot"
@@ -8,6 +9,7 @@ import {
   FieldValues,
   FormProvider,
   useFormContext,
+  FieldError,
 } from "react-hook-form"
 
 import { cn } from "@/lib/utils"
@@ -54,6 +56,7 @@ const useFormField = () => {
       formItemId: '',
       formDescriptionId: '',
       formMessageId: '',
+      error: undefined as FieldError | undefined,
     };
   }
 

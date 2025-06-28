@@ -1,260 +1,236 @@
-import { useState, useRef } from "react";
-import { Edit, Trash2, Save, X } from "lucide-react";
-import { TableName } from "@/types/admin";
+import { format } from 'date-fns';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Edit, Trash2, Upload } from "lucide-react";
 
 interface AdminTableProps {
-  activeTable: TableName;
+  activeTable: string;
   tableData: Record<string, unknown>[];
-  onUpdate: (id: string, updatedData: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onImageUpload: (file: File, isEdit: boolean, itemId: string, fieldName: string) => void;
+  onUpdate: () => void;
+  onDelete: () => void;
+  onImageUpload: (file: File, isEdit?: boolean, itemId?: string, fieldName?: string) => Promise<string | undefined>;
   uploadingImage: boolean;
   getImageRequirements: (fieldName: string) => string;
 }
 
-const AdminTable = ({ 
-  activeTable, 
-  tableData, 
-  onUpdate, 
-  onDelete, 
-  onImageUpload, 
-  uploadingImage, 
-  getImageRequirements 
+const AdminTable = ({
+  activeTable,
+  tableData,
+  onUpdate,
+  onDelete,
+  onImageUpload,
+  uploadingImage,
+  getImageRequirements
 }: AdminTableProps) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editItemId, setEditItemId] = useState<string | null>(null);
+  const [editItemData, setEditItemData] = useState<Record<string, unknown>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
-  const getTableFields = (tableName: TableName) => {
-    switch (tableName) {
-      case "cases":
-        return ['name', 'description', 'price', 'is_free', 'cover_image_url'];
-      case "skins":
-        return ['name', 'weapon_type', 'rarity', 'price', 'image_url'];
-      case "users":
-        return ['username', 'email', 'coins', 'is_admin'];
-      case "tasks":
-        return ['title', 'description', 'reward_coins', 'task_url', 'image_url', 'is_active'];
-      case "quiz_questions":
-        return ['question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image_url'];
-      case "banners":
-        return ['title', 'description', 'image_url', 'button_text', 'button_action', 'is_active'];
-      case "promo_codes":
-        return ['code', 'reward_coins', 'max_uses', 'current_uses', 'expires_at', 'is_active'];
-      case "faq_items":
-        return ['question', 'answer', 'order_index', 'is_active'];
-      default:
-        return [];
+  const handleEdit = (item: Record<string, unknown>) => {
+    setEditItemId(item.id as string);
+    setEditItemData(item);
+  };
+
+  const handleCancelEdit = () => {
+    setEditItemId(null);
+    setEditItemData({});
+    setImageFile(null);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditItemData({ ...editItemData, [name]: value });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string, fieldName: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      try {
+        await onImageUpload(file, true, itemId, fieldName);
+      } catch (error) {
+        console.error('❌ [ADMIN_TABLE] Image upload failed:', error);
+      }
     }
   };
 
-  const fields = getTableFields(activeTable);
+  const handleUpdate = async () => {
+    if (!editItemId) return;
+
+    try {
+      const { error } = await supabase
+        .from(activeTable)
+        .update(editItemData)
+        .eq('id', editItemId);
+
+      if (error) {
+        console.error('❌ [ADMIN_TABLE] Update failed:', error);
+        alert(`Ошибка при обновлении: ${error.message}`);
+        return;
+      }
+
+      await onUpdate();
+      setEditItemId(null);
+      setEditItemData({});
+      setImageFile(null);
+    } catch (error: any) {
+      console.error('❌ [ADMIN_TABLE] Update failed:', error);
+      alert(`Ошибка при обновлении: ${error.message}`);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm(`Вы уверены, что хотите удалить элемент с ID ${id}?`)) {
+      try {
+        const { error } = await supabase
+          .from(activeTable)
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('❌ [ADMIN_TABLE] Delete failed:', error);
+          alert(`Ошибка при удалении: ${error.message}`);
+          return;
+        }
+
+        await onDelete();
+      } catch (error: any) {
+        console.error('❌ [ADMIN_TABLE] Delete failed:', error);
+        alert(`Ошибка при удалении: ${error.message}`);
+      }
+    }
+  };
+
+  const renderCell = (item: Record<string, unknown>, key: string) => {
+    const value = item[key];
+    
+    if (value === null || value === undefined) {
+      return <span className="text-gray-500">—</span>;
+    }
+    
+    if (typeof value === 'boolean') {
+      return <span className={value ? 'text-green-400' : 'text-red-400'}>{value ? 'Да' : 'Нет'}</span>;
+    }
+    
+    if (key.includes('created_at') || key.includes('updated_at') || key.includes('_at')) {
+      if (typeof value === 'string' && value.trim() !== '') {
+        try {
+          return <span className="text-gray-300">{format(new Date(value), 'dd.MM.yyyy HH:mm')}</span>;
+        } catch {
+          return <span className="text-gray-500">Invalid date</span>;
+        }
+      }
+      return <span className="text-gray-500">—</span>;
+    }
+    
+    if (key.includes('image_url') && typeof value === 'string' && value.trim()) {
+      return (
+        <div className="flex items-center space-x-2">
+          <img src={value} alt="Preview" className="w-8 h-8 object-cover rounded border border-gray-600" />
+          <span className="text-xs text-gray-400 truncate max-w-[100px]">{value}</span>
+        </div>
+      );
+    }
+    
+    return <span className="text-white">{String(value)}</span>;
+  };
 
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden">
+    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mt-4">
+      <h3 className="text-lg font-semibold text-white mb-4">
+        Управление таблицей {activeTable}
+      </h3>
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-700">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead>
             <tr>
-              {fields.map(field => (
-                <th key={field} className="text-left p-3 text-gray-300">{field}</th>
-              ))}
-              <th className="text-left p-3 text-gray-300">Действия</th>
+              {tableData.length > 0 ? (
+                Object.keys(tableData[0]).map((key) => (
+                  <th
+                    key={key}
+                    className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
+                  >
+                    {key}
+                  </th>
+                ))
+              ) : (
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  Нет данных
+                </th>
+              )}
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                Действия
+              </th>
             </tr>
           </thead>
-          <tbody>
-            {tableData?.map((item: Record<string, unknown>) => (
-              <TableRow
-                key={String(item.id)}
-                item={item}
-                fields={fields}
-                isEditing={editingId === String(item.id)}
-                onEdit={() => setEditingId(String(item.id))}
-                onSave={(updatedData) => {
-                  onUpdate(String(item.id), updatedData);
-                  setEditingId(null);
-                }}
-                onCancel={() => setEditingId(null)}
-                onDelete={() => onDelete(String(item.id))}
-                onImageUpload={(file, fieldName) => onImageUpload(file, true, String(item.id), fieldName)}
-                uploadingImage={uploadingImage}
-                getImageRequirements={getImageRequirements}
-              />
+          <tbody className="divide-y divide-gray-700">
+            {tableData.map((item) => (
+              <tr key={item.id as string}>
+                {Object.keys(item).map((key) => (
+                  <td key={`${item.id}-${key}`} className="px-4 py-2 whitespace-nowrap">
+                    {editItemId === item.id ? (
+                      key.includes('image_url') ? (
+                        <>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageChange(e, item.id as string, key)}
+                            disabled={uploadingImage}
+                          />
+                          <p className="text-xs text-gray-400 mt-1">
+                            {getImageRequirements(key)}
+                          </p>
+                        </>
+                      ) : (
+                        <Input
+                          type="text"
+                          name={key}
+                          value={(editItemData[key] !== null && editItemData[key] !== undefined) ? String(editItemData[key]) : ''}
+                          onChange={handleInputChange}
+                          className="text-black"
+                        />
+                      )
+                    ) : (
+                      renderCell(item, key)
+                    )}
+                  </td>
+                ))}
+                <td className="px-4 py-2 whitespace-nowrap">
+                  {editItemId === item.id ? (
+                    <>
+                      <Button onClick={handleUpdate} disabled={uploadingImage} className="mr-2 bg-blue-600 hover:bg-blue-700">
+                        {uploadingImage ? 'Сохранение...' : 'Сохранить'}
+                      </Button>
+                      <Button onClick={handleCancelEdit} variant="secondary">
+                        Отмена
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={() => handleEdit(item)}
+                        className="mr-2 bg-orange-500 hover:bg-orange-600"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Изменить
+                      </Button>
+                      <Button
+                        onClick={() => handleDelete(item.id as string)}
+                        variant="destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Удалить
+                      </Button>
+                    </>
+                  )}
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
     </div>
-  );
-};
-
-// Separate component for table rows to handle editing
-const TableRow = ({ 
-  item, 
-  fields, 
-  isEditing, 
-  onEdit, 
-  onSave, 
-  onCancel, 
-  onDelete, 
-  onImageUpload, 
-  uploadingImage,
-  getImageRequirements
-}: {
-  item: Record<string, unknown>;
-  fields: string[];
-  isEditing: boolean;
-  onEdit: () => void;
-  onSave: (updatedData: Record<string, unknown>) => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  onImageUpload: (file: File, fieldName: string) => void;
-  uploadingImage: boolean;
-  getImageRequirements: (fieldName: string) => string;
-}) => {
-  const [editData, setEditData] = useState<Record<string, unknown>>(item);
-
-  const handleSave = () => {
-    onSave(editData);
-  };
-
-  if (isEditing) {
-    return (
-      <tr className="border-t border-gray-700">
-        {fields.map((field: string) => (
-          <td key={field} className="p-3">
-            {(field === 'cover_image_url' || field === 'image_url') ? (
-              <div className="space-y-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onImageUpload(file, field);
-                  }}
-                  className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-                  disabled={uploadingImage}
-                />
-                <p className="text-xs text-gray-400">{getImageRequirements(field)}</p>
-                {typeof editData[field] === 'string' && editData[field] !== '' && (
-                  <img 
-                    src={editData[field] as string} 
-                    alt="Preview" 
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                )}
-              </div>
-            ) : field === 'is_free' || field === 'is_active' || field === 'is_admin' ? (
-              <select
-                value={typeof editData[field] === 'boolean' ? (editData[field] ? 'true' : 'false') : Boolean(editData[field]) ? 'true' : 'false'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value === 'true'})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="false">Нет</option>
-                <option value="true">Да</option>
-              </select>
-            ) : field === 'correct_answer' ? (
-              <select
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'A'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-              </select>
-            ) : field === 'button_action' ? (
-              <select
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : 'open_case'}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              >
-                <option value="open_case">Открыть кейс</option>
-                <option value="premium">Премиум</option>
-                <option value="tasks">Задания</option>
-                <option value="quiz">Викторина</option>
-              </select>
-            ) : field === 'price' || field === 'coins' || field === 'reward_coins' || field === 'max_uses' || field === 'current_uses' || field === 'order_index' ? (
-              <input
-                type="number"
-                value={typeof editData[field] === 'number' ? editData[field] : Number(editData[field]) || ''}
-                onChange={(e) => setEditData({...editData, [field]: parseInt(e.target.value) || 0})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm w-20"
-                min="0"
-                step="1"
-              />
-            ) : field === 'expires_at' ? (
-              <input
-                type="datetime-local"
-                value={((typeof editData[field] === 'string' && editData[field] !== '') || typeof editData[field] === 'number') ? new Date(editData[field] as string | number).toISOString().slice(0, 16) : ''}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value ? new Date(e.target.value).toISOString() : null})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              />
-            ) : (
-              <input
-                type="text"
-                value={typeof editData[field] === 'string' && editData[field] !== '' ? editData[field] : ''}
-                onChange={(e) => setEditData({...editData, [field]: e.target.value})}
-                className="bg-gray-700 text-white px-2 py-1 rounded text-sm"
-              />
-            )}
-          </td>
-        ))}
-        <td className="p-3">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSave}
-              className="bg-green-600 hover:bg-green-700 text-white p-1 rounded"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onCancel}
-              className="bg-gray-600 hover:bg-gray-700 text-white p-1 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr className="border-t border-gray-700 hover:bg-gray-750">
-      {fields.map((field: string) => (
-        <td key={field} className="p-3 text-gray-300">
-          {(field === 'cover_image_url' || field === 'image_url') && item[field] ? (
-            <img 
-              src={item[field]} 
-              alt="Cover" 
-              className="w-12 h-12 object-cover rounded"
-            />
-          ) : typeof item[field] === 'boolean' ? (
-            item[field] ? 'Да' : 'Нет'
-          ) : field === 'expires_at' && item[field] ? (
-            new Date(item[field]).toLocaleDateString()
-          ) : (
-            item[field]?.toString() || '-'
-          )}
-        </td>
-      ))}
-      <td className="p-3">
-        <div className="flex space-x-2">
-          <button
-            onClick={onEdit}
-            className="bg-blue-600 hover:bg-blue-700 text-white p-1 rounded"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="bg-red-600 hover:bg-red-700 text-white p-1 rounded"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 };
 

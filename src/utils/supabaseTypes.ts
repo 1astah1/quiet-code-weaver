@@ -1,4 +1,3 @@
-
 // Базовые типы для всех таблиц
 export interface Case {
   id: string;
@@ -36,6 +35,7 @@ export interface Banner {
   created_at?: string;
 }
 
+// Add created_at to CaseSkin interface
 export interface CaseSkin {
   id: string;
   case_id?: string;
@@ -59,7 +59,8 @@ export interface PromoCode {
   created_at?: string;
 }
 
-export interface Task {
+// Make Task extend Record<string, unknown> for compatibility
+export interface Task extends Record<string, unknown> {
   id: string;
   title: string;
   description: string;

@@ -558,6 +558,15 @@ const CaseManagement = ({
     }
   };
 
+  const handleSkinImageUpload = async (file: File, skinId: string) => {
+    if (!skinId) {
+      console.warn('⚠️ [SKIN_UPLOAD] No skin ID provided');
+      return;
+    }
+    
+    await onSkinImageUpload(file, skinId);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

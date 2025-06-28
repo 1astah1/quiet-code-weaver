@@ -27,6 +27,8 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     custom_probability: null as number | null
   });
   const [cloneFromCase, setCloneFromCase] = useState('');
+  const [editingSkin, setEditingSkin] = useState<CaseSkin | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -301,6 +303,16 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
     }
   };
 
+  const handleEditSkin = (caseSkin: any) => {
+    setEditingSkin({
+      ...caseSkin,
+      probability: Number(caseSkin.probability) || 0,
+      custom_probability: Number(caseSkin.custom_probability) || 0,
+      never_drop: Boolean(caseSkin.never_drop)
+    });
+    setShowEditModal(true);
+  };
+
   if (isLoading) {
     return <div className="text-white">Загрузка...</div>;
   }
@@ -508,16 +520,16 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
       )}
 
       {/* Список скинов с улучшенным отображением изображений */}
-      <div className="space-y-3">
-        {caseSkins?.map((item: any) => (
-          <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+      <div className="space-y-4">
+        {caseSkins.map((caseSkin) => (
+          <div key={caseSkin.id} className="bg-gray-900 rounded-lg p-4 border border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                {item.reward_type === 'skin' ? (
+                {caseSkin.reward_type === 'skin' ? (
                   <>
                     <InstantImage 
-                      src={item.skins?.image_url} 
-                      alt={item.skins?.name || 'Скин'}
+                      src={caseSkin.skins?.image_url} 
+                      alt={caseSkin.skins?.name || 'Скин'}
                       className="w-12 h-12 object-cover rounded"
                       fallback={
                         <div className="w-12 h-12 bg-gray-600 rounded flex items-center justify-center text-gray-400 text-xs">
@@ -526,10 +538,10 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       }
                     />
                     <div>
-                      <h6 className="text-white font-medium">{item.skins?.name}</h6>
+                      <h6 className="text-white font-medium">{caseSkin.skins?.name}</h6>
                       <p className="text-gray-400 text-sm">
-                        {item.skins?.weapon_type} • {item.skins?.price} монет
-                        {!item.skins?.image_url && (
+                        {caseSkin.skins?.weapon_type} • {caseSkin.skins?.price} монет
+                        {!caseSkin.skins?.image_url && (
                           <span className="text-yellow-400 ml-2">• Нет изображения</span>
                         )}
                       </p>
@@ -541,15 +553,15 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                       <span className="text-white text-xl">🪙</span>
                     </div>
                     <div>
-                      <h6 className="text-white font-medium">{item.coin_rewards?.name}</h6>
-                      <p className="text-gray-400 text-sm">{item.coin_rewards?.amount} монет</p>
+                      <h6 className="text-white font-medium">{caseSkin.coin_rewards?.name}</h6>
+                      <p className="text-gray-400 text-sm">{caseSkin.coin_rewards?.amount} монет</p>
                     </div>
                   </>
                 )}
               </div>
 
               <div className="flex items-center space-x-4">
-                {editingItemId === item.id ? (
+                {editingItemId === caseSkin.id ? (
                   <div className="flex items-center space-x-2">
                     <div className="text-right">
                       <Input
@@ -596,21 +608,21 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
                       <div className="text-white font-medium">
-                        {item.custom_probability || item.probability}%
+                        {caseSkin.custom_probability || caseSkin.probability}%
                       </div>
-                      {item.never_drop && (
+                      {caseSkin.never_drop && (
                         <div className="text-red-400 text-sm">Не выпадает</div>
                       )}
                     </div>
                     <Button 
-                      onClick={() => handleEditItem(item)} 
+                      onClick={() => handleEditItem(caseSkin)} 
                       size="sm" 
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Edit2 className="w-3 h-3" />
                     </Button>
                     <Button 
-                      onClick={() => handleDeleteItem(item.id ? String(item.id) : '')} 
+                      onClick={() => handleDeleteItem(caseSkin.id ? String(caseSkin.id) : '')} 
                       size="sm" 
                       className="bg-red-600 hover:bg-red-700"
                     >
@@ -620,15 +632,18 @@ const CaseSkinManagement = ({ caseId, caseName, onClose }: CaseSkinManagementPro
                 )}
               </div>
             </div>
+            <div className="text-xs text-gray-400 mt-2">
+              ID: {caseSkin.id} | Добавлен: {caseSkin.created_at ? format(new Date(caseSkin.created_at), 'dd.MM.yyyy HH:mm') : '—'}
+            </div>
           </div>
         ))}
-
-        {(!caseSkins || caseSkins.length === 0) && (
-          <div className="text-center py-8 text-gray-400">
-            В этом кейсе пока нет предметов
-          </div>
-        )}
       </div>
+
+      {(!caseSkins || caseSkins.length === 0) && (
+        <div className="text-center py-8 text-gray-400">
+          В этом кейсе пока нет предметов
+        </div>
+      )}
     </div>
   );
 };
