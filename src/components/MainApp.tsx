@@ -318,7 +318,7 @@ const MainApp = () => {
         );
       case 'quiz':
         return (
-          <QuizScreen />
+          <QuizScreen onBack={() => setCurrentScreen('main')} />
         );
       default:
         return (

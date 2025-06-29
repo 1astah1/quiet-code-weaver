@@ -1,15 +1,25 @@
+
 import React, { useEffect, useState } from 'react';
-import { jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Table } from '@/components/ui/table';
 
 interface QuizQuestion {
   id: string;
+  question_text: string;
+  answers: string;
+  correct_answer: string;
+  difficulty: number;
+  category: string;
+  is_active: boolean;
+  image_url?: string;
+}
+
+interface QuizQuestionForm {
   question_text: string;
   answers: string[];
   correct_answer: string;
@@ -19,7 +29,7 @@ interface QuizQuestion {
   image_url?: string;
 }
 
-const defaultForm: Partial<QuizQuestion> = {
+const defaultForm: QuizQuestionForm = {
   question_text: '',
   answers: ['', '', '', ''],
   correct_answer: '',
@@ -33,7 +43,7 @@ const QuizQuestionManagement: React.FC = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState<Partial<QuizQuestion>>(defaultForm);
+  const [form, setForm] = useState<QuizQuestionForm>(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -55,7 +65,15 @@ const QuizQuestionManagement: React.FC = () => {
   // Открыть форму для добавления/редактирования
   const openForm = (q?: QuizQuestion) => {
     if (q) {
-      setForm({ ...q, answers: typeof q.answers === 'string' ? JSON.parse(q.answers) : q.answers });
+      setForm({
+        question_text: q.question_text,
+        answers: q.answers ? JSON.parse(q.answers) : ['', '', '', ''],
+        correct_answer: q.correct_answer,
+        difficulty: q.difficulty,
+        category: q.category,
+        is_active: q.is_active,
+        image_url: q.image_url || '',
+      });
       setEditId(q.id);
     } else {
       setForm(defaultForm);
@@ -69,10 +87,13 @@ const QuizQuestionManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     const payload = {
-      ...form,
+      question_text: form.question_text,
       answers: JSON.stringify(form.answers),
+      correct_answer: form.correct_answer,
       difficulty: Number(form.difficulty) || 1,
-      is_active: !!form.is_active,
+      category: form.category,
+      is_active: form.is_active,
+      image_url: form.image_url || null,
     };
     let res;
     if (editId) {
@@ -100,11 +121,15 @@ const QuizQuestionManagement: React.FC = () => {
   };
 
   // Обработка изменений формы
-  const handleFormChange = (field: keyof QuizQuestion, value: any) => {
-    setForm((prev: Partial<QuizQuestion>) => ({ ...prev, [field]: value }));
+  const handleFormChange = (field: keyof QuizQuestionForm, value: any) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
+  
   const handleAnswerChange = (idx: number, value: string) => {
-    setForm((prev: Partial<QuizQuestion>) => ({ ...prev, answers: prev.answers?.map((a: string, i: number) => (i === idx ? value : a)) }));
+    setForm((prev) => ({ 
+      ...prev, 
+      answers: prev.answers.map((a, i) => (i === idx ? value : a)) 
+    }));
   };
 
   return (
@@ -114,77 +139,108 @@ const QuizQuestionManagement: React.FC = () => {
         <Button onClick={() => openForm()}>Добавить вопрос</Button>
       </Card>
       {error && <div className="text-red-500 mb-4">{error}</div>}
-      <Table>
-        <thead>
-          <tr>
-            <th>Вопрос</th>
-            <th>Категория</th>
-            <th>Сложность</th>
-            <th>Активен</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {questions.map((q) => (
-            <tr key={q.id}>
-              <td>{q.question_text}</td>
-              <td><Badge>{q.category}</Badge></td>
-              <td>{q.difficulty}</td>
-              <td>{q.is_active ? 'Да' : 'Нет'}</td>
-              <td>
-                <Button size="sm" onClick={() => openForm(q)}>Редактировать</Button>
-                <Button size="sm" variant="destructive" onClick={() => setDeleteId(q.id)} className="ml-2">Удалить</Button>
-              </td>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="border border-gray-300 p-2 text-left">Вопрос</th>
+              <th className="border border-gray-300 p-2 text-left">Категория</th>
+              <th className="border border-gray-300 p-2 text-left">Сложность</th>
+              <th className="border border-gray-300 p-2 text-left">Активен</th>
+              <th className="border border-gray-300 p-2 text-left">Действия</th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {questions.map((q) => (
+              <tr key={q.id}>
+                <td className="border border-gray-300 p-2">{q.question_text}</td>
+                <td className="border border-gray-300 p-2"><Badge>{q.category}</Badge></td>
+                <td className="border border-gray-300 p-2">{q.difficulty}</td>
+                <td className="border border-gray-300 p-2">{q.is_active ? 'Да' : 'Нет'}</td>
+                <td className="border border-gray-300 p-2">
+                  <Button size="sm" onClick={() => openForm(q)} className="mr-2">
+                    Редактировать
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => setDeleteId(q.id)}>
+                    Удалить
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Диалог добавления/редактирования */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogTitle>{editId ? 'Редактировать вопрос' : 'Добавить вопрос'}</DialogTitle>
           <div className="space-y-3">
-            <Input
-              label="Вопрос"
-              value={form.question_text || ''}
-              onChange={e => handleFormChange('question_text', e.target.value)}
-              required
-            />
+            <div>
+              <Label htmlFor="question">Вопрос</Label>
+              <Input
+                id="question"
+                value={form.question_text}
+                onChange={(e) => handleFormChange('question_text', e.target.value)}
+                required
+              />
+            </div>
+            
             <div className="grid grid-cols-2 gap-2">
-              {form.answers?.map((a, i) => (
-                <Input
-                  key={i}
-                  label={`Вариант ${i + 1}`}
-                  value={a}
-                  onChange={e => handleAnswerChange(i, e.target.value)}
-                  required
-                />
+              {form.answers.map((a, i) => (
+                <div key={i}>
+                  <Label htmlFor={`answer-${i}`}>Вариант {i + 1}</Label>
+                  <Input
+                    id={`answer-${i}`}
+                    value={a}
+                    onChange={(e) => handleAnswerChange(i, e.target.value)}
+                    required
+                  />
+                </div>
               ))}
             </div>
-            <Input
-              label="Правильный ответ (точно как в вариантах)"
-              value={form.correct_answer || ''}
-              onChange={e => handleFormChange('correct_answer', e.target.value)}
-              required
-            />
-            <Input
-              label="Категория"
-              value={form.category || ''}
-              onChange={e => handleFormChange('category', e.target.value)}
-            />
-            <Input
-              label="Сложность"
-              type="number"
-              min={1}
-              max={5}
-              value={form.difficulty || 1}
-              onChange={e => handleFormChange('difficulty', e.target.value)}
-            />
-            <Input
-              label="Ссылка на картинку (опционально)"
-              value={form.image_url || ''}
-              onChange={e => handleFormChange('image_url', e.target.value)}
-            />
+            
+            <div>
+              <Label htmlFor="correct">Правильный ответ (точно как в вариантах)</Label>
+              <Input
+                id="correct"
+                value={form.correct_answer}
+                onChange={(e) => handleFormChange('correct_answer', e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="category">Категория</Label>
+              <Input
+                id="category"
+                value={form.category}
+                onChange={(e) => handleFormChange('category', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="difficulty">Сложность</Label>
+              <Input
+                id="difficulty"
+                type="number"
+                min={1}
+                max={5}
+                value={form.difficulty}
+                onChange={(e) => handleFormChange('difficulty', e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="image">Ссылка на картинку (опционально)</Label>
+              <Input
+                id="image"
+                value={form.image_url}
+                onChange={(e) => handleFormChange('image_url', e.target.value)}
+              />
+            </div>
+            
             {form.image_url && (
               <div className="flex flex-col items-center mt-2">
                 <span className="text-xs text-slate-400 mb-1">Предпросмотр картинки:</span>
@@ -192,33 +248,43 @@ const QuizQuestionManagement: React.FC = () => {
                   src={form.image_url}
                   alt="preview"
                   className="max-h-40 rounded-lg border border-slate-200 shadow"
-                  onError={e => (e.currentTarget.style.display = 'none')}
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
                 />
               </div>
             )}
+            
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={!!form.is_active}
-                onChange={e => handleFormChange('is_active', e.target.checked)}
+                checked={form.is_active}
+                onChange={(e) => handleFormChange('is_active', e.target.checked)}
               />
               Активен
             </label>
           </div>
           <DialogFooter>
-            <Button onClick={saveQuestion} loading={loading}>{editId ? 'Сохранить' : 'Добавить'}</Button>
-            <Button variant="ghost" onClick={() => setShowDialog(false)}>Отмена</Button>
+            <Button onClick={saveQuestion} disabled={loading}>
+              {editId ? 'Сохранить' : 'Добавить'}
+            </Button>
+            <Button variant="ghost" onClick={() => setShowDialog(false)}>
+              Отмена
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* Диалог удаления */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogTitle>Удалить вопрос?</DialogTitle>
           <div>Вы уверены, что хотите удалить этот вопрос?</div>
           <DialogFooter>
-            <Button variant="destructive" onClick={deleteQuestion} loading={loading}>Удалить</Button>
-            <Button variant="ghost" onClick={() => setDeleteId(null)}>Отмена</Button>
+            <Button variant="destructive" onClick={deleteQuestion} disabled={loading}>
+              Удалить
+            </Button>
+            <Button variant="ghost" onClick={() => setDeleteId(null)}>
+              Отмена
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -226,4 +292,4 @@ const QuizQuestionManagement: React.FC = () => {
   );
 };
 
-export default QuizQuestionManagement; 
+export default QuizQuestionManagement;

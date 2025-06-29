@@ -32,7 +32,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
 
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [isCorrect, setIsCorrect] = useState(false);
 
   const handleAnswer = async (answer: string) => {
@@ -47,7 +47,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
     // Reset after showing feedback
     setTimeout(() => {
       setIsAnswered(false);
-      setSelectedAnswer(null);
+      setSelectedAnswer(undefined);
     }, 1500);
   };
 
