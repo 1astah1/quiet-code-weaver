@@ -11,12 +11,13 @@ import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/u
 interface QuizQuestion {
   id: string;
   question_text: string;
-  answers: string;
-  correct_answer: string;
-  difficulty: number;
-  category: string;
-  is_active: boolean;
-  image_url?: string;
+  answers: string | null;
+  correct_answer: string | null;
+  difficulty: number | null;
+  category: string | null;
+  is_active: boolean | null;
+  image_url?: string | null;
+  created_at?: string | null;
 }
 
 interface QuizQuestionForm {
@@ -68,10 +69,10 @@ const QuizQuestionManagement: React.FC = () => {
       setForm({
         question_text: q.question_text,
         answers: q.answers ? JSON.parse(q.answers) : ['', '', '', ''],
-        correct_answer: q.correct_answer,
-        difficulty: q.difficulty,
-        category: q.category,
-        is_active: q.is_active,
+        correct_answer: q.correct_answer || '',
+        difficulty: q.difficulty || 1,
+        category: q.category || 'cs2',
+        is_active: q.is_active ?? true,
         image_url: q.image_url || '',
       });
       setEditId(q.id);
@@ -155,8 +156,8 @@ const QuizQuestionManagement: React.FC = () => {
             {questions.map((q) => (
               <tr key={q.id}>
                 <td className="border border-gray-300 p-2">{q.question_text}</td>
-                <td className="border border-gray-300 p-2"><Badge>{q.category}</Badge></td>
-                <td className="border border-gray-300 p-2">{q.difficulty}</td>
+                <td className="border border-gray-300 p-2"><Badge>{q.category || 'general'}</Badge></td>
+                <td className="border border-gray-300 p-2">{q.difficulty || 1}</td>
                 <td className="border border-gray-300 p-2">{q.is_active ? 'Да' : 'Нет'}</td>
                 <td className="border border-gray-300 p-2">
                   <Button size="sm" onClick={() => openForm(q)} className="mr-2">
