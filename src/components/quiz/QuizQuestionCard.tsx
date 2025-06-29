@@ -1,19 +1,16 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock } from 'lucide-react';
-
-// Добавляем CSS-анимации
-const shake = 'animate-[shake_0.4s]';
-const bounce = 'animate-[bounce_0.5s]';
-const fadeIn = 'animate-[fadeIn_0.5s]';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 interface QuizQuestionCardProps {
   question: {
     id: string;
     question: string;
     options: string[];
+    correct_answer: string;
     image_url?: string;
   };
   questionNumber: number;
@@ -41,22 +38,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
     setIsAnimating(true);
     onAnswer(answer);
     
-    // Reset animation after feedback
     setTimeout(() => setIsAnimating(false), 1500);
-  };
-
-  const getButtonVariant = (answer: string) => {
-    if (!isAnswered) return 'default';
-    
-    if (answer === correctAnswer) {
-      return 'success';
-    }
-    
-    if (answer === selectedAnswer && answer !== correctAnswer) {
-      return 'destructive';
-    }
-    
-    return 'secondary';
   };
 
   const getButtonStyle = (answer: string) => {
@@ -67,11 +49,11 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
     }
     
     if (answer === correctAnswer) {
-      return `${baseStyle} bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse ${bounce}`;
+      return `${baseStyle} bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse`;
     }
     
     if (answer === selectedAnswer && answer !== correctAnswer) {
-      return `${baseStyle} bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg ${shake}`;
+      return `${baseStyle} bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg animate-bounce`;
     }
     
     return `${baseStyle} bg-slate-700/50 text-slate-400 border border-slate-600/50`;
@@ -141,8 +123,8 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 
       {/* Feedback Animation */}
       {isAnimating && (
-        <div className={`absolute inset-0 flex items-center justify-center rounded-xl z-10 ${fadeIn} ${isCorrect ? 'bg-green-500/20' : 'bg-red-500/20'}`}> 
-          <div className={`text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'} ${isCorrect ? bounce : shake}`}>
+        <div className={`absolute inset-0 flex items-center justify-center rounded-xl z-10 animate-fade-in ${isCorrect ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+          <div className={`text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'} ${isCorrect ? 'animate-bounce' : 'animate-pulse'}`}>
             {isCorrect ? '✓' : '✗'}
           </div>
         </div>
@@ -151,4 +133,4 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   );
 };
 
-export default QuizQuestionCard; 
+export default QuizQuestionCard;

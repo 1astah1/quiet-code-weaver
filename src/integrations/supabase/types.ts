@@ -284,21 +284,33 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
+          answers: string | null
+          category: string | null
+          correct_answer: string | null
           created_at: string | null
+          difficulty: number | null
           id: string
           image_url: string | null
           is_active: boolean | null
           question_text: string
         }
         Insert: {
+          answers?: string | null
+          category?: string | null
+          correct_answer?: string | null
           created_at?: string | null
+          difficulty?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           question_text: string
         }
         Update: {
+          answers?: string | null
+          category?: string | null
+          correct_answer?: string | null
           created_at?: string | null
+          difficulty?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -333,6 +345,7 @@ export type Database = {
       recent_wins: {
         Row: {
           case_id: string | null
+          created_at: string | null
           id: string
           reward_data: Json | null
           reward_type: string | null
@@ -342,6 +355,7 @@ export type Database = {
         }
         Insert: {
           case_id?: string | null
+          created_at?: string | null
           id?: string
           reward_data?: Json | null
           reward_type?: string | null
@@ -351,6 +365,7 @@ export type Database = {
         }
         Update: {
           case_id?: string | null
+          created_at?: string | null
           id?: string
           reward_data?: Json | null
           reward_type?: string | null
@@ -1081,6 +1096,18 @@ export type Database = {
           reward: number
           current_question: Json
           quiz_progress: Json
+        }[]
+      }
+      get_random_quiz_question: {
+        Args: { user_id_param: string; category_param?: string }
+        Returns: {
+          id: string
+          text: string
+          answers: Json
+          correct_answer: string
+          image_url: string
+          difficulty: number
+          category: string
         }[]
       }
       has_role: {

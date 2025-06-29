@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Trophy, Target, Zap } from 'lucide-react';
+import { ArrowLeft, Trophy, Target } from 'lucide-react';
 import QuizProgressBar from './QuizProgressBar';
 import QuizQuestionCard from './QuizQuestionCard';
 import QuizHearts from './QuizHearts';
@@ -94,7 +94,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
             <span className="text-lg font-bold text-white">Викторина</span>
           </div>
           
-          <div className="w-10" /> {/* Spacer */}
+          <div className="w-10" />
         </div>
 
         {/* Progress Bar */}
@@ -167,4 +167,4 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
   );
 };
 
-export default QuizScreen; 
+export default QuizScreen;
