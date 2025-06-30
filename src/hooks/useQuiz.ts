@@ -130,7 +130,7 @@ export function useQuiz() {
     if (user) {
       fetchQuizState();
     }
-  }, [user, fetchQuizState]);
+  }, [user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
