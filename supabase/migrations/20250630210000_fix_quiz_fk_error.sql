@@ -87,9 +87,10 @@ INSERT INTO quiz_questions (text, answers, correct_answer, category) VALUES
 
 -- 3. RECREATE the RPC functions.
 -- get_user_quiz_state function
-CREATE OR REPLACE FUNCTION get_user_quiz_state(p_user_id UUID)
+CREATE OR REPLACE FUNCTION get_user_quiz_state()
 RETURNS JSONB AS $$
 DECLARE
+    v_user_id UUID;
     v_progress RECORD;
     v_question RECORD;
     v_restored_hearts INT;
@@ -98,9 +99,19 @@ DECLARE
     v_heart_restore_interval INTERVAL := '30 minutes';
     v_next_heart_restores_in INTERVAL;
 BEGIN
-    SELECT * INTO v_progress FROM user_quiz_progress WHERE user_id = p_user_id;
+    -- Get the internal user ID from the authenticated user
+    SELECT id INTO v_user_id FROM public.users WHERE auth_id = auth.uid();
+
+    -- If the user profile doesn't exist yet, return an error.
+    IF v_user_id IS NULL THEN
+        RETURN jsonb_build_object('error', 'User profile not found. Please try again shortly.');
+    END IF;
+
+    -- Now use v_user_id for all operations
+    SELECT * INTO v_progress FROM user_quiz_progress WHERE user_id = v_user_id;
+
     IF NOT FOUND THEN
-        INSERT INTO user_quiz_progress (user_id) VALUES (p_user_id) RETURNING * INTO v_progress;
+        INSERT INTO user_quiz_progress (user_id) VALUES (v_user_id) RETURNING * INTO v_progress;
     END IF;
 
     IF v_progress.hearts < v_max_hearts THEN
@@ -111,7 +122,7 @@ BEGIN
             SET
                 hearts = LEAST(v_max_hearts, v_progress.hearts + v_restored_hearts),
                 last_heart_restore = v_progress.last_heart_restore + (v_restored_hearts * v_heart_restore_interval)
-            WHERE user_id = p_user_id
+            WHERE user_id = v_user_id
             RETURNING * INTO v_progress;
         END IF;
     END IF;
@@ -125,7 +136,7 @@ BEGIN
 
     SELECT qq.id, qq.text, qq.answers, qq.image_url INTO v_question
     FROM quiz_questions qq
-    WHERE qq.id NOT IN (SELECT uqa.question_id FROM user_quiz_answers uqa WHERE uqa.user_id = p_user_id)
+    WHERE qq.id NOT IN (SELECT uqa.question_id FROM user_quiz_answers uqa WHERE uqa.user_id = v_user_id)
     ORDER BY random() LIMIT 1;
 
     RETURN jsonb_build_object(
@@ -137,9 +148,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- answer_quiz_question function
-CREATE OR REPLACE FUNCTION answer_quiz_question(p_user_id UUID, p_question_id UUID, p_user_answer TEXT)
+CREATE OR REPLACE FUNCTION answer_quiz_question(p_question_id UUID, p_user_answer TEXT)
 RETURNS JSONB AS $$
 DECLARE
+  v_user_id UUID;
   v_question RECORD;
   v_progress RECORD;
   v_is_correct BOOLEAN;
@@ -148,47 +160,51 @@ DECLARE
   v_reward_amount INT;
   v_max_hearts INT := 5;
 BEGIN
-  SELECT * INTO v_progress FROM user_quiz_progress WHERE user_id = p_user_id;
+  -- Get the internal user ID from the authenticated user
+  SELECT id INTO v_user_id FROM public.users WHERE auth_id = auth.uid();
+  IF v_user_id IS NULL THEN RETURN jsonb_build_object('error', 'User profile not found.'); END IF;
+
+  SELECT * INTO v_progress FROM user_quiz_progress WHERE user_id = v_user_id;
   IF NOT FOUND THEN RETURN jsonb_build_object('error', 'User progress not found.'); END IF;
   IF v_progress.hearts <= 0 THEN RETURN jsonb_build_object('error', 'Not enough hearts to answer.'); END IF;
 
   SELECT * INTO v_question FROM quiz_questions WHERE id = p_question_id;
   IF NOT FOUND THEN RETURN jsonb_build_object('error', 'Question not found.'); END IF;
 
-  IF EXISTS (SELECT 1 FROM user_quiz_answers WHERE user_id = p_user_id AND question_id = p_question_id) THEN
+  IF EXISTS (SELECT 1 FROM user_quiz_answers WHERE user_id = v_user_id AND question_id = p_question_id) THEN
       RETURN jsonb_build_object('error', 'Question already answered.');
   END IF;
 
   v_is_correct := (p_user_answer = v_question.correct_answer);
-  INSERT INTO user_quiz_answers (user_id, question_id, user_answer, is_correct) VALUES (p_user_id, p_question_id, p_user_answer, v_is_correct);
+  INSERT INTO user_quiz_answers (user_id, question_id, user_answer, is_correct) VALUES (v_user_id, p_question_id, p_user_answer, v_is_correct);
 
   IF v_is_correct THEN
     UPDATE user_quiz_progress SET questions_answered = questions_answered + 1, correct_answers = correct_answers + 1, current_streak = current_streak + 1, updated_at = NOW()
-    WHERE user_id = p_user_id RETURNING * INTO v_progress;
+    WHERE user_id = v_user_id RETURNING * INTO v_progress;
   ELSE
     UPDATE user_quiz_progress SET hearts = v_progress.hearts - 1, current_streak = 0, last_heart_restore = CASE WHEN v_progress.hearts = v_max_hearts THEN NOW() ELSE v_progress.last_heart_restore END, updated_at = NOW()
-    WHERE user_id = p_user_id RETURNING * INTO v_progress;
+    WHERE user_id = v_user_id RETURNING * INTO v_progress;
   END IF;
 
   IF v_is_correct THEN
     FOREACH v_milestone IN ARRAY v_reward_milestones
     LOOP
-        IF v_progress.correct_answers = v_milestone AND NOT EXISTS (SELECT 1 FROM quiz_rewards WHERE user_id = p_user_id AND questions_required = v_milestone) THEN
+        IF v_progress.correct_answers = v_milestone AND NOT EXISTS (SELECT 1 FROM quiz_rewards WHERE user_id = v_user_id AND questions_required = v_milestone) THEN
             CASE v_milestone
                 WHEN 5 THEN v_reward_amount := 50; WHEN 10 THEN v_reward_amount := 100; WHEN 20 THEN v_reward_amount := 250; WHEN 30 THEN v_reward_amount := 500;
                 ELSE v_reward_amount := 0;
             END CASE;
 
             IF v_reward_amount > 0 THEN
-                INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required) VALUES (p_user_id, 'balance', v_reward_amount, v_milestone);
-                UPDATE users SET coins = coins + v_reward_amount WHERE id = p_user_id;
-                UPDATE user_quiz_progress SET total_rewards_earned = total_rewards_earned + v_reward_amount WHERE user_id = p_user_id;
+                INSERT INTO quiz_rewards (user_id, reward_type, reward_amount, questions_required) VALUES (v_user_id, 'balance', v_reward_amount, v_milestone);
+                UPDATE users SET coins = coins + v_reward_amount WHERE id = v_user_id;
+                UPDATE user_quiz_progress SET total_rewards_earned = total_rewards_earned + v_reward_amount WHERE user_id = v_user_id;
             END IF;
         END IF;
     END LOOP;
   END IF;
   
-  RETURN get_user_quiz_state(p_user_id);
+  RETURN get_user_quiz_state();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

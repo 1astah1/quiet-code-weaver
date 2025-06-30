@@ -50,7 +50,7 @@ export function useQuiz() {
     try {
       setLoading(true);
       setError(null);
-      const { data, error: rpcError } = await supabase.rpc('get_user_quiz_state', { p_user_id: user.id });
+      const { data, error: rpcError } = await supabase.rpc('get_user_quiz_state');
 
       if (rpcError) {
         throw rpcError;
@@ -102,7 +102,6 @@ export function useQuiz() {
     setError(null);
     try {
       const { data, error: rpcError } = await supabase.rpc('answer_quiz_question', {
-        p_user_id: user.id,
         p_question_id: questionId,
         p_user_answer: answer
       });
