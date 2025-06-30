@@ -43,7 +43,7 @@ const DatabaseImageCleanup = () => {
   const nullImageSkins = skins?.filter(skin => !skin.image_url) || [];
 
   const handleCleanupInvalidUrls = async () => {
-    if (problematicSkins.length === 0) {
+    if (!Array.isArray(problematicSkins) || problematicSkins.length === 0) {
       toast({ title: "Нет проблемных изображений для очистки" });
       return;
     }
@@ -51,7 +51,7 @@ const DatabaseImageCleanup = () => {
     setIsCleaningUp(true);
     
     try {
-      console.log('🧹 [CLEANUP] Starting cleanup of invalid image URLs:', problematicSkins.length);
+      console.log('🧹 [CLEANUP] Starting cleanup of invalid image URLs:', Array.isArray(problematicSkins) ? problematicSkins.length : 0);
       
       // Обнуляем все проблемные image_url
       const { error } = await supabase
@@ -70,13 +70,13 @@ const DatabaseImageCleanup = () => {
       ]);
 
       setCleanupResults({
-        cleaned: problematicSkins.length,
+        cleaned: Array.isArray(problematicSkins) ? problematicSkins.length : 0,
         skinsAffected: problematicSkins.map(s => s.name)
       });
 
       toast({ 
         title: "Очистка завершена", 
-        description: `Очищено ${problematicSkins.length} проблемных изображений`
+        description: `Очищено ${Array.isArray(problematicSkins) ? problematicSkins.length : 0} проблемных изображений`
       });
 
       console.log('✅ [CLEANUP] Cleanup completed successfully');
@@ -112,7 +112,7 @@ const DatabaseImageCleanup = () => {
                 <XCircle className="w-4 h-4 text-red-400" />
                 <span className="text-red-400 font-medium">Проблемные</span>
               </div>
-              <div className="text-2xl font-bold text-red-400">{problematicSkins.length}</div>
+              <div className="text-2xl font-bold text-red-400">{Array.isArray(problematicSkins) ? problematicSkins.length : 0}</div>
               <div className="text-sm text-gray-400">Неверные пути к файлам</div>
             </div>
 
@@ -121,7 +121,7 @@ const DatabaseImageCleanup = () => {
                 <CheckCircle className="w-4 h-4 text-green-400" />
                 <span className="text-green-400 font-medium">Корректные</span>
               </div>
-              <div className="text-2xl font-bold text-green-400">{validSkins.length}</div>
+              <div className="text-2xl font-bold text-green-400">{Array.isArray(validSkins) ? validSkins.length : 0}</div>
               <div className="text-sm text-gray-400">Правильные URL</div>
             </div>
 
@@ -130,12 +130,12 @@ const DatabaseImageCleanup = () => {
                 <AlertTriangle className="w-4 h-4 text-yellow-400" />
                 <span className="text-yellow-400 font-medium">Без изображений</span>
               </div>
-              <div className="text-2xl font-bold text-yellow-400">{nullImageSkins.length}</div>
+              <div className="text-2xl font-bold text-yellow-400">{Array.isArray(nullImageSkins) ? nullImageSkins.length : 0}</div>
               <div className="text-sm text-gray-400">Пустые image_url</div>
             </div>
           </div>
 
-          {problematicSkins.length > 0 && (
+          {Array.isArray(problematicSkins) && problematicSkins.length > 0 && (
             <div className="bg-gray-700 p-4 rounded-lg">
               <h4 className="text-white font-medium mb-2">Проблемные скины:</h4>
               <div className="text-sm text-gray-300 space-y-1 max-h-32 overflow-y-auto">
@@ -152,10 +152,10 @@ const DatabaseImageCleanup = () => {
           <div className="flex gap-2">
             <Button
               onClick={handleCleanupInvalidUrls}
-              disabled={isCleaningUp || problematicSkins.length === 0}
+              disabled={isCleaningUp || !Array.isArray(problematicSkins) || problematicSkins.length === 0}
               className="bg-red-600 hover:bg-red-700"
             >
-              {isCleaningUp ? "Очистка..." : `Очистить ${problematicSkins.length} проблемных изображений`}
+              {isCleaningUp ? "Очистка..." : `Очистить ${Array.isArray(problematicSkins) ? problematicSkins.length : 0} проблемных изображений`}
             </Button>
           </div>
 

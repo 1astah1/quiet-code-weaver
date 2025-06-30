@@ -1,4 +1,3 @@
-
 import { format } from 'date-fns';
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -147,7 +146,7 @@ const AdminTable = ({
         <table className="min-w-full divide-y divide-gray-700">
           <thead>
             <tr>
-              {tableData.length > 0 ? (
+              {Array.isArray(tableData) && tableData.length > 0 ? (
                 Object.keys(tableData[0]).map((key) => (
                   <th
                     key={key}
@@ -167,7 +166,7 @@ const AdminTable = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
-            {tableData.map((item) => (
+            {Array.isArray(tableData) ? tableData.map((item) => (
               <tr key={item.id as string}>
                 {Object.keys(item).map((key) => (
                   <td key={`${item.id}-${key}`} className="px-4 py-2 whitespace-nowrap">
@@ -228,7 +227,7 @@ const AdminTable = ({
                   )}
                 </td>
               </tr>
-            ))}
+            )) : null}
           </tbody>
         </table>
       </div>

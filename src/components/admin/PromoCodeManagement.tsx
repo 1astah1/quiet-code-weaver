@@ -219,7 +219,7 @@ const PromoCodeManagement = () => {
 
       toast({
         title: "Промокоды созданы!",
-        description: `${codes.length} промокодов успешно добавлены.`,
+        description: `${Array.isArray(codes) ? codes.length : 0} промокодов успешно добавлены.`,
       })
     } catch (error: any) {
       toast({
@@ -333,7 +333,7 @@ const PromoCodeManagement = () => {
           <p className="text-gray-400">Загрузка...</p>
         ) : isError ? (
           <p className="text-red-500">Ошибка загрузки промокодов.</p>
-        ) : promoCodes && promoCodes.length > 0 ? (
+        ) : Array.isArray(promoCodes) && promoCodes.length > 0 ? (
           <Table>
             <TableCaption>Список всех активных промокодов.</TableCaption>
             <TableHeader>

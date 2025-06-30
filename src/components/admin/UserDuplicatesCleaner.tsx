@@ -38,14 +38,14 @@ const UserDuplicatesCleaner = () => {
       
       // Find email duplicates
       Object.values(emailGroups).forEach(group => {
-        if (group.length > 1) {
+        if (Array.isArray(group) && group.length > 1) {
           duplicateUsers.push(...group.slice(1)); // Keep first, mark others as duplicates
         }
       });
 
       // Find username duplicates (avoid double counting)
       Object.values(usernameGroups).forEach(group => {
-        if (group.length > 1) {
+        if (Array.isArray(group) && group.length > 1) {
           group.slice(1).forEach(user => {
             if (!duplicateUsers.find(dup => dup.id === user.id)) {
               duplicateUsers.push(user);
@@ -57,7 +57,7 @@ const UserDuplicatesCleaner = () => {
       setDuplicates(duplicateUsers);
       toast({
         title: "Поиск завершен",
-        description: `Найдено ${duplicateUsers.length} дублирующихся пользователей`,
+        description: `Найдено ${Array.isArray(duplicateUsers) ? duplicateUsers.length : 0} дублирующихся пользователей`,
       });
 
     } catch (error) {
@@ -73,7 +73,7 @@ const UserDuplicatesCleaner = () => {
   };
 
   const cleanupDuplicates = async () => {
-    if (duplicates.length === 0) return;
+    if (!Array.isArray(duplicates) || duplicates.length === 0) return;
 
     setIsLoading(true);
     try {
@@ -91,7 +91,7 @@ const UserDuplicatesCleaner = () => {
 
       toast({
         title: "Очистка завершена",
-        description: `Удалено ${duplicates.length} дублирующихся пользователей`,
+        description: `Удалено ${Array.isArray(duplicates) ? duplicates.length : 0} дублирующихся пользователей`,
       });
 
       setDuplicates([]);
@@ -121,10 +121,10 @@ const UserDuplicatesCleaner = () => {
           {isLoading ? "Поиск..." : "Найти дубликаты"}
         </Button>
 
-        {duplicates.length > 0 && (
+        {Array.isArray(duplicates) && duplicates.length > 0 && (
           <>
             <div className="text-white">
-              <p>Найдено дублирующихся пользователей: {duplicates.length}</p>
+              <p>Найдено дублирующихся пользователей: {Array.isArray(duplicates) ? duplicates.length : 0}</p>
               <div className="max-h-40 overflow-y-auto space-y-1 mt-2">
                 {duplicates.map(user => (
                   <div key={user.id} className="text-sm text-gray-300 bg-slate-700 p-2 rounded">

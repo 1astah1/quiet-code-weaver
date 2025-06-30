@@ -187,7 +187,7 @@ const CaseManagement = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-2xl font-bold text-white">Управление кейсами</h3>
-          <p className="text-gray-400">Всего кейсов: {tableData.length}</p>
+          <p className="text-gray-400">Всего кейсов: {(Array.isArray(tableData) ? tableData.length : 0)}</p>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -218,7 +218,7 @@ const CaseManagement = ({
 
       {/* Сетка кейсов */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tableData.map((caseItem) => (
+        {Array.isArray(tableData) ? tableData.map((caseItem) => (
           <Card key={caseItem.id} className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -376,7 +376,7 @@ const CaseManagement = ({
         ))}
       </div>
 
-      {tableData.length === 0 && (
+      {Array.isArray(tableData) && tableData.length === 0 && (
         <div className="text-center py-12">
           <Package className="w-16 h-16 text-gray-500 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-300 mb-2">Кейсы не найдены</h3>

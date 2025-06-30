@@ -145,11 +145,11 @@ const UserManagement = () => {
             Управление пользователями
           </CardTitle>
           <CardDescription>
-            Всего пользователей: {users?.length || 0}
+            Всего пользователей: {Array.isArray(users) ? users.length : 0}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {users && users.length > 0 ? (
+          {Array.isArray(users) && users.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
