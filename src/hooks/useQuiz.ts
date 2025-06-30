@@ -125,7 +125,7 @@ export function useQuiz() {
     }
   }, [submitting, user, quizState]);
 
-  const maxHearts = 5;
+  const maxHearts = 2;
 
   return useMemo(() => ({
     question: quizState?.question,

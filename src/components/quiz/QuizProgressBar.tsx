@@ -11,10 +11,10 @@ const QuizProgressBar: React.FC<QuizProgressBarProps> = ({
   correctAnswers
 }) => {
   const milestones = [
-    { questions: 5, reward: 50 },
-    { questions: 10, reward: 100 },
-    { questions: 20, reward: 250 },
-    { questions: 30, reward: 500 },
+    { questions: 5, reward: 4 },
+    { questions: 10, reward: 8 },
+    { questions: 20, reward: 16 },
+    { questions: 30, reward: 32 },
   ];
   const totalQuestions = 30;
   const progress = (correctAnswers / totalQuestions) * 100;

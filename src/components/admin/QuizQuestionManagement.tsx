@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -10,33 +9,30 @@ import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/u
 
 interface QuizQuestion {
   id: string;
-  question_text: string;
-  answers: string | null;
+  text: string;
+  answers: string[];
   correct_answer: string | null;
   difficulty: number | null;
   category: string | null;
-  is_active: boolean | null;
   image_url?: string | null;
   created_at?: string | null;
 }
 
 interface QuizQuestionForm {
-  question_text: string;
+  text: string;
   answers: string[];
   correct_answer: string;
   difficulty: number;
   category: string;
-  is_active: boolean;
   image_url?: string;
 }
 
 const defaultForm: QuizQuestionForm = {
-  question_text: '',
+  text: '',
   answers: ['', '', '', ''],
   correct_answer: '',
   difficulty: 1,
   category: 'cs2',
-  is_active: true,
   image_url: '',
 };
 
@@ -67,12 +63,11 @@ const QuizQuestionManagement: React.FC = () => {
   const openForm = (q?: QuizQuestion) => {
     if (q) {
       setForm({
-        question_text: q.question_text,
-        answers: q.answers ? JSON.parse(q.answers) : ['', '', '', ''],
+        text: q.text,
+        answers: Array.isArray(q.answers) ? q.answers : ['', '', '', ''],
         correct_answer: q.correct_answer || '',
         difficulty: q.difficulty || 1,
         category: q.category || 'cs2',
-        is_active: q.is_active ?? true,
         image_url: q.image_url || '',
       });
       setEditId(q.id);
@@ -88,12 +83,11 @@ const QuizQuestionManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     const payload = {
-      question_text: form.question_text,
-      answers: JSON.stringify(form.answers),
+      text: form.text,
+      answers: form.answers,
       correct_answer: form.correct_answer,
       difficulty: Number(form.difficulty) || 1,
       category: form.category,
-      is_active: form.is_active,
       image_url: form.image_url || null,
     };
     let res;
@@ -146,19 +140,19 @@ const QuizQuestionManagement: React.FC = () => {
           <thead>
             <tr className="bg-gray-50">
               <th className="border border-gray-300 p-2 text-left">Вопрос</th>
+              <th className="border border-gray-300 p-2 text-left">Картинка (URL)</th>
               <th className="border border-gray-300 p-2 text-left">Категория</th>
               <th className="border border-gray-300 p-2 text-left">Сложность</th>
-              <th className="border border-gray-300 p-2 text-left">Активен</th>
               <th className="border border-gray-300 p-2 text-left">Действия</th>
             </tr>
           </thead>
           <tbody>
             {questions.map((q) => (
               <tr key={q.id}>
-                <td className="border border-gray-300 p-2">{q.question_text}</td>
+                <td className="border border-gray-300 p-2">{q.text}</td>
+                <td className="border border-gray-300 p-2 text-xs truncate max-w-xs">{q.image_url || 'Нет'}</td>
                 <td className="border border-gray-300 p-2"><Badge>{q.category || 'general'}</Badge></td>
                 <td className="border border-gray-300 p-2">{q.difficulty || 1}</td>
-                <td className="border border-gray-300 p-2">{q.is_active ? 'Да' : 'Нет'}</td>
                 <td className="border border-gray-300 p-2">
                   <Button size="sm" onClick={() => openForm(q)} className="mr-2">
                     Редактировать
@@ -182,8 +176,8 @@ const QuizQuestionManagement: React.FC = () => {
               <Label htmlFor="question">Вопрос</Label>
               <Input
                 id="question"
-                value={form.question_text}
-                onChange={(e) => handleFormChange('question_text', e.target.value)}
+                value={form.text}
+                onChange={(e) => handleFormChange('text', e.target.value)}
                 required
               />
             </div>
@@ -253,15 +247,6 @@ const QuizQuestionManagement: React.FC = () => {
                 />
               </div>
             )}
-            
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(e) => handleFormChange('is_active', e.target.checked)}
-              />
-              Активен
-            </label>
           </div>
           <DialogFooter>
             <Button onClick={saveQuestion} disabled={loading}>

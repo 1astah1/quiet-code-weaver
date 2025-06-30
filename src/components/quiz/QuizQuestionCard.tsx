@@ -120,19 +120,6 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
           </Button>
         ))}
       </div>
-      
-      {/* Feedback Animation Overlay, simplified */}
-      {isAnswered && isSubmitting === false && (
-        <div className={`absolute inset-0 flex items-center justify-center rounded-xl z-10 animate-fadeIn pointer-events-none`}>
-          <div className={`text-4xl sm:text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-            {isCorrect ? (
-              <CheckCircle className="w-16 h-16 sm:w-24 sm:h-24 animate-bounce" />
-            ) : (
-              <XCircle className="w-16 h-16 sm:w-24 sm:h-24" />
-            )}
-          </div>
-        </div>
-      )}
     </Card>
   );
 };
