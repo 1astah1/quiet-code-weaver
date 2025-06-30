@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Target } from 'lucide-react';
+import { ArrowLeft, Brain, AlertTriangle } from 'lucide-react';
 import QuizProgressBar from './QuizProgressBar';
 import QuizQuestionCard from './QuizQuestionCard';
 import QuizHearts from './QuizHearts';
@@ -61,12 +61,15 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-          <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Ошибка загрузки</h2>
-          <p className="text-slate-300 mb-6">{error}</p>
-          <Button onClick={onBack} className="bg-gradient-to-r from-blue-600 to-purple-600">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <Card className="p-6 sm:p-8 bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 backdrop-blur-sm text-center max-w-md w-full">
+          <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" />
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">Ошибка загрузки</h2>
+          <p className="text-slate-300 mb-6 text-sm sm:text-base">{error}</p>
+          <Button 
+            onClick={onBack} 
+            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Назад
           </Button>
@@ -76,25 +79,25 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <Button
             onClick={onBack}
             variant="ghost"
-            className="text-slate-300 hover:text-white hover:bg-slate-800/50"
+            className="text-slate-300 hover:text-white hover:bg-slate-800/50 p-2 sm:p-3"
           >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Назад
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Назад</span>
           </Button>
           
           <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <span className="text-lg font-bold text-white">Викторина</span>
+            <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+            <span className="text-base sm:text-lg font-bold text-white">Викторина</span>
           </div>
           
-          <div className="w-10" />
+          <div className="w-10 sm:w-12" />
         </div>
 
         {/* Progress Bar */}
@@ -106,11 +109,11 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
       </div>
 
       {/* Main Content */}
-      <div className="px-4 pb-4">
+      <div className="px-4 sm:px-6 pb-4">
         {loading ? (
-          <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-slate-300">Загрузка вопроса...</p>
+          <Card className="p-6 sm:p-8 bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 backdrop-blur-sm text-center">
+            <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-slate-300 text-sm sm:text-base">Загрузка вопроса...</p>
           </Card>
         ) : currentQuestion ? (
           <QuizQuestionCard
@@ -123,13 +126,16 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
             isCorrect={isCorrect}
           />
         ) : (
-          <Card className="p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 backdrop-blur-sm text-center">
-            <Target className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-4">Викторина завершена!</h2>
-            <p className="text-slate-300 mb-6">
+          <Card className="p-6 sm:p-8 bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 backdrop-blur-sm text-center">
+            <Brain className="w-12 h-12 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">Викторина завершена!</h2>
+            <p className="text-slate-300 mb-6 text-sm sm:text-base">
               Вы ответили на {questionsAnswered} вопросов и получили {correctAnswers} правильных ответов!
             </p>
-            <Button onClick={onBack} className="bg-gradient-to-r from-blue-600 to-purple-600">
+            <Button 
+              onClick={onBack} 
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+            >
               Вернуться в меню
             </Button>
           </Card>
@@ -137,7 +143,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
       </div>
 
       {/* Hearts */}
-      <div className="px-4 pb-4">
+      <div className="px-4 sm:px-6 pb-4 sm:pb-6">
         <QuizHearts
           hearts={hearts}
           maxHearts={2}
