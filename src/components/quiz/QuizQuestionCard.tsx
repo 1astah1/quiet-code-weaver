@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,17 +7,16 @@ import { CheckCircle, XCircle, Target } from 'lucide-react';
 interface QuizQuestionCardProps {
   question: {
     id: string;
-    question: string;
-    options: string[];
-    correct_answer: string;
+    text: string;
+    answers: string[];
     image_url?: string;
   };
   questionNumber: number;
   onAnswer: (answer: string) => void;
   isAnswered: boolean;
-  correctAnswer?: string;
   selectedAnswer?: string;
   isCorrect?: boolean;
+  isSubmitting?: boolean;
 }
 
 const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
@@ -26,43 +24,39 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
   questionNumber,
   onAnswer,
   isAnswered,
-  correctAnswer,
   selectedAnswer,
-  isCorrect
+  isCorrect,
+  isSubmitting
 }) => {
-  const [isAnimating, setIsAnimating] = useState(false);
-
   const handleAnswerClick = (answer: string) => {
-    if (isAnswered) return;
-    
-    setIsAnimating(true);
+    if (isAnswered || isSubmitting) return;
     onAnswer(answer);
-    
-    setTimeout(() => setIsAnimating(false), 1500);
   };
 
   const getButtonStyle = (answer: string) => {
-    const baseStyle = "w-full h-14 sm:h-16 text-sm sm:text-lg font-semibold rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg";
+    const baseStyle = "w-full h-auto min-h-[56px] sm:min-h-[64px] text-sm sm:text-lg font-semibold rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg p-2";
     
     if (!isAnswered) {
       return `${baseStyle} bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white hover:shadow-xl`;
     }
     
-    if (answer === correctAnswer) {
-      return `${baseStyle} bg-gradient-to-r from-green-500 to-emerald-500 text-white animate-pulse shadow-green-500/25`;
+    // Style for the selected answer
+    if (answer === selectedAnswer) {
+      if(isCorrect) {
+        return `${baseStyle} bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25`;
+      } else {
+        return `${baseStyle} bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25`;
+      }
     }
     
-    if (answer === selectedAnswer && answer !== correctAnswer) {
-      return `${baseStyle} bg-gradient-to-r from-red-500 to-pink-500 text-white animate-bounce shadow-red-500/25`;
-    }
-    
-    return `${baseStyle} bg-slate-700/50 text-slate-400 border border-slate-600/50 hover:bg-slate-700/70`;
+    // Style for other (non-selected) options after an answer is given
+    return `${baseStyle} bg-slate-700/50 text-slate-400 border border-slate-600/50`;
   };
 
   const getOptionLetter = (index: number) => String.fromCharCode(65 + index);
 
   return (
-    <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 backdrop-blur-sm relative">
+    <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 backdrop-blur-sm relative overflow-hidden">
       {/* Question Header */}
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <Badge 
@@ -94,7 +88,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
             alt="Question" 
             className="w-full h-32 sm:h-48 object-cover"
             onError={(e) => {
-              e.currentTarget.style.display = 'none';
+              (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
         </div>
@@ -103,36 +97,36 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
       {/* Question Text */}
       <div className="mb-4 sm:mb-6">
         <h3 className="text-lg sm:text-xl font-bold text-white leading-relaxed">
-          {question.question}
+          {question.text}
         </h3>
       </div>
 
       {/* Answer Options */}
       <div className="space-y-2 sm:space-y-3">
-        {question.options.map((option, index) => (
+        {question.answers.map((option, index) => (
           <Button
             key={index}
             variant="ghost"
             className={getButtonStyle(option)}
             onClick={() => handleAnswerClick(option)}
-            disabled={isAnswered}
+            disabled={isAnswered || isSubmitting}
           >
             <div className="flex items-center gap-2 sm:gap-3 w-full">
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0">
                 {getOptionLetter(index)}
               </div>
-              <span className="text-left flex-1 break-words">{option}</span>
+              <span className="text-left flex-1 break-words whitespace-normal">{option}</span>
             </div>
           </Button>
         ))}
       </div>
-
-      {/* Feedback Animation Overlay */}
-      {isAnimating && (
-        <div className={`absolute inset-0 flex items-center justify-center rounded-xl z-10 animate-fadeIn ${isCorrect ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-          <div className={`text-4xl sm:text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'} ${isCorrect ? 'animate-bounce' : 'animate-pulse'}`}>
+      
+      {/* Feedback Animation Overlay, simplified */}
+      {isAnswered && isSubmitting === false && (
+        <div className={`absolute inset-0 flex items-center justify-center rounded-xl z-10 animate-fadeIn pointer-events-none`}>
+          <div className={`text-4xl sm:text-6xl ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
             {isCorrect ? (
-              <CheckCircle className="w-16 h-16 sm:w-24 sm:h-24" />
+              <CheckCircle className="w-16 h-16 sm:w-24 sm:h-24 animate-bounce" />
             ) : (
               <XCircle className="w-16 h-16 sm:w-24 sm:h-24" />
             )}

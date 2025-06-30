@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Heart, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface QuizHeartsProps {
   hearts: number;
@@ -50,10 +49,10 @@ const QuizHearts: React.FC<QuizHeartsProps> = ({
     >
       <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
         isActive
-          ? 'bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg shadow-orange-500/25 animate-pulse'
+          ? 'bg-gradient-to-r from-red-500 to-red-600 shadow-lg shadow-red-500/25'
           : 'bg-slate-700/50 border border-slate-600/50'
       }`}>
-        <Target className={`w-3 h-3 sm:w-4 sm:h-4 ${
+        <Heart className={`w-3 h-3 sm:w-4 sm:h-4 ${
           isActive ? 'text-white' : 'text-slate-500'
         }`} />
       </div>
@@ -84,18 +83,18 @@ const QuizHearts: React.FC<QuizHeartsProps> = ({
         <div className="flex items-center gap-2">
           {timeUntilNextHeart && timeUntilNextHeart > 0 ? (
             <div className="flex items-center gap-1 sm:gap-2 animate-fadeIn">
-              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 animate-pulse" />
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400" />
               <Badge variant="secondary" className="bg-slate-700/50 text-slate-300 text-xs px-2 py-0.5">
                 {formatTime(timeUntilNextHeart)}
               </Badge>
             </div>
           ) : hearts < maxHearts ? (
             <div className="flex items-center gap-1 sm:gap-2">
-              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 animate-pulse" />
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
               <Button
                 onClick={onRestoreHeart}
                 size="sm"
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs px-2 sm:px-3 py-1 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 animate-pulse"
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs px-2 sm:px-3 py-1 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 Восстановить
               </Button>
@@ -114,9 +113,9 @@ const QuizHearts: React.FC<QuizHeartsProps> = ({
             <Button
               onClick={handleAdRestore}
               size="sm"
-              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs px-2 sm:px-3 py-1 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 animate-pulse"
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs px-2 sm:px-3 py-1 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              <CheckCircle className="w-3 h-3 mr-1 animate-bounce" />
+              <CheckCircle className="w-3 h-3 mr-1" />
               Реклама
             </Button>
           </div>

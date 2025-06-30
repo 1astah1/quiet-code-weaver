@@ -1,174 +1,144 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../integrations/supabase/client';
+import { type User } from '@supabase/supabase-js';
 
+// Types to match the data from the server
 export interface QuizQuestion {
   id: string;
-  question: string;
-  options: string[];
-  correct_answer: string;
+  text: string;
+  answers: string[];
   image_url?: string;
-  difficulty: number;
-  category: string;
 }
 
-export interface QuizReward {
-  type: 'coins' | 'gift';
-  amount: number;
-  milestone: number;
+export interface UserQuizProgress {
+  id: string;
+  user_id: string;
+  hearts: number;
+  last_heart_restore: string;
+  questions_answered: number;
+  correct_answers: number;
+  current_streak: number;
+  total_rewards_earned: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizState {
+  progress: UserQuizProgress | null;
+  question: QuizQuestion | null;
+  next_heart_restores_in_seconds: number | null;
 }
 
 export function useQuiz() {
-  const [hearts, setHearts] = useState(2);
-  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [quizState, setQuizState] = useState<QuizState | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [questionsAnswered, setQuestionsAnswered] = useState(0);
-  const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [reward, setReward] = useState<QuizReward | null>(null);
-  const [timeUntilNextHeart, setTimeUntilNextHeart] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [timeUntilNextHeart, setTimeUntilNextHeart] = useState<number | null>(null);
 
-  // Получение текущего пользователя
-  const getCurrentUser = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('Пользователь не авторизован');
-    }
-    
-    const { data: userData, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_id', user.id)
-      .single();
-    
-    if (error || !userData) {
-      throw new Error('Пользователь не найден');
-    }
-    
-    return userData.id;
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
   }, []);
 
-  // Получение случайного вопроса
-  const fetchRandomQuestion = useCallback(async () => {
-    try {
-      const userId = await getCurrentUser();
-      
-      const { data, error } = await supabase
-        .rpc('get_random_quiz_question', {
-          user_id_param: userId,
-          category_param: 'general'
-        });
-      
-      if (error) {
-        console.error('Ошибка получения вопроса:', error);
-        return null;
-      }
-      
-      if (data && data.length > 0) {
-        const question = data[0];
-        // Парсим answers из JSONB
-        const answers = typeof question.answers === 'string' 
-          ? JSON.parse(question.answers) 
-          : question.answers;
-        
-        return {
-          id: question.id,
-          question: question.text,
-          options: Array.isArray(answers) ? answers : [],
-          correct_answer: question.correct_answer,
-          image_url: question.image_url,
-          difficulty: question.difficulty,
-          category: question.category
-        };
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Ошибка получения вопроса:', error);
-      return null;
-    }
-  }, [getCurrentUser]);
-
-  // Инициализация викторины
-  useEffect(() => {
-    const initQuiz = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const question = await fetchRandomQuestion();
-        if (question) {
-          setCurrentQuestion(question);
-        } else {
-          setError('Не удалось загрузить вопрос');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    initQuiz();
-  }, [fetchRandomQuestion]);
-
-  // Ответ на вопрос
-  const answerQuestion = useCallback(async (answer: string): Promise<boolean> => {
-    if (!currentQuestion || loading || hearts === 0) return false;
-    
+  const fetchQuizState = useCallback(async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const isCorrect = answer === currentQuestion.correct_answer;
-      
-      if (isCorrect) {
-        setCorrectAnswers(prev => prev + 1);
-      } else {
-        setHearts(prev => Math.max(0, prev - 1));
+      setError(null);
+      const { data, error: rpcError } = await supabase.rpc('get_user_quiz_state', { p_user_id: user.id });
+
+      if (rpcError) {
+        throw rpcError;
       }
       
-      setQuestionsAnswered(prev => prev + 1);
-      
-      // Загружаем следующий вопрос через небольшую задержку
-      setTimeout(async () => {
-        const nextQuestion = await fetchRandomQuestion();
-        if (nextQuestion) {
-          setCurrentQuestion(nextQuestion);
-        }
-      }, 1500);
-      
-      return isCorrect;
-    } catch (error) {
-      console.error('Ошибка ответа на вопрос:', error);
-      return false;
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setQuizState(data);
+    } catch (err: any) {
+      setError(err.message || 'Не удалось загрузить состояние викторины');
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [currentQuestion, loading, hearts, fetchRandomQuestion]);
+  }, [user]);
 
-  // Восстановление сердца
-  const restoreHeart = useCallback(async () => {
-    setHearts(prev => Math.min(2, prev + 1));
-  }, []);
+  useEffect(() => {
+    fetchQuizState();
+  }, [fetchQuizState]);
 
-  // Проверка возможности восстановления рекламой
-  const canRestoreWithAd = true;
+  useEffect(() => {
+    if (quizState?.next_heart_restores_in_seconds) {
+      setTimeUntilNextHeart(quizState.next_heart_restores_in_seconds);
+    } else {
+      setTimeUntilNextHeart(null);
+    }
 
-  // Очистка награды
-  const clearReward = useCallback(() => {
-    setReward(null);
-  }, []);
+    const timer = setInterval(() => {
+      setTimeUntilNextHeart((prevTime: number | null) => {
+        if (prevTime === null || prevTime <= 1) {
+          // Time to refetch the state from server as a heart should be restored
+          fetchQuizState();
+          return null;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
 
-  return {
-    currentQuestion,
-    questionsAnswered,
-    correctAnswers,
-    hearts,
+    return () => clearInterval(timer);
+  }, [quizState?.next_heart_restores_in_seconds, fetchQuizState]);
+
+
+  const answerQuestion = useCallback(async (questionId: string, answer: string): Promise<boolean> => {
+    if (submitting || !user) return false;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { data, error: rpcError } = await supabase.rpc('answer_quiz_question', {
+        p_user_id: user.id,
+        p_question_id: questionId,
+        p_user_answer: answer
+      });
+
+      if (rpcError) throw rpcError;
+      if (data.error) throw new Error(data.error);
+
+      // We need to find out if the answer was correct.
+      // The old state has the question, the new state has updated progress.
+      const oldCorrectAnswers = quizState?.progress?.correct_answers ?? 0;
+      const newCorrectAnswers = data.progress.correct_answers;
+
+      setQuizState(data);
+      return newCorrectAnswers > oldCorrectAnswers;
+    } catch (err: any) {
+      setError(err.message || 'Ошибка при ответе на вопрос');
+      console.error(err);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  }, [submitting, user, quizState]);
+
+  const maxHearts = 5;
+
+  return useMemo(() => ({
+    question: quizState?.question,
+    progress: quizState?.progress,
+    hearts: quizState?.progress?.hearts ?? 0,
+    maxHearts,
+    correctAnswers: quizState?.progress?.correct_answers ?? 0,
     timeUntilNextHeart,
     loading,
     error,
+    submitting,
     answerQuestion,
-    restoreHeart,
-    canRestoreWithAd,
-    reward,
-    clearReward
-  };
+    refreshState: fetchQuizState,
+  }), [quizState, timeUntilNextHeart, loading, error, submitting, answerQuestion, fetchQuizState]);
 }
