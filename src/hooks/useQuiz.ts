@@ -70,8 +70,10 @@ export function useQuiz() {
   }, [user]);
 
   useEffect(() => {
-    fetchQuizState();
-  }, [fetchQuizState]);
+    if (user) {
+      fetchQuizState();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (quizState?.next_heart_restores_in_seconds) {
@@ -84,7 +86,7 @@ export function useQuiz() {
       setTimeUntilNextHeart((prevTime: number | null) => {
         if (prevTime === null || prevTime <= 1) {
           // Time to refetch the state from server as a heart should be restored
-          fetchQuizState();
+          if (user) fetchQuizState();
           return null;
         }
         return prevTime - 1;
@@ -92,7 +94,7 @@ export function useQuiz() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quizState?.next_heart_restores_in_seconds, fetchQuizState]);
+  }, [quizState?.next_heart_restores_in_seconds, user]);
 
 
   const answerQuestion = useCallback(async (questionId: string, answer: string): Promise<boolean> => {
