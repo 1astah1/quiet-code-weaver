@@ -103,7 +103,7 @@ const QuizQuestionCard: React.FC<QuizQuestionCardProps> = ({
 
       {/* Answer Options */}
       <div className="space-y-2 sm:space-y-3">
-        {question.answers.map((option, index) => (
+        {question?.answers?.map((option, index) => (
           <Button
             key={index}
             variant="ghost"

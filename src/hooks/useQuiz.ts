@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useReducer } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { type User } from '@supabase/supabase-js';
 
@@ -19,53 +19,110 @@ export interface UserQuizProgress {
   correct_answers: number;
   current_streak: number;
   total_rewards_earned: number;
-  created_at: string;
-  updated_at: string;
 }
 
-export interface QuizState {
+export interface ServerQuizState {
   progress: UserQuizProgress | null;
   question: QuizQuestion | null;
   next_heart_restores_in_seconds: number | null;
 }
 
+// Reducer Logic for State Management
+type State = {
+  loading: boolean;
+  submitting: boolean;
+  error: string | null;
+  data: ServerQuizState | null;
+  timeUntilNextHeart: number | null;
+  user: User | null;
+};
+
+type Action =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; payload: ServerQuizState }
+  | { type: 'FETCH_ERROR'; payload: string }
+  | { type: 'SUBMIT_START' }
+  | { type: 'SUBMIT_SUCCESS'; payload: ServerQuizState }
+  | { type: 'SUBMIT_ERROR'; payload: string }
+  | { type: 'SET_USER'; payload: User | null }
+  | { type: 'TICK_TIMER' };
+
+const initialState: State = {
+  loading: true,
+  submitting: false,
+  error: null,
+  data: null,
+  timeUntilNextHeart: null,
+  user: null,
+};
+
+function quizReducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'SET_USER':
+      return { ...state, user: action.payload };
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null };
+    case 'FETCH_SUCCESS':
+      return {
+        ...state,
+        loading: false,
+        data: action.payload,
+        timeUntilNextHeart: action.payload.next_heart_restores_in_seconds,
+      };
+    case 'FETCH_ERROR':
+      return { ...state, loading: false, error: action.payload };
+    case 'SUBMIT_START':
+      return { ...state, submitting: true, error: null };
+    case 'SUBMIT_SUCCESS':
+      return {
+        ...state,
+        submitting: false,
+        data: action.payload,
+        timeUntilNextHeart: action.payload.next_heart_restores_in_seconds,
+      };
+    case 'SUBMIT_ERROR':
+      return { ...state, submitting: false, error: action.payload };
+    case 'TICK_TIMER': {
+      if (state.timeUntilNextHeart === null || state.timeUntilNextHeart <= 1) {
+        return { ...state, timeUntilNextHeart: null };
+      }
+      return { ...state, timeUntilNextHeart: state.timeUntilNextHeart - 1 };
+    }
+    default:
+      return state;
+  }
+}
+
 export function useQuiz() {
-  const [user, setUser] = useState<User | null>(null);
-  const [quizState, setQuizState] = useState<QuizState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [timeUntilNextHeart, setTimeUntilNextHeart] = useState<number | null>(null);
+  const [state, dispatch] = useReducer(quizReducer, initialState);
+  const { user } = state;
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      dispatch({ type: 'SET_USER', payload: user });
     };
     fetchUser();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      dispatch({ type: 'SET_USER', payload: session?.user ?? null });
+    });
+
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
   const fetchQuizState = useCallback(async () => {
     if (!user) return;
+    dispatch({ type: 'FETCH_START' });
     try {
-      setLoading(true);
-      setError(null);
       const { data, error: rpcError } = await supabase.rpc('get_user_quiz_state');
-
-      if (rpcError) {
-        throw rpcError;
-      }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setQuizState(data);
+      if (rpcError) throw rpcError;
+      if (data.error) throw new Error(data.error);
+      dispatch({ type: 'FETCH_SUCCESS', payload: data });
     } catch (err: any) {
-      setError(err.message || 'Не удалось загрузить состояние викторины');
+      const message = err.message || 'Не удалось загрузить состояние викторины';
+      dispatch({ type: 'FETCH_ERROR', payload: message });
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   }, [user]);
 
@@ -73,73 +130,58 @@ export function useQuiz() {
     if (user) {
       fetchQuizState();
     }
-  }, [user]);
+  }, [user, fetchQuizState]);
 
   useEffect(() => {
-    if (quizState?.next_heart_restores_in_seconds) {
-      setTimeUntilNextHeart(quizState.next_heart_restores_in_seconds);
-    } else {
-      setTimeUntilNextHeart(null);
-    }
-
     const timer = setInterval(() => {
-      setTimeUntilNextHeart((prevTime: number | null) => {
-        if (prevTime === null || prevTime <= 1) {
-          // Time to refetch the state from server as a heart should be restored
-          if (user) fetchQuizState();
-          return null;
+      if(state.timeUntilNextHeart !== null) {
+        dispatch({ type: 'TICK_TIMER' });
+        // Refetch when timer hits zero to update hearts on server
+        if (state.timeUntilNextHeart <= 1) {
+          fetchQuizState();
         }
-        return prevTime - 1;
-      });
+      }
     }, 1000);
-
     return () => clearInterval(timer);
-  }, [quizState?.next_heart_restores_in_seconds, user]);
-
+  }, [state.timeUntilNextHeart, fetchQuizState]);
 
   const answerQuestion = useCallback(async (questionId: string, answer: string): Promise<boolean> => {
-    if (submitting || !user) return false;
+    if (state.submitting || !user) return false;
 
-    setSubmitting(true);
-    setError(null);
+    dispatch({ type: 'SUBMIT_START' });
     try {
+      const oldCorrectAnswers = state.data?.progress?.correct_answers ?? 0;
+      
       const { data, error: rpcError } = await supabase.rpc('answer_quiz_question', {
         p_question_id: questionId,
-        p_user_answer: answer
+        p_user_answer: answer,
       });
 
       if (rpcError) throw rpcError;
       if (data.error) throw new Error(data.error);
+      
+      dispatch({ type: 'SUBMIT_SUCCESS', payload: data });
 
-      // We need to find out if the answer was correct.
-      // The old state has the question, the new state has updated progress.
-      const oldCorrectAnswers = quizState?.progress?.correct_answers ?? 0;
       const newCorrectAnswers = data.progress.correct_answers;
-
-      setQuizState(data);
       return newCorrectAnswers > oldCorrectAnswers;
     } catch (err: any) {
-      setError(err.message || 'Ошибка при ответе на вопрос');
+      const message = err.message || 'Ошибка при ответе на вопрос';
+      dispatch({ type: 'SUBMIT_ERROR', payload: message });
       console.error(err);
       return false;
-    } finally {
-      setSubmitting(false);
     }
-  }, [submitting, user, quizState]);
-
-  const maxHearts = 2;
+  }, [user, state.submitting, state.data?.progress?.correct_answers]);
 
   return useMemo(() => ({
-    question: quizState?.question,
-    progress: quizState?.progress,
-    hearts: quizState?.progress?.hearts ?? 0,
-    maxHearts,
-    correctAnswers: quizState?.progress?.correct_answers ?? 0,
-    timeUntilNextHeart,
-    loading,
-    error,
-    submitting,
+    loading: state.loading,
+    submitting: state.submitting,
+    error: state.error,
+    question: state.data?.question,
+    progress: state.data?.progress,
+    hearts: state.data?.progress?.hearts ?? 0,
+    maxHearts: 2,
+    timeUntilNextHeart: state.timeUntilNextHeart,
     answerQuestion,
     refreshState: fetchQuizState,
-  }), [quizState, timeUntilNextHeart, loading, error, submitting, answerQuestion, fetchQuizState]);
+  }), [state, answerQuestion, fetchQuizState]);
 }
