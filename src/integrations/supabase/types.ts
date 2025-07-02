@@ -272,51 +272,78 @@ export type Database = {
           is_correct?: boolean
           question_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_answers_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "quiz_questions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       quiz_questions: {
         Row: {
-          answers: string | null
+          answers: Json
           category: string | null
-          correct_answer: string | null
+          correct_answer: string
           created_at: string | null
           difficulty: number | null
           id: string
           image_url: string | null
-          is_active: boolean | null
-          question_text: string
+          text: string
+          updated_at: string | null
         }
         Insert: {
-          answers?: string | null
+          answers: Json
           category?: string | null
-          correct_answer?: string | null
+          correct_answer: string
           created_at?: string | null
           difficulty?: number | null
           id?: string
           image_url?: string | null
-          is_active?: boolean | null
-          question_text: string
+          text: string
+          updated_at?: string | null
         }
         Update: {
-          answers?: string | null
+          answers?: Json
           category?: string | null
-          correct_answer?: string | null
+          correct_answer?: string
           created_at?: string | null
           difficulty?: number | null
           id?: string
           image_url?: string | null
-          is_active?: boolean | null
-          question_text?: string
+          text?: string
+          updated_at?: string | null
         }
         Relationships: []
+      }
+      quiz_rewards: {
+        Row: {
+          earned_at: string | null
+          id: string
+          questions_required: number
+          reward_amount: number
+          reward_type: string
+          user_id: string | null
+        }
+        Insert: {
+          earned_at?: string | null
+          id?: string
+          questions_required: number
+          reward_amount: number
+          reward_type: string
+          user_id?: string | null
+        }
+        Update: {
+          earned_at?: string | null
+          id?: string
+          questions_required?: number
+          reward_amount?: number
+          reward_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quizzes: {
         Row: {
@@ -793,6 +820,48 @@ export type Database = {
           },
         ]
       }
+      user_quiz_answers: {
+        Row: {
+          answered_at: string | null
+          id: string
+          is_correct: boolean
+          question_id: string | null
+          user_answer: string
+          user_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          id?: string
+          is_correct: boolean
+          question_id?: string | null
+          user_answer: string
+          user_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          id?: string
+          is_correct?: boolean
+          question_id?: string | null
+          user_answer?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_quiz_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_quiz_answers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_quiz_profiles: {
         Row: {
           created_at: string | null
@@ -825,29 +894,47 @@ export type Database = {
       }
       user_quiz_progress: {
         Row: {
-          answered_at: string | null
-          quiz_id: string
-          user_id: string
-          was_correct: boolean
+          correct_answers: number | null
+          created_at: string | null
+          current_streak: number | null
+          hearts: number | null
+          id: string
+          last_heart_restore: string | null
+          questions_answered: number | null
+          total_rewards_earned: number | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
-          answered_at?: string | null
-          quiz_id: string
-          user_id: string
-          was_correct: boolean
+          correct_answers?: number | null
+          created_at?: string | null
+          current_streak?: number | null
+          hearts?: number | null
+          id?: string
+          last_heart_restore?: string | null
+          questions_answered?: number | null
+          total_rewards_earned?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
-          answered_at?: string | null
-          quiz_id?: string
-          user_id?: string
-          was_correct?: boolean
+          correct_answers?: number | null
+          created_at?: string | null
+          current_streak?: number | null
+          hearts?: number | null
+          id?: string
+          last_heart_restore?: string | null
+          questions_answered?: number | null
+          total_rewards_earned?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "user_quiz_progress_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
+            foreignKeyName: "user_quiz_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1045,7 +1132,10 @@ export type Database = {
     }
     Functions: {
       answer_quiz_question: {
-        Args: { p_answer_id: string }
+        Args:
+          | { p_answer_id: string }
+          | { p_question_id: string; p_user_answer: string }
+          | { p_user_id: string; p_question_id: string; p_user_answer: string }
         Returns: {
           success: boolean
           correct: boolean
@@ -1098,17 +1188,26 @@ export type Database = {
           quiz_progress: Json
         }[]
       }
-      get_random_quiz_question: {
-        Args: { user_id_param: string; category_param?: string }
+      get_user_inventory: {
+        Args: { user_id_param: string }
         Returns: {
           id: string
-          text: string
-          answers: Json
-          correct_answer: string
-          image_url: string
-          difficulty: number
-          category: string
+          user_id: string
+          skin_id: string
+          is_sold: boolean
+          obtained_at: string
+          sold_at: string
+          sold_price: number
+          skin_name: string
+          skin_weapon_type: string
+          skin_rarity: string
+          skin_price: number
+          skin_image_url: string
         }[]
+      }
+      get_user_quiz_state: {
+        Args: Record<PropertyKey, never> | { p_user_id: string }
+        Returns: Json
       }
       has_role: {
         Args: {
