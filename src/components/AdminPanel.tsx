@@ -13,7 +13,9 @@ import PromoCodeManagement from "./admin/PromoCodeManagement";
 import SuspiciousActivityManagement from "./admin/SuspiciousActivityManagement";
 import DatabaseImageCleanup from "./admin/DatabaseImageCleanup";
 import type { TableName, RealTableName } from "@/types/admin";
-import { Case, Skin, Task } from "@/utils/supabaseTypes";
+import { Case, Skin, Task, DailyReward } from "@/utils/supabaseTypes";
+import DailyRewardsAdminForm from "./admin/DailyRewardsAdminForm";
+import { Button } from "@/components/ui/button";
 
 const isRealTable = (table: TableName): table is RealTableName => {
   return table !== 'users' && table !== 'suspicious_activities';
@@ -71,6 +73,26 @@ const AdminPanel = () => {
     },
     enabled: activeTable !== 'users' && activeTable !== 'suspicious_activities'
   });
+
+  // Для кастомной формы ежедневных наград
+  const [editingReward, setEditingReward] = useState<DailyReward | null>(null);
+  const [showRewardForm, setShowRewardForm] = useState(false);
+
+  // Получить все day_number для валидации уникальности
+  const dailyRewardDays = (tableData && activeTable === 'daily_rewards')
+    ? (tableData as DailyReward[]).map(r => r.day_number)
+    : [];
+
+  // CRUD для daily_rewards
+  const handleSaveReward = () => {
+    setShowRewardForm(false);
+    setEditingReward(null);
+    queryClient.invalidateQueries({ queryKey: ['daily_rewards'] });
+  };
+  const handleCancelReward = () => {
+    setShowRewardForm(false);
+    setEditingReward(null);
+  };
 
   // Универсальная функция для определения bucket и папки
   const getBucketAndFolder = (table: string, fieldName: string) => {
@@ -405,15 +427,64 @@ const AdminPanel = () => {
             uploadingImage={uploadingImage}
             getImageRequirements={() => ''}
           />
-          <AdminTable
-            activeTable={activeTable}
-            tableData={(tableData as Record<string, unknown>[]) || []}
-            onUpdate={() => queryClient.invalidateQueries({ queryKey: [activeTable] })}
-            onDelete={() => queryClient.invalidateQueries({ queryKey: [activeTable] })}
-            onImageUpload={handleImageUpload}
-            uploadingImage={uploadingImage}
-            getImageRequirements={() => ''}
-          />
+          {activeTable === 'daily_rewards' ? (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white">Ежедневные награды</h3>
+                <Button onClick={() => { setShowRewardForm(true); setEditingReward(null); }}>Добавить награду</Button>
+              </div>
+              {showRewardForm && (
+                <DailyRewardsAdminForm
+                  initial={editingReward || {}}
+                  onSave={handleSaveReward}
+                  onCancel={handleCancelReward}
+                  existingDays={dailyRewardDays}
+                />
+              )}
+              <div className="overflow-x-auto mt-4">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">День</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Тип</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Монеты</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Активна</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {(tableData as DailyReward[]).map((reward) => (
+                      <tr key={reward.id}>
+                        <td className="px-4 py-2">{reward.day_number}</td>
+                        <td className="px-4 py-2">{reward.reward_type}</td>
+                        <td className="px-4 py-2">{reward.reward_coins}</td>
+                        <td className="px-4 py-2">{reward.is_active ? 'Да' : 'Нет'}</td>
+                        <td className="px-4 py-2 flex gap-2">
+                          <Button size="sm" onClick={() => { setEditingReward(reward); setShowRewardForm(true); }}>Редактировать</Button>
+                          <Button size="sm" variant="destructive" onClick={async () => {
+                            if (window.confirm('Удалить награду?')) {
+                              await supabase.from('daily_rewards').delete().eq('id', reward.id);
+                              queryClient.invalidateQueries({ queryKey: ['daily_rewards'] });
+                            }
+                          }}>Удалить</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <AdminTable
+              activeTable={activeTable}
+              tableData={(tableData as Record<string, unknown>[]) || []}
+              onUpdate={() => queryClient.invalidateQueries({ queryKey: [activeTable] })}
+              onDelete={() => queryClient.invalidateQueries({ queryKey: [activeTable] })}
+              onImageUpload={handleImageUpload}
+              uploadingImage={uploadingImage}
+              getImageRequirements={() => ''}
+            />
+          )}
         </>
       )}
       

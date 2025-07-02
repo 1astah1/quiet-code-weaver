@@ -92,62 +92,35 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
   };
 
   const handleClaimReward = async () => {
-    if (!canClaimToday() || isClaimingReward || !userProgress) return;
-    
+    if (isClaimingReward || !userProgress) return;
     setIsClaimingReward(true);
-    
     try {
-      const nextDay = getNextClaimableDay();
-      const reward = dailyRewards?.find(r => r.day_number === nextDay);
-      
-      if (!reward) throw new Error('Reward not found');
-
-      // Записываем получение награды
-      const { error: claimError } = await supabase
-        .from('user_daily_rewards')
-        .insert({
-          user_id: userProgress.userId,
-          day_number: nextDay,
-          reward_coins: reward.reward_coins
-        });
-
-      if (claimError) throw claimError;
-
-      // Обновляем баланс пользователя и стрик
-      const currentCoins = userProgress.dailyStreak || 0;
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({
-          coins: currentCoins + reward.reward_coins,
-          daily_streak: nextDay,
-          last_daily_login: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', userProgress.userId)
-        .select('coins')
-        .single();
-
-      if (updateError) throw updateError;
-
-      toast({
-        title: "Награда получена!",
-        description: `Вы получили ${reward.reward_coins} монет за ${nextDay} день`,
+      // Вызов серверной функции
+      const { error, data } = await supabase.rpc('safe_claim_daily_reward', {
+        p_user_id: userProgress.userId
       });
-
-      // Обновляем баланс в родительском компоненте
-      if (onCoinsUpdate && updatedUser) {
-        onCoinsUpdate(updatedUser.coins || 0);
+      if (error || !data || !data.success) {
+        toast({
+          title: 'Ошибка',
+          description: data?.error === 'already_claimed_today' ? 'Награда уже получена сегодня' : 'Не удалось получить награду',
+          variant: 'destructive',
+        });
+        return;
       }
-
-      // Обновляем данные
+      toast({
+        title: 'Награда получена!',
+        description: `Вы получили ${data.reward_coins} монет за ${data.reward_day} день`,
+      });
+      if (onCoinsUpdate && data.new_balance !== undefined) {
+        onCoinsUpdate(data.new_balance);
+      }
       queryClient.invalidateQueries({ queryKey: ['daily_progress'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-
     } catch (error) {
-      console.error('Ошибка получения награды:', error);
       toast({
-        title: "Ошибка",
-        description: "Не удалось получить награду",
-        variant: "destructive",
+        title: 'Ошибка',
+        description: 'Не удалось получить награду',
+        variant: 'destructive',
       });
     } finally {
       setIsClaimingReward(false);
@@ -193,8 +166,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-7 gap-2">
-          {dailyRewards?.map((reward) => {
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2">
+          {dailyRewards?.map((reward: any) => {
             const dayNumber = reward.day_number;
             const isClaimed = userProgress?.claimedRewards.some(r => r.day_number === dayNumber) || false;
             const isNext = dayNumber === nextClaimableDay;
