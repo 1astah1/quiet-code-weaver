@@ -10,12 +10,13 @@ import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/u
 interface QuizQuestion {
   id: string;
   text: string;
-  answers: string[];
+  answers: any; // Json type from database
   correct_answer: string | null;
   difficulty: number | null;
   category: string | null;
   image_url?: string | null;
   created_at?: string | null;
+  is_active?: boolean | null;
 }
 
 interface QuizQuestionForm {
@@ -53,7 +54,7 @@ const QuizQuestionManagement: React.FC = () => {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) setError(error.message);
-    else setQuestions(data || []);
+    else setQuestions((data || []) as QuizQuestion[]);
     setLoading(false);
   };
 
@@ -64,7 +65,11 @@ const QuizQuestionManagement: React.FC = () => {
     if (q) {
       setForm({
         text: q.text,
-        answers: Array.isArray(q.answers) ? q.answers : ['', '', '', ''],
+        answers: Array.isArray(q.answers) ? q.answers : (
+          typeof q.answers === 'string' ? 
+            JSON.parse(q.answers).slice(0, 4) : 
+            ['', '', '', '']
+        ),
         correct_answer: q.correct_answer || '',
         difficulty: q.difficulty || 1,
         category: q.category || 'cs2',

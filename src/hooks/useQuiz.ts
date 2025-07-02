@@ -117,8 +117,11 @@ export function useQuiz() {
     try {
       const { data, error: rpcError } = await supabase.rpc('get_user_quiz_state');
       if (rpcError) throw rpcError;
-      if (data.error) throw new Error(data.error);
-      dispatch({ type: 'FETCH_SUCCESS', payload: data });
+      if (!data) throw new Error('No data received');
+      if (typeof data === 'object' && data && 'error' in data) {
+        throw new Error((data as any).error);
+      }
+      dispatch({ type: 'FETCH_SUCCESS', payload: data as unknown as ServerQuizState });
     } catch (err: any) {
       const message = err.message || 'Не удалось загрузить состояние викторины';
       dispatch({ type: 'FETCH_ERROR', payload: message });
@@ -158,12 +161,15 @@ export function useQuiz() {
       });
 
       if (rpcError) throw rpcError;
-      if (data.error) throw new Error(data.error);
+      if (!data) throw new Error('No data received');
       
-      dispatch({ type: 'SUBMIT_SUCCESS', payload: data });
-
-      const newCorrectAnswers = data.progress.correct_answers;
-      return newCorrectAnswers > oldCorrectAnswers;
+      // The RPC returns a different format than expected, let's handle it
+      const isCorrect = Array.isArray(data) && data.length > 0 && data[0]?.correct === true;
+      
+      // Refetch the quiz state to get updated data
+      await fetchQuizState();
+      
+      return isCorrect;
     } catch (err: any) {
       const message = err.message || 'Ошибка при ответе на вопрос';
       dispatch({ type: 'SUBMIT_ERROR', payload: message });

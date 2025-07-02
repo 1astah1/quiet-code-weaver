@@ -138,7 +138,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ onBack }) => {
         <QuizHearts
           hearts={hearts}
           maxHearts={maxHearts}
-          timeUntilNextHeart={timeUntilNextHeart}
+          timeUntilNextHeart={timeUntilNextHeart ?? 0}
         />
       </div>
     </div>

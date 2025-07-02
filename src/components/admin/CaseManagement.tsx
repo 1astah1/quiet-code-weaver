@@ -218,7 +218,7 @@ const CaseManagement = ({
 
       {/* Сетка кейсов */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Array.isArray(tableData) ? tableData.map((caseItem) => (
+        {Array.isArray(tableData) && tableData.length > 0 ? tableData.map((caseItem) => (
           <Card key={caseItem.id} className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -373,7 +373,7 @@ const CaseManagement = ({
               </div>
             </CardContent>
           </Card>
-        ))}
+        )) : null}
       </div>
 
       {Array.isArray(tableData) && tableData.length === 0 && (

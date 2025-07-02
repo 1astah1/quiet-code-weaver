@@ -283,6 +283,7 @@ export type Database = {
           difficulty: number | null
           id: string
           image_url: string | null
+          is_active: boolean | null
           text: string
           updated_at: string | null
         }
@@ -294,6 +295,7 @@ export type Database = {
           difficulty?: number | null
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           text: string
           updated_at?: string | null
         }
@@ -305,6 +307,7 @@ export type Database = {
           difficulty?: number | null
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           text?: string
           updated_at?: string | null
         }
@@ -1131,6 +1134,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_query_table: {
+        Args: { p_table_name: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       answer_quiz_question: {
         Args:
           | { p_answer_id: string }
@@ -1221,6 +1228,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin_user_by_role: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_admin_user_enhanced: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
