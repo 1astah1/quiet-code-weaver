@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Calendar, Gift, Coins, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import 'react/jsx-runtime';
 
 interface DailyRewardsCalendarProps {
   currentUser?: {
@@ -79,8 +80,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     if (!lastClaim) return true;
     
     // Проверяем, прошло ли 24 часа с последней награды
-    const lastClaimTime = new Date(lastClaim.claimed_at);
-    const hoursPassedSinceLastClaim = (now.getTime() - lastClaimTime.getTime()) / (1000 * 60 * 60);
+    const lastClaimTime = lastClaim?.claimed_at ? new Date(lastClaim.claimed_at) : undefined;
+    const hoursPassedSinceLastClaim = (now.getTime() - (lastClaimTime?.getTime() || 0)) / (1000 * 60 * 60);
     
     return hoursPassedSinceLastClaim >= 24;
   };

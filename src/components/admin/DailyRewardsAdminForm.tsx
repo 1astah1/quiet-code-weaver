@@ -1,8 +1,10 @@
+import React from 'react';
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DailyReward } from "@/utils/supabaseTypes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import 'react/jsx-runtime';
 
 interface Props {
   initial?: Partial<DailyReward>;
@@ -49,11 +51,14 @@ const DailyRewardsAdminForm = ({ initial = {}, onSave, onCancel, existingDays }:
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : name === "day_number" || name === "reward_coins" ? Number(value) : value,
-    }));
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+      const { name, value, type } = e.target;
+      const checked = (e.target instanceof HTMLInputElement) ? e.target.checked : undefined;
+      setForm((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : name === "day_number" || name === "reward_coins" ? Number(value) : value,
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,6 +66,11 @@ const DailyRewardsAdminForm = ({ initial = {}, onSave, onCancel, existingDays }:
     if (!validate()) return;
     setLoading(true);
     try {
+      if (!form.day_number || !form.reward_type || (form.reward_type === 'coins' && !form.reward_coins)) {
+        setError('Пожалуйста, заполните все обязательные поля');
+        setLoading(false);
+        return;
+      }
       if (initial.id) {
         // update
         await supabase.from("daily_rewards").update(form).eq("id", initial.id);

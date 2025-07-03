@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ import type { TableName, RealTableName } from "@/types/admin";
 import { Case, Skin, Task, DailyReward } from "@/utils/supabaseTypes";
 import DailyRewardsAdminForm from "./admin/DailyRewardsAdminForm";
 import { Button } from "@/components/ui/button";
+import 'react/jsx-runtime';
 
 const isRealTable = (table: TableName): table is RealTableName => {
   return table !== 'users' && table !== 'suspicious_activities';
@@ -79,7 +81,7 @@ const AdminPanel = () => {
   const [showRewardForm, setShowRewardForm] = useState(false);
 
   // Получить все day_number для валидации уникальности
-  const dailyRewardDays = (tableData && activeTable === 'daily_rewards')
+  const dailyRewardDays = (tableData && activeTable === 'daily_rewards' && Array.isArray(tableData) && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item))
     ? (tableData as DailyReward[]).map(r => r.day_number)
     : [];
 
@@ -453,7 +455,9 @@ const AdminPanel = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {(tableData as DailyReward[]).map((reward) => (
+                    {(Array.isArray(tableData) && activeTable === 'daily_rewards' && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item)
+                      ? (tableData as DailyReward[])
+                      : []).map((reward) => (
                       <tr key={reward.id}>
                         <td className="px-4 py-2">{reward.day_number}</td>
                         <td className="px-4 py-2">{reward.reward_type}</td>
