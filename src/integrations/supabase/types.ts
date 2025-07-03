@@ -1251,6 +1251,10 @@ export type Database = {
         Args: { p_user_id: string; p_skin_id: string }
         Returns: Json
       }
+      safe_claim_daily_reward: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       safe_claim_task_reward: {
         Args: { p_user_id: string; p_task_id: string }
         Returns: Json

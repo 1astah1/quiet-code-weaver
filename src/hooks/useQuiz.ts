@@ -1,3 +1,4 @@
+
 import { useEffect, useCallback, useMemo, useReducer } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { type User } from '@supabase/supabase-js';
@@ -125,7 +126,7 @@ export function useQuiz() {
     } catch (err: any) {
       const message = err.message || 'Не удалось загрузить состояние викторины';
       dispatch({ type: 'FETCH_ERROR', payload: message });
-      console.error(err);
+      console.error('Quiz state fetch error:', err);
     }
   }, [user]);
 
@@ -153,30 +154,48 @@ export function useQuiz() {
 
     dispatch({ type: 'SUBMIT_START' });
     try {
-      const oldCorrectAnswers = state.data?.progress?.correct_answers ?? 0;
-      
       const { data, error: rpcError } = await supabase.rpc('answer_quiz_question', {
         p_question_id: questionId,
         p_user_answer: answer,
       });
 
-      if (rpcError) throw rpcError;
-      if (!data) throw new Error('No data received');
+      if (rpcError) {
+        console.error('RPC Error:', rpcError);
+        throw rpcError;
+      }
       
-      // The RPC returns a different format than expected, let's handle it
-      const isCorrect = Array.isArray(data) && data.length > 0 && data[0]?.correct === true;
+      if (!data) {
+        throw new Error('No data received from answer_quiz_question');
+      }
       
-      // Refetch the quiz state to get updated data
-      await fetchQuizState();
+      console.log('Raw RPC response:', data);
+      
+      // Правильная обработка ответа от RPC функции
+      // RPC возвращает jsonb_build_array(jsonb_build_object('correct', v_is_correct))
+      let isCorrect = false;
+      
+      if (Array.isArray(data) && data.length > 0) {
+        const firstItem = data[0];
+        if (typeof firstItem === 'object' && firstItem !== null && 'correct' in firstItem) {
+          isCorrect = Boolean(firstItem.correct);
+        }
+      }
+      
+      console.log('Processed answer result:', { isCorrect, rawData: data });
+      
+      // Небольшая задержка перед обновлением состояния для лучшего UX
+      setTimeout(() => {
+        fetchQuizState();
+      }, 500);
       
       return isCorrect;
     } catch (err: any) {
       const message = err.message || 'Ошибка при ответе на вопрос';
       dispatch({ type: 'SUBMIT_ERROR', payload: message });
-      console.error(err);
+      console.error('Answer question error:', err);
       return false;
     }
-  }, [user, state.submitting, state.data?.progress?.correct_answers]);
+  }, [user, state.submitting, fetchQuizState]);
 
   return useMemo(() => ({
     loading: state.loading,

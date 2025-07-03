@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Calendar, Gift, Coins, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isClaimingReward, setIsClaimingReward] = useState(false);
+  const [timeUntilNextReward, setTimeUntilNextReward] = useState<number | null>(null);
 
   const { data: dailyRewards, isLoading: rewardsLoading } = useQuery({
     queryKey: ['daily_rewards'],
@@ -52,7 +54,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
       const { data: claimedRewards, error: claimedError } = await supabase
         .from('user_daily_rewards')
         .select('day_number, claimed_at')
-        .eq('user_id', userData.id);
+        .eq('user_id', userData.id)
+        .order('claimed_at', { ascending: false });
 
       if (claimedError) throw claimedError;
 
@@ -65,30 +68,69 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     }
   });
 
-  const canClaimToday = () => {
+  // Функция для проверки, может ли пользователь получить награду
+  const canClaimReward = () => {
     if (!userProgress) return false;
     
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    const lastLogin = userProgress.lastDailyLogin;
+    const now = new Date();
+    const lastClaim = userProgress.claimedRewards[0]; // Самая последняя награда
     
-    // Проверяем, входил ли пользователь сегодня
-    const hasLoggedInToday = lastLogin === todayString;
+    // Если наград еще не было, можно получить первую
+    if (!lastClaim) return true;
     
-    // Проверяем, получал ли уже награду сегодня
-    const hasClaimedToday = userProgress.claimedRewards.some(reward => {
-      const claimedDate = reward.claimed_at ? new Date(reward.claimed_at).toISOString().split('T')[0] : null;
-      return claimedDate === todayString;
-    });
+    // Проверяем, прошло ли 24 часа с последней награды
+    const lastClaimTime = new Date(lastClaim.claimed_at);
+    const hoursPassedSinceLastClaim = (now.getTime() - lastClaimTime.getTime()) / (1000 * 60 * 60);
     
-    return hasLoggedInToday && !hasClaimedToday;
+    return hoursPassedSinceLastClaim >= 24;
   };
+
+  // Таймер для обновления времени до следующей награды
+  useEffect(() => {
+    if (!userProgress?.claimedRewards[0]) {
+      setTimeUntilNextReward(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = new Date();
+      const lastClaim = new Date(userProgress.claimedRewards[0].claimed_at);
+      const nextRewardTime = new Date(lastClaim.getTime() + 24 * 60 * 60 * 1000);
+      
+      if (now >= nextRewardTime) {
+        setTimeUntilNextReward(null);
+        // Обновляем данные, чтобы показать доступность новой награды
+        queryClient.invalidateQueries({ queryKey: ['daily_progress'] });
+      } else {
+        const timeLeft = Math.ceil((nextRewardTime.getTime() - now.getTime()) / 1000);
+        setTimeUntilNextReward(timeLeft);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [userProgress?.claimedRewards, queryClient]);
 
   const getNextClaimableDay = () => {
     if (!userProgress || !dailyRewards) return 1;
     
     const currentStreak = userProgress.dailyStreak || 0;
     return Math.min(currentStreak + 1, dailyRewards.length);
+  };
+
+  const formatTimeLeft = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}ч ${minutes}м`;
+    } else if (minutes > 0) {
+      return `${minutes}м ${secs}с`;
+    } else {
+      return `${secs}с`;
+    }
   };
 
   const handleClaimReward = async () => {
@@ -145,6 +187,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
 
   const nextClaimableDay = getNextClaimableDay();
   const currentStreak = userProgress?.dailyStreak || 0;
+  const canClaim = canClaimReward();
 
   return (
     <Card className="bg-slate-900 border-slate-700">
@@ -157,9 +200,14 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
           <Badge variant="outline" className="border-blue-500 text-blue-400">
             Стрик: {currentStreak} дней
           </Badge>
-          {canClaimToday() && (
+          {canClaim && (
             <Badge variant="outline" className="border-green-500 text-green-400">
               Доступна награда!
+            </Badge>
+          )}
+          {timeUntilNextReward && timeUntilNextReward > 0 && (
+            <Badge variant="outline" className="border-orange-500 text-orange-400">
+              Следующая через: {formatTimeLeft(timeUntilNextReward)}
             </Badge>
           )}
         </div>
@@ -180,7 +228,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
                   relative p-3 rounded-lg border text-center transition-all
                   ${isClaimed 
                     ? 'bg-green-900/30 border-green-500/50' 
-                    : isNext && canClaimToday()
+                    : isNext && canClaim
                     ? 'bg-blue-900/30 border-blue-500 ring-2 ring-blue-500/30' 
                     : isAvailable
                     ? 'bg-slate-800 border-slate-600'
@@ -214,7 +262,7 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
           })}
         </div>
 
-        {canClaimToday() && (
+        {canClaim && (
           <Button
             onClick={handleClaimReward}
             disabled={isClaimingReward}
@@ -225,11 +273,13 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
           </Button>
         )}
 
-        {!canClaimToday() && (
+        {!canClaim && (
           <div className="text-center text-gray-400 text-sm">
-            {userProgress?.lastDailyLogin === new Date().toISOString().split('T')[0]
-              ? 'Награда уже получена сегодня'
-              : 'Войдите завтра для получения следующей награды'
+            {timeUntilNextReward && timeUntilNextReward > 0
+              ? `Следующая награда через: ${formatTimeLeft(timeUntilNextReward)}`
+              : userProgress?.claimedRewards.length === 0 
+              ? 'Получите первую ежедневную награду!'
+              : 'Возвращайтесь завтра за следующей наградой'
             }
           </div>
         )}
