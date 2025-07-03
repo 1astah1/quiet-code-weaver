@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { TableName } from "@/types/admin";
 
@@ -14,7 +13,7 @@ const AdminTableSelector = ({ activeTable, onTableChange }: AdminTableSelectorPr
     { name: "users", label: "Пользователи", icon: "👥" },
     { name: "banners", label: "Баннеры", icon: "🖼️" },
     { name: "tasks", label: "Задания", icon: "📋" },
-    { name: "quiz_questions", label: "Вопросы", icon: "❓" },
+    { name: "watermelon_fruits", label: "Фрукты игры", icon: "🍉" },
     { name: "promo_codes", label: "Промокоды", icon: "🎫" },
     { name: "coin_rewards", label: "Монетные награды", icon: "🪙" },
     { name: "daily_rewards", label: "Ежедневные награды", icon: "🎁" },

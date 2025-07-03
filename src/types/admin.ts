@@ -4,7 +4,7 @@ export type TableName =
   | "users"
   | "banners"
   | "tasks"
-  | "quiz_questions"
+  | "watermelon_fruits"
   | "promo_codes"
   | "coin_rewards"
   | "daily_rewards"

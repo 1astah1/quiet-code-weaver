@@ -5,10 +5,10 @@ export const pl = {
   // Navigation
   main: 'Główna',
   cases: 'Skrzynie',
-  quiz: 'Quiz',
   tasks: 'Zadania',
   inventory: 'Inwentarz',
   settings: 'Ustawienia',
+  game: 'Gra',
   
   // Recent Wins
   recentWins: 'Ostatnie wygrane',

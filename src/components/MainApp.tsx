@@ -16,9 +16,9 @@ import { useToast } from "@/components/ui/toast";
 import { auditLog } from "@/utils/security";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useTranslation } from "@/components/ui/use-translation";
-import QuizScreen from "@/components/quiz/QuizScreen";
+import WatermelonGameScreen from '@/components/game/WatermelonGameScreen';
 
-export type Screen = 'main' | 'skins' | 'quiz' | 'tasks' | 'inventory' | 'settings' | 'admin';
+export type Screen = 'main' | 'skins' | 'tasks' | 'inventory' | 'settings' | 'admin' | 'game';
 
 interface CurrentUser {
   id: string;
@@ -43,7 +43,6 @@ const MainApp = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
   const inventoryRefetchRef = useRef<null | (() => Promise<any>)>(null);
@@ -316,9 +315,9 @@ const MainApp = () => {
             onScreenChange={setCurrentScreen}
           />
         );
-      case 'quiz':
+      case 'game':
         return (
-          <QuizScreen onBack={() => setCurrentScreen('main')} />
+          <WatermelonGameScreen onBack={() => setCurrentScreen('main')} />
         );
       default:
         return (

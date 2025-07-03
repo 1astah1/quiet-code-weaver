@@ -5,10 +5,10 @@ export const fr = {
   // Navigation
   main: 'Principal',
   cases: 'Coffres',
-  quiz: 'Quiz',
   tasks: 'Tâches',
   inventory: 'Inventaire',
   settings: 'Paramètres',
+  game: 'Jeu',
   
   // Recent Wins
   recentWins: 'Gains Récents',

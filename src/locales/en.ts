@@ -5,10 +5,10 @@ export const en = {
   // Navigation
   main: 'Main',
   cases: 'Cases',
-  quiz: 'Quiz',
   tasks: 'Tasks',
   inventory: 'Inventory',
   settings: 'Settings',
+  game: 'Game',
   
   // Recent Wins
   recentWins: 'Recent Wins',

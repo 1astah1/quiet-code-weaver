@@ -88,8 +88,6 @@ export interface ExtendedUser {
   last_daily_login?: string;
   premium_until?: string;
   profile_private?: boolean;
-  quiz_lives?: number;
-  quiz_streak?: number;
   referral_code?: string;
   referred_by?: string;
   sound_enabled?: boolean;
@@ -97,7 +95,6 @@ export interface ExtendedUser {
   last_free_case_notification?: string;
   last_life_restore?: string;
   last_ad_life_restore?: string;
-  last_quiz_date?: string;
   user_roles?: Array<{ role: string }>;
 }
 
@@ -155,22 +152,6 @@ export interface UserDailyReward {
   reward_coins: number;
   claimed_at?: string;
   created_at?: string;
-}
-
-// Типы для викторины
-export interface QuizQuestion {
-  id: string;
-  question_text: string;
-  image_url?: string;
-  is_active?: boolean;
-  created_at?: string;
-}
-
-export interface QuizAnswer {
-  id: string;
-  question_id?: string;
-  answer_text: string;
-  is_correct: boolean;
 }
 
 // Типы для монет и наград

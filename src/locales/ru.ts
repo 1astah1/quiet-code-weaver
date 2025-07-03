@@ -5,10 +5,10 @@ export const ru = {
   // Navigation
   main: 'Главная',
   cases: 'Кейсы',
-  quiz: 'Викторина',
   tasks: 'Задания',
   inventory: 'Инвентарь',
   settings: 'Настройки',
+  game: 'Игра',
   
   // Recent Wins
   recentWins: 'Последние выигрыши',

@@ -1,4 +1,3 @@
-
 // Улучшенная система валидации и безопасности
 export class SecurityValidator {
   // Строгая валидация UUID
@@ -27,7 +26,6 @@ export class SecurityValidator {
     const limits: Record<string, number> = {
       'case_open': 20, // максимум 20 открытий в минуту
       'skin_sell': 10, // максимум 10 продаж в минуту
-      'quiz_answer': 30, // максимум 30 ответов в минуту
     };
     
     return frequency > (limits[actionType] || 5);

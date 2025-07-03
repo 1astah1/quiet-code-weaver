@@ -265,7 +265,6 @@ const BannerForm = ({ banner, onSave, onCancel, onImageUpload, uploadingImage, i
             <option value="skins">Перейти в магазин</option>
             <option value="cases">Перейти к кейсам</option>
             <option value="tasks">Перейти к заданиям</option>
-            <option value="quiz">Перейти к викторине</option>
           </select>
         </div>
 

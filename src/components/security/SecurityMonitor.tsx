@@ -38,7 +38,7 @@ const SecurityMonitor: React.FC = () => {
     const checkSecurity = () => {
       console.log('🔍 [SECURITY_MONITOR] Running security check...');
       
-      const actions = ['sell_skin', 'open_case', 'quiz_answer', 'restore_lives'];
+      const actions = ['sell_skin', 'open_case', 'restore_lives'];
       let hasBlocks = false;
       const blockedActions: string[] = [];
 

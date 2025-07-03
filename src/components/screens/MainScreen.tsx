@@ -78,10 +78,6 @@ const MainScreen = ({ currentUser, onCoinsUpdate, onScreenChange }: MainScreenPr
         console.log('📋 [MAIN_SCREEN] Navigating to tasks screen');
         onScreenChange('tasks');
         break;
-      case 'quiz':
-        console.log('🧠 [MAIN_SCREEN] Navigating to quiz screen');
-        onScreenChange('quiz');
-        break;
       case 'inventory':
         console.log('🎒 [MAIN_SCREEN] Navigating to inventory screen');
         onScreenChange('inventory');

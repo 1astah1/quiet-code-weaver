@@ -1,5 +1,5 @@
 import { useTranslation } from "@/components/ui/use-translation";
-import { Home, Box, BrainCircuit, CheckSquare, Briefcase } from 'lucide-react';
+import { Home, Box, BrainCircuit, CheckSquare, Briefcase, Gamepad } from 'lucide-react';
 
 interface BottomNavigationProps {
   currentScreen: string;
@@ -14,7 +14,7 @@ const BottomNavigation = ({ currentScreen, onScreenChange, currentLanguage = 'ru
     { screen: 'main', label: t('main'), icon: Home },
     { screen: 'skins', label: (t as any)('shop'), icon: Box },
     { screen: 'inventory', label: t('inventory'), icon: Briefcase },
-    { screen: 'quiz', label: t('quiz'), icon: BrainCircuit },
+    { screen: 'game', label: t('game'), icon: Gamepad },
     { screen: 'tasks', label: t('tasks'), icon: CheckSquare },
   ];
 

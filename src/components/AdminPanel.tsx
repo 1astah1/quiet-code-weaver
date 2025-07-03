@@ -18,6 +18,7 @@ import { Case, Skin, Task, DailyReward } from "@/utils/supabaseTypes";
 import DailyRewardsAdminForm from "./admin/DailyRewardsAdminForm";
 import { Button } from "@/components/ui/button";
 import 'react/jsx-runtime';
+import WatermelonFruitsManagement from './admin/WatermelonFruitsManagement';
 
 const isRealTable = (table: TableName): table is RealTableName => {
   return table !== 'users' && table !== 'suspicious_activities';
@@ -111,10 +112,12 @@ const AdminPanel = () => {
       folder = fieldName === 'cover_image_url' ? 'case-covers' : 'case-images';
     } else if (table === 'skins') {
       folder = 'skin-images';
-    } else if (table === 'quiz_questions') {
-      folder = 'quiz-images';
     } else if (table === 'tasks') {
       folder = 'task-images';
+    } else if (table === 'watermelon_fruits') {
+      return <WatermelonFruitsManagement />;
+    } else if (table === 'promo_codes') {
+      return <PromoCodeManagement />;
     }
     
     const result = { bucketName: 'case-images', folder };
@@ -418,7 +421,7 @@ const AdminPanel = () => {
       {activeTable === 'faq_items' && <DatabaseImageCleanup />}
       
       {/* Универсальная таблица и форма добавления */}
-      {['cases','skins','tasks','quiz_questions','coin_rewards','daily_rewards','faq_items'].includes(activeTable) && (
+      {['cases','skins','tasks','coin_rewards','daily_rewards','faq_items'].includes(activeTable) && (
         <>
           <AddItemForm
             activeTable={activeTable}
