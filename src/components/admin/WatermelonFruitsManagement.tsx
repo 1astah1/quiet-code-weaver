@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,9 +22,15 @@ const WatermelonFruitsManagement: React.FC = () => {
 
   const loadFruits = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_watermelon_fruits');
+      // Use admin_query_table instead of get_watermelon_fruits
+      const { data, error } = await supabase.rpc('admin_query_table', {
+        p_table_name: 'watermelon_fruits'
+      });
       if (error) throw error;
-      setFruits(data || []);
+      
+      // Parse the JSON response and handle it properly
+      const fruitsData = Array.isArray(data) ? data : [];
+      setFruits(fruitsData as WatermelonFruit[]);
     } catch (error) {
       console.error('Error loading fruits:', error);
     } finally {
@@ -39,13 +46,13 @@ const WatermelonFruitsManagement: React.FC = () => {
       const filePath = `watermelon-fruits/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('lovable-uploads')
+        .from('case-images')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('lovable-uploads')
+        .from('case-images')
         .getPublicUrl(filePath);
 
       await updateFruit(level, { image_url: publicUrl });
@@ -60,13 +67,11 @@ const WatermelonFruitsManagement: React.FC = () => {
 
   const updateFruit = async (level: number, updates: Partial<WatermelonFruit>) => {
     try {
-      const { error } = await supabase.rpc('update_watermelon_fruit', {
-        p_level: level,
-        p_name: updates.name,
-        p_radius: updates.radius,
-        p_color: updates.color,
-        p_image_url: updates.image_url
-      });
+      // Since we don't have the update_watermelon_fruit RPC, we'll use direct table updates
+      const { error } = await supabase
+        .from('watermelon_fruits' as any)
+        .update(updates)
+        .eq('level', level);
 
       if (error) throw error;
       await loadFruits();
@@ -258,4 +263,4 @@ const WatermelonFruitsManagement: React.FC = () => {
   );
 };
 
-export default WatermelonFruitsManagement; 
+export default WatermelonFruitsManagement;

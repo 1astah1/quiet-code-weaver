@@ -169,7 +169,8 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
         return;
       }
       
-      const response = data as ClaimRewardResponse;
+      // Cast the response properly
+      const response = data as unknown as ClaimRewardResponse;
       
       if (!response?.success) {
         toast({

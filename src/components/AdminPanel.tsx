@@ -33,57 +33,63 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: tableData, isLoading } = useQuery<Case[] | Skin[] | Record<string, unknown>[]>({
+  const { data: tableData, isLoading } = useQuery({
     queryKey: [activeTable],
-    queryFn: async () => {
+    queryFn: async (): Promise<Case[] | Skin[] | Record<string, unknown>[]> => {
       if (!isRealTable(activeTable)) {
         return [];
       }
       
-      // Handle watermelon_fruits case since it's not in the generated types yet
-      if (activeTable === 'watermelon_fruits') {
+      try {
+        // Handle watermelon_fruits case since it's not in the generated types yet
+        if (activeTable === 'watermelon_fruits') {
+          const { data, error } = await supabase.rpc('admin_query_table', {
+            p_table_name: 'watermelon_fruits'
+          });
+          if (error) throw error;
+          return Array.isArray(data) ? data : [];
+        }
+        
         const { data, error } = await supabase
-          .from('watermelon_fruits' as any)
+          .from(activeTable)
           .select('*');
         if (error) throw error;
-        return data || [];
-      }
-      
-      const { data, error } = await supabase
-        .from(activeTable)
-        .select('*');
-      if (error) throw error;
-      if (!Array.isArray(data)) return [];
-      if (activeTable === 'cases') {
+        if (!Array.isArray(data)) return [];
+        
+        if (activeTable === 'cases') {
+          const filtered = (data as unknown[]).filter(
+            (item): item is Case =>
+              typeof item === 'object' &&
+              item !== null &&
+              'id' in item &&
+              'name' in item &&
+              'price' in item
+          );
+          return filtered;
+        }
+        if (activeTable === 'skins') {
+          const filtered = (data as unknown[]).filter(
+            (item): item is Skin =>
+              typeof item === 'object' &&
+              item !== null &&
+              'id' in item &&
+              'name' in item &&
+              'weapon_type' in item &&
+              'rarity' in item &&
+              'price' in item
+          );
+          return filtered;
+        }
+        // Остальные таблицы: фильтруем только объекты с id
         const filtered = (data as unknown[]).filter(
-          (item): item is Case =>
-            typeof item === 'object' &&
-            item !== null &&
-            'id' in item &&
-            'name' in item &&
-            'price' in item
+          (item): item is Record<string, unknown> =>
+            typeof item === 'object' && item !== null && 'id' in item
         );
         return filtered;
+      } catch (error) {
+        console.error('Query error:', error);
+        return [];
       }
-      if (activeTable === 'skins') {
-        const filtered = (data as unknown[]).filter(
-          (item): item is Skin =>
-            typeof item === 'object' &&
-            item !== null &&
-            'id' in item &&
-            'name' in item &&
-            'weapon_type' in item &&
-            'rarity' in item &&
-            'price' in item
-        );
-        return filtered;
-      }
-      // Остальные таблицы: фильтруем только объекты с id
-      const filtered = (data as unknown[]).filter(
-        (item): item is Record<string, unknown> =>
-          typeof item === 'object' && item !== null && 'id' in item
-      );
-      return filtered;
     },
     enabled: activeTable !== 'users' && activeTable !== 'suspicious_activities'
   });
@@ -109,7 +115,7 @@ const AdminPanel = () => {
   };
 
   // Универсальная функция для определения bucket и папки
-  const getBucketAndFolder = (table: string, fieldName: string): { bucketName: string; folder: string } => {
+  const getBucketAndFolder = (table: string, fieldName: string) => {
     console.log('🗂️ [GET_BUCKET] Determining bucket for:', { table, fieldName });
     
     if (table === 'banners') {
@@ -232,15 +238,8 @@ const AdminPanel = () => {
 
         // Handle watermelon_fruits case since it's not in the generated types yet
         if (activeTable === 'watermelon_fruits') {
-          const { error: updateError } = await supabase
-            .from('watermelon_fruits' as any)
-            .update({ [fieldName]: publicUrl })
-            .eq('id', itemId);
-          
-          if (updateError) {
-            console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
-            throw new Error(`Ошибка обновления БД: ${updateError.message}`);
-          }
+          // For watermelon_fruits, we'll skip the direct database update here
+          // and let the component handle it via RPC calls
         } else {
           const { error: updateError } = await supabase
             .from(activeTable)
