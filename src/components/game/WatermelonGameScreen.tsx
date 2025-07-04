@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import WatermelonGameStartModal from './WatermelonGameStartModal';
 import WatermelonGameRulesModal from './WatermelonGameRulesModal';
@@ -13,11 +14,13 @@ interface User {
 interface WatermelonGameScreenProps {
   currentUser: User;
   onCoinsUpdate: (newCoins: number) => void;
+  onBack?: () => void;
 }
 
 const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ 
   currentUser, 
-  onCoinsUpdate 
+  onCoinsUpdate,
+  onBack 
 }) => {
   const { getGameStatus, startGame, endGame, restoreHeartAd, loading, error } = useWatermelonGame();
   const [gameStatus, setGameStatus] = useState<any>(null);
@@ -74,12 +77,18 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
     }
   };
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
   // Показываем загрузку если данные ещё не загружены
   if (!gameStatus && loading) {
     return (
       <div style={{ padding: 32, textAlign: 'center' }}>
         <div>Загрузка...</div>
-        <button onClick={onBack} style={{ marginTop: 24 }}>Назад</button>
+        <button onClick={handleBack} style={{ marginTop: 24 }}>Назад</button>
       </div>
     );
   }
@@ -90,7 +99,7 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
       <div style={{ padding: 32, textAlign: 'center' }}>
         <div style={{ color: 'red', marginBottom: 16 }}>Ошибка: {error}</div>
         <button onClick={loadGameStatus} style={{ margin: 8 }}>Повторить</button>
-        <button onClick={onBack} style={{ margin: 8 }}>Назад</button>
+        <button onClick={handleBack} style={{ margin: 8 }}>Назад</button>
       </div>
     );
   }
@@ -111,7 +120,7 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
           onRestoreLife={handleRestoreLife}
         />
       )}
-      <button onClick={onBack} style={{ marginTop: 24 }}>Назад</button>
+      <button onClick={handleBack} style={{ marginTop: 24 }}>Назад</button>
     </div>
   );
 };

@@ -113,6 +113,10 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
     }
   };
 
+  const handleCoinsUpdate = (newCoins: number) => {
+    onUserUpdate({ ...currentUser, coins: newCoins });
+  };
+
   const handleCopyReferralLink = async () => {
     if (!currentUser.referralCode) {
       toast({
@@ -449,7 +453,7 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
         isOpen={showPromoModal}
         onClose={() => setShowPromoModal(false)}
         currentUser={currentUser}
-        onCoinsUpdate={onCoinsUpdate}
+        onCoinsUpdate={handleCoinsUpdate}
       />
       
       <FAQModal 

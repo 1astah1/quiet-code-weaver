@@ -73,15 +73,23 @@ const MainApp = () => {
     );
 
     // Fetch initial user data if already authenticated
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) {
-        console.log('🔥 [AUTH] Session exists, fetching user data');
-        fetchUser(session.user.id);
-      } else {
-        console.warn('👻 [AUTH] No user in session');
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          console.log('🔥 [AUTH] Session exists, fetching user data');
+          await fetchUser(session.user.id);
+        } else {
+          console.warn('👻 [AUTH] No user in session');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
         setLoading(false);
       }
-    });
+    };
+
+    getInitialSession();
 
     return () => {
       console.log('🧹 [AUTH] Removing auth listener');
@@ -143,6 +151,10 @@ const MainApp = () => {
     setCurrentScreen("settings");
   };
 
+  const handleBackToMain = () => {
+    setCurrentScreen("main");
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white overflow-x-hidden">
@@ -200,6 +212,7 @@ const MainApp = () => {
                 <WatermelonGameScreen 
                   currentUser={user}
                   onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onBack={handleBackToMain}
                 />
               )}
               {currentScreen === "quiz" && (
