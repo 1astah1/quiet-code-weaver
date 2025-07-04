@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ const MainApp = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [openingCase, setOpeningCase] = useState<any>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
   const inventoryRefetchRef = useRef<null | (() => Promise<any>)>(null);
