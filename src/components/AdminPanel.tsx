@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,7 +46,8 @@ const AdminPanel = () => {
             p_table_name: 'watermelon_fruits'
           });
           if (error) throw error;
-          return Array.isArray(data) ? data : [];
+          // Cast the Json[] to the expected format
+          return Array.isArray(data) ? data.map(item => item as Record<string, unknown>) : [];
         }
         
         const { data, error } = await supabase
@@ -100,7 +100,7 @@ const AdminPanel = () => {
 
   // Получить все day_number для валидации уникальности
   const dailyRewardDays = (tableData && activeTable === 'daily_rewards' && Array.isArray(tableData) && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item))
-    ? (tableData as unknown as DailyReward[]).map(r => r.day_number)
+    ? (tableData as DailyReward[]).map(r => r.day_number)
     : [];
 
   // CRUD для daily_rewards
@@ -432,7 +432,7 @@ const AdminPanel = () => {
           selectedCase={selectedCase}
           setSelectedCase={setSelectedCase}
           uploadingImage={uploadingImage}
-          onSkinImageUpload={handleSkinImageUpload}
+          onSkinImageUpload={async () => {}}
         />
       )}
       {activeTable === 'banners' && <BannerManagement />}

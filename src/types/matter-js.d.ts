@@ -58,10 +58,17 @@ declare module 'matter-js' {
     isFixed: boolean;
   }
 
+  export interface Render {
+    canvas: HTMLCanvasElement | null;
+    context: CanvasRenderingContext2D | null;
+    textures: any;
+  }
+
   export const Engine: {
     create(): Engine;
     update(engine: Engine, delta?: number): void;
     run(engine: Engine): void;
+    clear(engine: Engine): void;
   };
 
   export const World: {
@@ -117,5 +124,23 @@ declare module 'matter-js' {
     setStatic(body: Body, isStatic: boolean): void;
     scale(body: Body, scaleX: number, scaleY: number, point?: Vector): void;
     translate(body: Body, translation: Vector): void;
+  };
+
+  export const Render: {
+    create(options: {
+      canvas?: HTMLCanvasElement;
+      engine: Engine;
+      options?: {
+        width?: number;
+        height?: number;
+        wireframes?: boolean;
+        background?: string;
+        showAngleIndicator?: boolean;
+        showCollisions?: boolean;
+        showVelocity?: boolean;
+      };
+    }): Render;
+    run(render: Render): void;
+    stop(render: Render): void;
   };
 }

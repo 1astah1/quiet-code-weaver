@@ -14,6 +14,15 @@ export type TableName =
 
 export type RealTableName = Exclude<TableName, 'users' | 'suspicious_activities'>;
 
+export type Screen = 
+  | "main"
+  | "shop"
+  | "inventory"
+  | "settings"
+  | "tasks"
+  | "admin"
+  | "watermelon";
+
 export interface AdminUser {
   id: string;
   username: string;
