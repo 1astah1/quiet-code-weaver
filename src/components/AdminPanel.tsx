@@ -34,7 +34,7 @@ const AdminPanel = () => {
 
   const { data: tableData, isLoading } = useQuery({
     queryKey: [activeTable],
-    queryFn: async (): Promise<Case[] | Skin[] | Record<string, unknown>[]> => {
+    queryFn: async (): Promise<Case[] | Skin[] | DailyReward[] | Record<string, unknown>[]> => {
       if (!isRealTable(activeTable)) {
         return [];
       }
@@ -81,6 +81,18 @@ const AdminPanel = () => {
           );
           return filtered;
         }
+        if (activeTable === 'daily_rewards') {
+          const filtered = (data as unknown[]).filter(
+            (item): item is DailyReward =>
+              typeof item === 'object' &&
+              item !== null &&
+              'id' in item &&
+              'day_number' in item &&
+              'reward_type' in item &&
+              'reward_coins' in item
+          );
+          return filtered;
+        }
         // Остальные таблицы: фильтруем только объекты с id
         const filtered = (data as unknown[]).filter(
           (item): item is Record<string, unknown> =>
@@ -103,14 +115,7 @@ const AdminPanel = () => {
   const dailyRewardDays = (() => {
     if (activeTable === 'daily_rewards' && Array.isArray(tableData)) {
       // Type guard to ensure we have DailyReward objects
-      const rewards = tableData.filter((item): item is DailyReward => 
-        typeof item === 'object' && 
-        item !== null && 
-        'day_number' in item && 
-        'reward_type' in item && 
-        'reward_coins' in item &&
-        typeof item.day_number === 'number'
-      );
+      const rewards = tableData as DailyReward[];
       return rewards.map(r => r.day_number);
     }
     return [];
@@ -496,14 +501,7 @@ const AdminPanel = () => {
                     {(() => {
                       // Type guard to ensure we have DailyReward objects
                       if (Array.isArray(tableData) && activeTable === 'daily_rewards') {
-                        const rewards = tableData.filter((item): item is DailyReward => 
-                          typeof item === 'object' && 
-                          item !== null && 
-                          'day_number' in item && 
-                          'reward_type' in item && 
-                          'reward_coins' in item &&
-                          'id' in item
-                        );
+                        const rewards = tableData as DailyReward[];
                         return rewards.map((reward) => (
                           <tr key={reward.id}>
                             <td className="px-4 py-2">{reward.day_number}</td>
