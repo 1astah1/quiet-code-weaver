@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,16 @@ const AdminPanel = () => {
       if (!isRealTable(activeTable)) {
         return [];
       }
+      
+      // Handle watermelon_fruits case since it's not in the generated types yet
+      if (activeTable === 'watermelon_fruits') {
+        const { data, error } = await supabase
+          .from('watermelon_fruits' as any)
+          .select('*');
+        if (error) throw error;
+        return data || [];
+      }
+      
       const { data, error } = await supabase
         .from(activeTable)
         .select('*');
@@ -83,7 +94,7 @@ const AdminPanel = () => {
 
   // Получить все day_number для валидации уникальности
   const dailyRewardDays = (tableData && activeTable === 'daily_rewards' && Array.isArray(tableData) && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item))
-    ? (tableData as DailyReward[]).map(r => r.day_number)
+    ? (tableData as unknown as DailyReward[]).map(r => r.day_number)
     : [];
 
   // CRUD для daily_rewards
@@ -98,7 +109,7 @@ const AdminPanel = () => {
   };
 
   // Универсальная функция для определения bucket и папки
-  const getBucketAndFolder = (table: string, fieldName: string) => {
+  const getBucketAndFolder = (table: string, fieldName: string): { bucketName: string; folder: string } => {
     console.log('🗂️ [GET_BUCKET] Determining bucket for:', { table, fieldName });
     
     if (table === 'banners') {
@@ -115,9 +126,7 @@ const AdminPanel = () => {
     } else if (table === 'tasks') {
       folder = 'task-images';
     } else if (table === 'watermelon_fruits') {
-      return <WatermelonFruitsManagement />;
-    } else if (table === 'promo_codes') {
-      return <PromoCodeManagement />;
+      folder = 'watermelon-fruits';
     }
     
     const result = { bucketName: 'case-images', folder };
@@ -221,14 +230,27 @@ const AdminPanel = () => {
            throw new Error("Invalid table for database operation.");
         }
 
-        const { error: updateError } = await supabase
-          .from(activeTable)
-          .update({ [fieldName]: publicUrl })
-          .eq('id', itemId);
+        // Handle watermelon_fruits case since it's not in the generated types yet
+        if (activeTable === 'watermelon_fruits') {
+          const { error: updateError } = await supabase
+            .from('watermelon_fruits' as any)
+            .update({ [fieldName]: publicUrl })
+            .eq('id', itemId);
           
-        if (updateError) {
-          console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
-          throw new Error(`Ошибка обновления БД: ${updateError.message}`);
+          if (updateError) {
+            console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
+            throw new Error(`Ошибка обновления БД: ${updateError.message}`);
+          }
+        } else {
+          const { error: updateError } = await supabase
+            .from(activeTable)
+            .update({ [fieldName]: publicUrl })
+            .eq('id', itemId);
+            
+          if (updateError) {
+            console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
+            throw new Error(`Ошибка обновления БД: ${updateError.message}`);
+          }
         }
         
         // МАКСИМАЛЬНО АГРЕССИВНАЯ инвалидация кэша
@@ -419,9 +441,10 @@ const AdminPanel = () => {
       {activeTable === 'promo_codes' && <PromoCodeManagement />}
       {activeTable === 'suspicious_activities' && <SuspiciousActivityManagement />}
       {activeTable === 'faq_items' && <DatabaseImageCleanup />}
+      {activeTable === 'watermelon_fruits' && <WatermelonFruitsManagement />}
       
       {/* Универсальная таблица и форма добавления */}
-      {['cases','skins','tasks','coin_rewards','daily_rewards','faq_items'].includes(activeTable) && (
+      {['cases','skins','tasks','coin_rewards','daily_rewards'].includes(activeTable) && (
         <>
           <AddItemForm
             activeTable={activeTable}
@@ -459,7 +482,7 @@ const AdminPanel = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {(Array.isArray(tableData) && activeTable === 'daily_rewards' && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item)
-                      ? (tableData as DailyReward[])
+                      ? (tableData as unknown as DailyReward[])
                       : []).map((reward) => (
                       <tr key={reward.id}>
                         <td className="px-4 py-2">{reward.day_number}</td>
