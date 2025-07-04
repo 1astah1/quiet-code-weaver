@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,6 +26,8 @@ interface User {
   email?: string;
   coins: number;
   is_admin: boolean;
+  isPremium: boolean;
+  language_code?: string;
 }
 
 export type Screen = 
@@ -41,7 +44,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 10, // 10 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (renamed from cacheTime)
     },
   },
 });
@@ -54,15 +57,15 @@ const MainApp = () => {
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN') {
-          console.log('✅ [AUTH] User signed in:', session?.user.id);
-          await fetchUser(session?.user.id);
+        if (event === 'SIGNED_IN' && session?.user?.id) {
+          console.log('✅ [AUTH] User signed in:', session.user.id);
+          await fetchUser(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           console.log('🚪 [AUTH] User signed out');
           setUser(null);
-        } else if (event === 'INITIAL_SESSION') {
+        } else if (event === 'INITIAL_SESSION' && session?.user?.id) {
           console.log('🚀 [AUTH] Initial session detected');
-          await fetchUser(session?.user.id);
+          await fetchUser(session.user.id);
         }
 
         setLoading(false);
@@ -70,20 +73,15 @@ const MainApp = () => {
     );
 
     // Fetch initial user data if already authenticated
-    if (supabase.auth.getSession()) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          console.log('🔥 [AUTH] Session exists, fetching user data');
-          fetchUser(session.user.id);
-        } else {
-          console.warn('👻 [AUTH] No user in session');
-          setLoading(false);
-        }
-      });
-    } else {
-      console.log('💤 [AUTH] No session found');
-      setLoading(false);
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) {
+        console.log('🔥 [AUTH] Session exists, fetching user data');
+        fetchUser(session.user.id);
+      } else {
+        console.warn('👻 [AUTH] No user in session');
+        setLoading(false);
+      }
+    });
 
     return () => {
       console.log('🧹 [AUTH] Removing auth listener');
@@ -107,17 +105,24 @@ const MainApp = () => {
 
       if (user) {
         console.log('✅ [USER] User data fetched:', user);
-        setUser(user);
+        // Transform database user to app user interface
+        const appUser: User = {
+          id: user.id,
+          username: user.username,
+          email: user.email || undefined,
+          coins: user.coins || 0,
+          is_admin: user.is_admin || false,
+          isPremium: user.premium_until ? new Date(user.premium_until) > new Date() : false,
+          language_code: user.language_code || undefined,
+        };
+        setUser(appUser);
       } else {
         console.warn('⚠️ [USER] User not found in database, ID:', userId);
-        // Handle case where user doesn't exist in the database
-        // You might want to sign them out or redirect them
         await supabase.auth.signOut();
         setUser(null);
       }
     } catch (err) {
       console.error('🔥 [USER] Error during user fetch:', err);
-      // Handle error during user fetch
       await supabase.auth.signOut();
       setUser(null);
     } finally {
@@ -128,6 +133,14 @@ const MainApp = () => {
   const handleAuthSuccess = (userId: string) => {
     console.log('👍 [AUTH] Authentication successful, user ID:', userId);
     fetchUser(userId);
+  };
+
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
+  const handleMenuClick = () => {
+    setCurrentScreen("settings");
   };
 
   return (
@@ -146,39 +159,38 @@ const MainApp = () => {
           <>
             <Header 
               currentUser={user} 
-              onCoinsUpdate={setUser}
-              currentScreen={currentScreen}
+              onMenuClick={handleMenuClick}
             />
             <main className="pb-20">
               {currentScreen === "main" && (
                 <MainScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
-                  onScreenChange={setCurrentScreen}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onScreenChange={(screen: Screen) => setCurrentScreen(screen)}
                 />
               )}
               {currentScreen === "skins" && (
                 <SkinsScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
                 />
               )}
               {currentScreen === "inventory" && (
                 <InventoryScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
                 />
               )}
               {currentScreen === "settings" && (
                 <SettingsScreen 
                   currentUser={user} 
-                  onUserUpdate={setUser}
+                  onUserUpdate={handleUserUpdate}
                 />
               )}
               {currentScreen === "tasks" && (
                 <TasksScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
                 />
               )}
               {currentScreen === "admin" && user.is_admin && (
@@ -187,19 +199,19 @@ const MainApp = () => {
               {currentScreen === "watermelon" && (
                 <WatermelonGameScreen 
                   currentUser={user}
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
                 />
               )}
               {currentScreen === "quiz" && (
                 <QuizScreen 
                   currentUser={user}
-                  onCoinsUpdate={(newCoins) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
                 />
               )}
             </main>
             <BottomNavigation 
               currentScreen={currentScreen} 
-              onScreenChange={setCurrentScreen}
+              onScreenChange={(screen: Screen) => setCurrentScreen(screen)}
               isAdmin={user.is_admin || false}
             />
           </>
