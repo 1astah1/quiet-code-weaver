@@ -166,7 +166,7 @@ const MainApp = () => {
                 <MainScreen 
                   currentUser={user} 
                   onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
-                  onScreenChange={(screen: Screen) => setCurrentScreen(screen)}
+                  onScreenChange={setCurrentScreen}
                 />
               )}
               {currentScreen === "skins" && (
@@ -184,7 +184,7 @@ const MainApp = () => {
               {currentScreen === "settings" && (
                 <SettingsScreen 
                   currentUser={user} 
-                  onUserUpdate={handleUserUpdate}
+                  onUserUpdate={setUser}
                 />
               )}
               {currentScreen === "tasks" && (
@@ -211,7 +211,7 @@ const MainApp = () => {
             </main>
             <BottomNavigation 
               currentScreen={currentScreen} 
-              onScreenChange={(screen: Screen) => setCurrentScreen(screen)}
+              onScreenChange={setCurrentScreen}
               isAdmin={user.is_admin || false}
             />
           </>

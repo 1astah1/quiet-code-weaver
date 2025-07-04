@@ -4,11 +4,21 @@ import WatermelonGameRulesModal from './WatermelonGameRulesModal';
 import WatermelonGameField from './WatermelonGameField';
 import { useWatermelonGame } from '@/hooks/useWatermelonGame';
 
-interface WatermelonGameScreenProps {
-  onBack: () => void;
+interface User {
+  id: string;
+  username: string;
+  coins: number;
 }
 
-const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ onBack }) => {
+interface WatermelonGameScreenProps {
+  currentUser: User;
+  onCoinsUpdate: (newCoins: number) => void;
+}
+
+const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ 
+  currentUser, 
+  onCoinsUpdate 
+}) => {
   const { getGameStatus, startGame, endGame, restoreHeartAd, loading, error } = useWatermelonGame();
   const [gameStatus, setGameStatus] = useState<any>(null);
   const [showRules, setShowRules] = useState(false);
@@ -44,6 +54,8 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ onBack }) =
       const result = await endGame(currentSessionId, coinsEarned);
       if (result?.success) {
         console.log(`Игра завершена! Заработано: ${coinsEarned} монет`);
+        // Update coins in parent component
+        onCoinsUpdate(currentUser.coins + coinsEarned);
         // Обновляем статус после завершения игры
         await loadGameStatus();
       }
@@ -104,4 +116,4 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ onBack }) =
   );
 };
 
-export default WatermelonGameScreen; 
+export default WatermelonGameScreen;
