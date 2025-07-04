@@ -46,8 +46,9 @@ const AdminPanel = () => {
             p_table_name: 'watermelon_fruits'
           });
           if (error) throw error;
-          // Cast the Json[] to the expected format
-          return Array.isArray(data) ? data.map(item => item as Record<string, unknown>) : [];
+          // Cast Json[] to Record<string, unknown>[] for type compatibility
+          const result = Array.isArray(data) ? data.map(item => item as Record<string, unknown>) : [];
+          return result;
         }
         
         const { data, error } = await supabase
@@ -98,10 +99,22 @@ const AdminPanel = () => {
   const [editingReward, setEditingReward] = useState<DailyReward | null>(null);
   const [showRewardForm, setShowRewardForm] = useState(false);
 
-  // Получить все day_number для валидации уникальности
-  const dailyRewardDays = (tableData && activeTable === 'daily_rewards' && Array.isArray(tableData) && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item))
-    ? (tableData as DailyReward[]).map(r => r.day_number)
-    : [];
+  // Получить все day_number для валидации уникальности - с правильной типизацией
+  const dailyRewardDays = (() => {
+    if (activeTable === 'daily_rewards' && Array.isArray(tableData)) {
+      // Type guard to ensure we have DailyReward objects
+      const rewards = tableData.filter((item): item is DailyReward => 
+        typeof item === 'object' && 
+        item !== null && 
+        'day_number' in item && 
+        'reward_type' in item && 
+        'reward_coins' in item &&
+        typeof item.day_number === 'number'
+      );
+      return rewards.map(r => r.day_number);
+    }
+    return [];
+  })();
 
   // CRUD для daily_rewards
   const handleSaveReward = () => {
@@ -480,25 +493,37 @@ const AdminPanel = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {(Array.isArray(tableData) && activeTable === 'daily_rewards' && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item)
-                      ? (tableData as unknown as DailyReward[])
-                      : []).map((reward) => (
-                      <tr key={reward.id}>
-                        <td className="px-4 py-2">{reward.day_number}</td>
-                        <td className="px-4 py-2">{reward.reward_type}</td>
-                        <td className="px-4 py-2">{reward.reward_coins}</td>
-                        <td className="px-4 py-2">{reward.is_active ? 'Да' : 'Нет'}</td>
-                        <td className="px-4 py-2 flex gap-2">
-                          <Button size="sm" onClick={() => { setEditingReward(reward); setShowRewardForm(true); }}>Редактировать</Button>
-                          <Button size="sm" variant="destructive" onClick={async () => {
-                            if (window.confirm('Удалить награду?')) {
-                              await supabase.from('daily_rewards').delete().eq('id', reward.id);
-                              queryClient.invalidateQueries({ queryKey: ['daily_rewards'] });
-                            }
-                          }}>Удалить</Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      // Type guard to ensure we have DailyReward objects
+                      if (Array.isArray(tableData) && activeTable === 'daily_rewards') {
+                        const rewards = tableData.filter((item): item is DailyReward => 
+                          typeof item === 'object' && 
+                          item !== null && 
+                          'day_number' in item && 
+                          'reward_type' in item && 
+                          'reward_coins' in item &&
+                          'id' in item
+                        );
+                        return rewards.map((reward) => (
+                          <tr key={reward.id}>
+                            <td className="px-4 py-2">{reward.day_number}</td>
+                            <td className="px-4 py-2">{reward.reward_type}</td>
+                            <td className="px-4 py-2">{reward.reward_coins}</td>
+                            <td className="px-4 py-2">{reward.is_active ? 'Да' : 'Нет'}</td>
+                            <td className="px-4 py-2 flex gap-2">
+                              <Button size="sm" onClick={() => { setEditingReward(reward); setShowRewardForm(true); }}>Редактировать</Button>
+                              <Button size="sm" variant="destructive" onClick={async () => {
+                                if (window.confirm('Удалить награду?')) {
+                                  await supabase.from('daily_rewards').delete().eq('id', reward.id);
+                                  queryClient.invalidateQueries({ queryKey: ['daily_rewards'] });
+                                }
+                              }}>Удалить</Button>
+                            </td>
+                          </tr>
+                        ));
+                      }
+                      return [];
+                    })()}
                   </tbody>
                 </table>
               </div>
