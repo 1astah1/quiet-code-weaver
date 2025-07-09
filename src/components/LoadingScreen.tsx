@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 
-const LoadingScreen = () => {
+const LoadingScreen = ({ error }: { error?: string }) => {
   const [progress, setProgress] = useState(0);
   const [dots, setDots] = useState('');
 
@@ -47,6 +46,13 @@ const LoadingScreen = () => {
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/80 border border-red-500 text-red-200 rounded-xl text-lg font-bold animate-fade-in">
+            Ошибка: {error}
+          </div>
+        )}
 
         {/* Loading Bar */}
         <div className="w-full mx-auto mb-6">

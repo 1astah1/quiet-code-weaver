@@ -49,6 +49,7 @@ const MainApp = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('🚀 [AUTH] Initializing authentication');
@@ -57,12 +58,15 @@ const MainApp = () => {
     const initAuth = async () => {
       try {
         // Проверяем текущую сессию
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          setError('Ошибка получения сессии: ' + sessionError.message);
+        }
         if (session?.user) {
           await fetchUserData(session.user.id);
         }
-      } catch (error) {
+      } catch (error: any) {
+        setError('Ошибка инициализации: ' + (error?.message || error));
         console.error('❌ [AUTH] Init error:', error);
       } finally {
         setLoading(false);
@@ -73,13 +77,15 @@ const MainApp = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 [AUTH] State change:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          await fetchUserData(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
+        try {
+          if (event === 'SIGNED_IN' && session?.user) {
+            await fetchUserData(session.user.id);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+          }
+        } catch (e: any) {
+          setError('Ошибка при обработке события аутентификации: ' + (e?.message || e));
         }
-        
         setLoading(false);
       }
     );
@@ -104,7 +110,12 @@ const MainApp = () => {
       if (error && error.code === 'PGRST116') { // Not found
         // Попробуем создать пользователя на основе данных из Supabase
         console.warn('⚠️ [USER] User not found, creating new user...');
-        const { data: { user: supaUser } } = await supabase.auth.getUser();
+        const { data: { user: supaUser }, error: supaUserError } = await supabase.auth.getUser();
+        if (supaUserError) {
+          setError('Ошибка получения пользователя из Supabase: ' + supaUserError.message);
+          setLoading(false);
+          return;
+        }
         if (supaUser) {
           const { email, id } = supaUser;
           const username = email ? email.split('@')[0] : `user_${id.slice(0, 6)}`;
@@ -120,6 +131,7 @@ const MainApp = () => {
               language_code: 'ru',
             });
           if (insertError) {
+            setError('Ошибка создания пользователя: ' + insertError.message);
             console.error('❌ [USER] Failed to create user:', insertError);
             setLoading(false);
             return;
@@ -128,11 +140,13 @@ const MainApp = () => {
           await fetchUserData(id);
           return;
         } else {
+          setError('Нет данных пользователя для создания профиля.');
           console.error('❌ [USER] No supabase user found for creation');
           setLoading(false);
           return;
         }
       } else if (error) {
+        setError('Ошибка запроса пользователя: ' + error.message);
         console.error('❌ [USER] Error:', error);
         setLoading(false);
         return;
@@ -152,10 +166,11 @@ const MainApp = () => {
         console.log('✅ [USER] User loaded:', appUser.username);
         setUser(appUser);
       } else {
-        // Если по какой-то причине userData нет — сбросить загрузку
+        setError('Пользователь не найден и не может быть создан.');
         setLoading(false);
       }
-    } catch (error) {
+    } catch (error: any) {
+      setError('Ошибка загрузки пользователя: ' + (error?.message || error));
       console.error('💥 [USER] Fetch error:', error);
       setLoading(false);
     }
@@ -179,7 +194,7 @@ const MainApp = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen error={error ?? undefined} />;
   }
 
   return (
