@@ -32,64 +32,47 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: tableData, isLoading } = useQuery({
+  const { data: tableData, isLoading } = useQuery<Case[] | Skin[] | Record<string, unknown>[]>({
     queryKey: [activeTable],
-    queryFn: async (): Promise<Case[] | Skin[] | Record<string, unknown>[]> => {
+    queryFn: async () => {
       if (!isRealTable(activeTable)) {
         return [];
       }
-      
-      try {
-        // Handle watermelon_fruits case since it's not in the generated types yet
-        if (activeTable === 'watermelon_fruits') {
-          const { data, error } = await supabase.rpc('admin_query_table', {
-            p_table_name: 'watermelon_fruits'
-          });
-          if (error) throw error;
-          // Cast the Json[] to the expected format
-          return Array.isArray(data) ? data.map(item => item as Record<string, unknown>) : [];
-        }
-        
-        const { data, error } = await supabase
-          .from(activeTable)
-          .select('*');
-        if (error) throw error;
-        if (!Array.isArray(data)) return [];
-        
-        if (activeTable === 'cases') {
-          const filtered = (data as unknown[]).filter(
-            (item): item is Case =>
-              typeof item === 'object' &&
-              item !== null &&
-              'id' in item &&
-              'name' in item &&
-              'price' in item
-          );
-          return filtered;
-        }
-        if (activeTable === 'skins') {
-          const filtered = (data as unknown[]).filter(
-            (item): item is Skin =>
-              typeof item === 'object' &&
-              item !== null &&
-              'id' in item &&
-              'name' in item &&
-              'weapon_type' in item &&
-              'rarity' in item &&
-              'price' in item
-          );
-          return filtered;
-        }
-        // Остальные таблицы: фильтруем только объекты с id
+      const { data, error } = await supabase
+        .from(activeTable)
+        .select('*');
+      if (error) throw error;
+      if (!Array.isArray(data)) return [];
+      if (activeTable === 'cases') {
         const filtered = (data as unknown[]).filter(
-          (item): item is Record<string, unknown> =>
-            typeof item === 'object' && item !== null && 'id' in item
+          (item): item is Case =>
+            typeof item === 'object' &&
+            item !== null &&
+            'id' in item &&
+            'name' in item &&
+            'price' in item
         );
         return filtered;
-      } catch (error) {
-        console.error('Query error:', error);
-        return [];
       }
+      if (activeTable === 'skins') {
+        const filtered = (data as unknown[]).filter(
+          (item): item is Skin =>
+            typeof item === 'object' &&
+            item !== null &&
+            'id' in item &&
+            'name' in item &&
+            'weapon_type' in item &&
+            'rarity' in item &&
+            'price' in item
+        );
+        return filtered;
+      }
+      // Остальные таблицы: фильтруем только объекты с id
+      const filtered = (data as unknown[]).filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === 'object' && item !== null && 'id' in item
+      );
+      return filtered;
     },
     enabled: activeTable !== 'users' && activeTable !== 'suspicious_activities'
   });
@@ -132,7 +115,9 @@ const AdminPanel = () => {
     } else if (table === 'tasks') {
       folder = 'task-images';
     } else if (table === 'watermelon_fruits') {
-      folder = 'watermelon-fruits';
+      return <WatermelonFruitsManagement />;
+    } else if (table === 'promo_codes') {
+      return <PromoCodeManagement />;
     }
     
     const result = { bucketName: 'case-images', folder };
@@ -236,20 +221,14 @@ const AdminPanel = () => {
            throw new Error("Invalid table for database operation.");
         }
 
-        // Handle watermelon_fruits case since it's not in the generated types yet
-        if (activeTable === 'watermelon_fruits') {
-          // For watermelon_fruits, we'll skip the direct database update here
-          // and let the component handle it via RPC calls
-        } else {
-          const { error: updateError } = await supabase
-            .from(activeTable)
-            .update({ [fieldName]: publicUrl })
-            .eq('id', itemId);
-            
-          if (updateError) {
-            console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
-            throw new Error(`Ошибка обновления БД: ${updateError.message}`);
-          }
+        const { error: updateError } = await supabase
+          .from(activeTable)
+          .update({ [fieldName]: publicUrl })
+          .eq('id', itemId);
+          
+        if (updateError) {
+          console.error('❌ [IMAGE_UPLOAD] Database update error:', updateError);
+          throw new Error(`Ошибка обновления БД: ${updateError.message}`);
         }
         
         // МАКСИМАЛЬНО АГРЕССИВНАЯ инвалидация кэша
@@ -432,7 +411,7 @@ const AdminPanel = () => {
           selectedCase={selectedCase}
           setSelectedCase={setSelectedCase}
           uploadingImage={uploadingImage}
-          onSkinImageUpload={async () => {}}
+          onSkinImageUpload={handleSkinImageUpload}
         />
       )}
       {activeTable === 'banners' && <BannerManagement />}
@@ -440,10 +419,9 @@ const AdminPanel = () => {
       {activeTable === 'promo_codes' && <PromoCodeManagement />}
       {activeTable === 'suspicious_activities' && <SuspiciousActivityManagement />}
       {activeTable === 'faq_items' && <DatabaseImageCleanup />}
-      {activeTable === 'watermelon_fruits' && <WatermelonFruitsManagement />}
       
       {/* Универсальная таблица и форма добавления */}
-      {['cases','skins','tasks','coin_rewards','daily_rewards'].includes(activeTable) && (
+      {['cases','skins','tasks','coin_rewards','daily_rewards','faq_items'].includes(activeTable) && (
         <>
           <AddItemForm
             activeTable={activeTable}
@@ -481,7 +459,7 @@ const AdminPanel = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {(Array.isArray(tableData) && activeTable === 'daily_rewards' && tableData.every(item => typeof item === 'object' && item !== null && 'day_number' in item && 'reward_type' in item && 'reward_coins' in item)
-                      ? (tableData as unknown as DailyReward[])
+                      ? (tableData as DailyReward[])
                       : []).map((reward) => (
                       <tr key={reward.id}>
                         <td className="px-4 py-2">{reward.day_number}</td>

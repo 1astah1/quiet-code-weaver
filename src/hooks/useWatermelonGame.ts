@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,23 +19,21 @@ export function useWatermelonGame() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Получение статуса игры - временная заглушка
+  // Получение статуса игры
   const getGameStatus = useCallback(async (): Promise<WatermelonGameStatus | null> => {
     setLoading(true);
     setError(null);
     
     try {
-      // Временная заглушка, пока не созданы RPC функции
-      console.warn('Watermelon game RPC functions not implemented yet');
+      const { data, error: rpcError } = await supabase.rpc('get_watermelon_game_status');
       
-      // Возвращаем мок-данные
-      return {
-        hearts: 2,
-        coins: 0,
-        next_regen: '00:00:00',
-        next_ad: '00:00:00',
-        ad_available: true
-      };
+      if (rpcError) {
+        console.error('Error getting game status:', rpcError);
+        setError(rpcError.message);
+        return null;
+      }
+
+      return data as WatermelonGameStatus;
     } catch (err) {
       console.error('Error getting game status:', err);
       setError('Failed to get game status');
@@ -46,19 +43,21 @@ export function useWatermelonGame() {
     }
   }, []);
 
-  // Начало игры - временная заглушка
+  // Начало игры
   const startGame = useCallback(async (): Promise<WatermelonGameSession | null> => {
     setLoading(true);
     setError(null);
     
     try {
-      console.warn('Watermelon game RPC functions not implemented yet');
+      const { data, error: rpcError } = await supabase.rpc('start_watermelon_game');
       
-      // Возвращаем мок-данные
-      return {
-        session_id: 'mock-session-' + Date.now(),
-        success: true
-      };
+      if (rpcError) {
+        console.error('Error starting game:', rpcError);
+        setError(rpcError.message);
+        return null;
+      }
+
+      return data as WatermelonGameSession;
     } catch (err) {
       console.error('Error starting game:', err);
       setError('Failed to start game');
@@ -68,20 +67,24 @@ export function useWatermelonGame() {
     }
   }, []);
 
-  // Завершение игры - временная заглушка
+  // Завершение игры
   const endGame = useCallback(async (sessionId: string, coinsEarned: number): Promise<{ success: boolean; coins: number } | null> => {
     setLoading(true);
     setError(null);
     
     try {
-      console.warn('Watermelon game RPC functions not implemented yet');
-      console.log('Would end game with session:', sessionId, 'coins:', coinsEarned);
+      const { data, error: rpcError } = await supabase.rpc('end_watermelon_game', {
+        p_session_id: sessionId,
+        p_coins_earned: coinsEarned
+      });
       
-      // Возвращаем мок-данные
-      return {
-        success: true,
-        coins: coinsEarned
-      };
+      if (rpcError) {
+        console.error('Error ending game:', rpcError);
+        setError(rpcError.message);
+        return null;
+      }
+
+      return data as { success: boolean; coins: number };
     } catch (err) {
       console.error('Error ending game:', err);
       setError('Failed to end game');
@@ -91,19 +94,21 @@ export function useWatermelonGame() {
     }
   }, []);
 
-  // Восстановление жизни за рекламу - временная заглушка
+  // Восстановление жизни за рекламу
   const restoreHeartAd = useCallback(async (): Promise<{ success: boolean; hearts: number } | null> => {
     setLoading(true);
     setError(null);
     
     try {
-      console.warn('Watermelon game RPC functions not implemented yet');
+      const { data, error: rpcError } = await supabase.rpc('restore_watermelon_heart_ad');
       
-      // Возвращаем мок-данные
-      return {
-        success: true,
-        hearts: 2
-      };
+      if (rpcError) {
+        console.error('Error restoring heart:', rpcError);
+        setError(rpcError.message);
+        return null;
+      }
+
+      return data as { success: boolean; hearts: number };
     } catch (err) {
       console.error('Error restoring heart:', err);
       setError('Failed to restore heart');
@@ -121,4 +126,4 @@ export function useWatermelonGame() {
     endGame,
     restoreHeartAd,
   };
-}
+} 

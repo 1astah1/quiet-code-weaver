@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import Matter from 'matter-js';
 import WatermelonGameOverModal from './WatermelonGameOverModal';
@@ -111,8 +110,8 @@ const WatermelonGameField: React.FC<WatermelonGameFieldProps> = ({ onEnd }) => {
     };
 
     // Отслеживание столкновений
-    Matter.Events.on(engine, 'collisionStart', (event: any) => {
-      event.pairs.forEach((pair: any) => {
+    Matter.Events.on(engine, 'collisionStart', (event) => {
+      event.pairs.forEach((pair) => {
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
         
@@ -149,9 +148,7 @@ const WatermelonGameField: React.FC<WatermelonGameFieldProps> = ({ onEnd }) => {
       Matter.Render.stop(render);
       Matter.World.clear(engine.world, false);
       Matter.Engine.clear(engine);
-      if (render.canvas) {
-        render.canvas.remove();
-      }
+      render.canvas.remove();
       render.canvas = null;
       render.context = null;
       render.textures = {};
@@ -194,4 +191,4 @@ const WatermelonGameField: React.FC<WatermelonGameFieldProps> = ({ onEnd }) => {
   );
 };
 
-export default WatermelonGameField;
+export default WatermelonGameField; 

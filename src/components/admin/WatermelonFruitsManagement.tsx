@@ -21,19 +21,11 @@ const WatermelonFruitsManagement: React.FC = () => {
 
   const loadFruits = async () => {
     try {
-      // Use admin_query_table instead of get_watermelon_fruits
-      const { data, error } = await supabase.rpc('admin_query_table', {
-        p_table_name: 'watermelon_fruits'
-      });
+      const { data, error } = await supabase.rpc('get_watermelon_fruits');
       if (error) throw error;
-      
-      // Parse the JSON response and handle it properly
-      const fruitsData = Array.isArray(data) ? data.map(item => item as unknown as WatermelonFruit) : [];
-      setFruits(fruitsData);
+      setFruits(data || []);
     } catch (error) {
       console.error('Error loading fruits:', error);
-      // Set empty array on error
-      setFruits([]);
     } finally {
       setLoading(false);
     }
@@ -47,13 +39,13 @@ const WatermelonFruitsManagement: React.FC = () => {
       const filePath = `watermelon-fruits/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('case-images')
+        .from('lovable-uploads')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('case-images')
+        .from('lovable-uploads')
         .getPublicUrl(filePath);
 
       await updateFruit(level, { image_url: publicUrl });
@@ -68,15 +60,16 @@ const WatermelonFruitsManagement: React.FC = () => {
 
   const updateFruit = async (level: number, updates: Partial<WatermelonFruit>) => {
     try {
-      // Since we don't have the update_watermelon_fruit RPC, we'll use direct table updates
-      // This will fail if the table doesn't exist, but that's expected for now
-      console.log('Would update fruit level', level, 'with', updates);
-      // For now, just update the local state
-      setFruits(current => 
-        current.map(fruit => 
-          fruit.level === level ? { ...fruit, ...updates } : fruit
-        )
-      );
+      const { error } = await supabase.rpc('update_watermelon_fruit', {
+        p_level: level,
+        p_name: updates.name,
+        p_radius: updates.radius,
+        p_color: updates.color,
+        p_image_url: updates.image_url
+      });
+
+      if (error) throw error;
+      await loadFruits();
     } catch (error) {
       console.error('Error updating fruit:', error);
       alert('Ошибка обновления фрукта');
@@ -91,95 +84,89 @@ const WatermelonFruitsManagement: React.FC = () => {
     <div style={{ padding: 24 }}>
       <h2 style={{ marginBottom: 24 }}>Управление фруктами Watermelon Game</h2>
       
-      {fruits.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 32, color: '#666' }}>
-          Нет данных о фруктах. Возможно, таблица watermelon_fruits еще не создана.
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: 16 }}>
-          {fruits.map((fruit) => (
-            <div key={fruit.level} style={{ 
-              border: '1px solid #ddd', 
-              borderRadius: 8, 
-              padding: 16,
+      <div style={{ display: 'grid', gap: 16 }}>
+        {fruits.map((fruit) => (
+          <div key={fruit.level} style={{ 
+            border: '1px solid #ddd', 
+            borderRadius: 8, 
+            padding: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16
+          }}>
+            {/* Предпросмотр фрукта */}
+            <div style={{
+              width: fruit.radius * 2,
+              height: fruit.radius * 2,
+              borderRadius: '50%',
+              backgroundColor: fruit.color,
               display: 'flex',
               alignItems: 'center',
-              gap: 16
+              justifyContent: 'center',
+              fontSize: 12,
+              color: 'white',
+              fontWeight: 'bold',
+              border: '2px solid #333'
             }}>
-              {/* Предпросмотр фрукта */}
-              <div style={{
-                width: fruit.radius * 2,
-                height: fruit.radius * 2,
-                borderRadius: '50%',
-                backgroundColor: fruit.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 12,
+              {fruit.level}
+            </div>
+
+            {/* Информация о фрукте */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                Уровень {fruit.level}: {fruit.name}
+              </div>
+              <div style={{ fontSize: 14, color: '#666' }}>
+                Радиус: {fruit.radius}px | Цвет: {fruit.color}
+              </div>
+              {fruit.image_url && (
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  Изображение: {fruit.image_url.split('/').pop()}
+                </div>
+              )}
+            </div>
+
+            {/* Кнопки редактирования */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file, fruit.level);
+                }}
+                style={{ display: 'none' }}
+                id={`upload-${fruit.level}`}
+              />
+              <label htmlFor={`upload-${fruit.level}`} style={{
+                padding: '4px 8px',
+                background: '#2196f3',
                 color: 'white',
-                fontWeight: 'bold',
-                border: '2px solid #333'
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 12
               }}>
-                {fruit.level}
-              </div>
+                {uploading ? 'Загрузка...' : 'Изменить картинку'}
+              </label>
 
-              {/* Информация о фрукте */}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                  Уровень {fruit.level}: {fruit.name}
-                </div>
-                <div style={{ fontSize: 14, color: '#666' }}>
-                  Радиус: {fruit.radius}px | Цвет: {fruit.color}
-                </div>
-                {fruit.image_url && (
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                    Изображение: {fruit.image_url.split('/').pop()}
-                  </div>
-                )}
-              </div>
-
-              {/* Кнопки редактирования */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file, fruit.level);
-                  }}
-                  style={{ display: 'none' }}
-                  id={`upload-${fruit.level}`}
-                />
-                <label htmlFor={`upload-${fruit.level}`} style={{
+              <button
+                onClick={() => setEditingFruit(fruit)}
+                style={{
                   padding: '4px 8px',
-                  background: '#2196f3',
+                  background: '#4caf50',
                   color: 'white',
+                  border: 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
                   fontSize: 12
-                }}>
-                  {uploading ? 'Загрузка...' : 'Изменить картинку'}
-                </label>
-
-                <button
-                  onClick={() => setEditingFruit(fruit)}
-                  style={{
-                    padding: '4px 8px',
-                    background: '#4caf50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontSize: 12
-                  }}
-                >
-                  Редактировать
-                </button>
-              </div>
+                }}
+              >
+                Редактировать
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {/* Модальное окно редактирования */}
       {editingFruit && (
@@ -271,4 +258,4 @@ const WatermelonFruitsManagement: React.FC = () => {
   );
 };
 
-export default WatermelonFruitsManagement;
+export default WatermelonFruitsManagement; 
