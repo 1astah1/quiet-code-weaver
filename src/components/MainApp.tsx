@@ -15,6 +15,7 @@ import AdminPanel from "./AdminPanel";
 import WatermelonGameScreen from "./game/WatermelonGameScreen";
 import QuizScreen from "./quiz/QuizScreen";
 import WebViewOptimizer from "./WebViewOptimizer";
+import { clearAllCache } from '@/utils/clearCache';
 
 interface User {
   id: string;
@@ -96,6 +97,20 @@ const MainApp = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Автоматическая очистка кэша, если загрузка длится слишком долго
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => {
+        if (loading) {
+          console.warn('⏳ [AUTH] Loading too long, clearing cache...');
+          clearAllCache();
+          window.location.reload();
+        }
+      }, 5000); // 5 секунд
+      return () => clearTimeout(timeout);
+    }
+  }, [loading]);
 
   const fetchUserData = async (authId: string) => {
     try {
