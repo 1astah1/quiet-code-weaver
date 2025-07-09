@@ -52,7 +52,7 @@ const LoadingScreen = () => {
         <div className="w-full mx-auto mb-6">
           <div className="bg-gray-800 rounded-full h-3 overflow-hidden border border-orange-500/30 shadow-lg">
             <div 
-              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300 ease-out relative"
+              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300 ease-out relative animate-slide"
               style={{ width: `${progress}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -88,7 +88,7 @@ const LoadingScreen = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slide {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
