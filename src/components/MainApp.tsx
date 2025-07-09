@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,6 +16,9 @@ import AdminPanel from "./AdminPanel";
 import WatermelonGameScreen from "./game/WatermelonGameScreen";
 import QuizScreen from "./quiz/QuizScreen";
 import WebViewOptimizer from "./WebViewOptimizer";
+import SecurityMonitor from "./security/SecurityMonitor";
+import SecurityStatus from "./security/SecurityStatus";
+import ReferralHandler from "./referral/ReferralHandler";
 
 interface User {
   id: string;
@@ -39,8 +43,8 @@ export type Screen =
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 10,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (renamed from cacheTime)
     },
   },
 });
@@ -49,136 +53,147 @@ const MainApp = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
-  const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('🚀 [AUTH] Initializing authentication');
+    let mounted = true;
+    let loadingTimeout: NodeJS.Timeout;
 
-    // Простая инициализация аутентификации
-    const initAuth = async () => {
-      try {
-        // Проверяем текущую сессию
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          setError('Ошибка получения сессии: ' + sessionError.message);
-        }
-        if (session?.user) {
-          await fetchUserData(session.user.id);
-        }
-      } catch (error: any) {
-        setError('Ошибка инициализации: ' + (error?.message || error));
-        console.error('❌ [AUTH] Init error:', error);
-      } finally {
+    // Set timeout to prevent infinite loading
+    loadingTimeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('⚠️ [AUTH] Loading timeout reached, setting loading to false');
         setLoading(false);
+        setAuthError('Authentication timeout. Please refresh the page.');
       }
-    };
+    }, 10000); // 10 seconds timeout
 
-    // Слушаем изменения состояния аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 [AUTH] State change:', event);
+        if (!mounted) return;
+
+        console.log('🔄 [AUTH] Auth state change:', event, session?.user?.id);
+        
         try {
-          if (event === 'SIGNED_IN' && session?.user) {
-            await fetchUserData(session.user.id);
+          if (event === 'SIGNED_IN' && session?.user?.id) {
+            console.log('✅ [AUTH] User signed in:', session.user.id);
+            await fetchUser(session.user.id);
           } else if (event === 'SIGNED_OUT') {
+            console.log('🚪 [AUTH] User signed out');
             setUser(null);
+            setAuthError(null);
+          } else if (event === 'INITIAL_SESSION' && session?.user?.id) {
+            console.log('🚀 [AUTH] Initial session detected');
+            await fetchUser(session.user.id);
+          } else if (event === 'INITIAL_SESSION' && !session) {
+            console.log('👻 [AUTH] No initial session');
           }
-        } catch (e: any) {
-          setError('Ошибка при обработке события аутентификации: ' + (e?.message || e));
+        } catch (error) {
+          console.error('❌ [AUTH] Error in auth state change:', error);
+          setAuthError('Authentication error occurred');
+        } finally {
+          if (mounted) {
+            setLoading(false);
+            clearTimeout(loadingTimeout);
+          }
         }
-        setLoading(false);
       }
     );
 
-    initAuth();
+    // Get initial session with timeout
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+
+        if (error) {
+          console.error('❌ [AUTH] Error getting session:', error);
+          setAuthError('Failed to get session');
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user?.id) {
+          console.log('🔥 [AUTH] Session exists, fetching user data');
+          await fetchUser(session.user.id);
+        } else {
+          console.warn('👻 [AUTH] No user in session');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('💥 [AUTH] Error getting initial session:', error);
+        if (mounted) {
+          setAuthError('Failed to initialize authentication');
+          setLoading(false);
+        }
+      }
+    };
+
+    getInitialSession();
 
     return () => {
-      subscription.unsubscribe();
+      mounted = false;
+      clearTimeout(loadingTimeout);
+      console.log('🧹 [AUTH] Removing auth listener');
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
-  const fetchUserData = async (authId: string) => {
+  const fetchUser = async (userId: string) => {
     try {
-      console.log('👤 [USER] Fetching user data for:', authId);
+      console.log('👤 [USER] Fetching user data for ID:', userId);
       
-      const { data: userData, error } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_id', authId)
+        .eq('auth_id', userId)
         .single();
 
-      if (error && error.code === 'PGRST116') { // Not found
-        // Попробуем создать пользователя на основе данных из Supabase
-        console.warn('⚠️ [USER] User not found, creating new user...');
-        const { data: { user: supaUser }, error: supaUserError } = await supabase.auth.getUser();
-        if (supaUserError) {
-          setError('Ошибка получения пользователя из Supabase: ' + supaUserError.message);
-          setLoading(false);
+      if (error) {
+        console.error('❌ [USER] Error fetching user:', error);
+        
+        // If user not found, try to create one
+        if (error.code === 'PGRST116') {
+          console.log('🔄 [USER] User not found, will be created by trigger');
+          // Give the trigger some time to create the user
+          setTimeout(() => fetchUser(userId), 2000);
           return;
         }
-        if (supaUser) {
-          const { email, id } = supaUser;
-          const username = email ? email.split('@')[0] : `user_${id.slice(0, 6)}`;
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: id,
-              username,
-              email,
-              coins: 0,
-              is_admin: false,
-              premium_until: null,
-              language_code: 'ru',
-            });
-          if (insertError) {
-            setError('Ошибка создания пользователя: ' + insertError.message);
-            console.error('❌ [USER] Failed to create user:', insertError);
-            setLoading(false);
-            return;
-          }
-          // После создания — повторно получить пользователя
-          await fetchUserData(id);
-          return;
-        } else {
-          setError('Нет данных пользователя для создания профиля.');
-          console.error('❌ [USER] No supabase user found for creation');
-          setLoading(false);
-          return;
-        }
-      } else if (error) {
-        setError('Ошибка запроса пользователя: ' + error.message);
-        console.error('❌ [USER] Error:', error);
-        setLoading(false);
-        return;
+        
+        throw error;
       }
 
-      if (userData) {
+      if (user) {
+        console.log('✅ [USER] User data fetched:', user);
+        // Transform database user to app user interface
         const appUser: User = {
-          id: userData.id,
-          username: userData.username,
-          email: userData.email || undefined,
-          coins: userData.coins || 0,
-          is_admin: userData.is_admin || false,
-          isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
-          language_code: userData.language_code || undefined,
+          id: user.id,
+          username: user.username,
+          email: user.email || undefined,
+          coins: user.coins || 0,
+          is_admin: user.is_admin || false,
+          isPremium: user.premium_until ? new Date(user.premium_until) > new Date() : false,
+          language_code: user.language_code || undefined,
         };
-        
-        console.log('✅ [USER] User loaded:', appUser.username);
         setUser(appUser);
+        setAuthError(null);
       } else {
-        setError('Пользователь не найден и не может быть создан.');
-        setLoading(false);
+        console.warn('⚠️ [USER] User data is null');
+        setAuthError('User data not found');
       }
-    } catch (error: any) {
-      setError('Ошибка загрузки пользователя: ' + (error?.message || error));
-      console.error('💥 [USER] Fetch error:', error);
-      setLoading(false);
+    } catch (err) {
+      console.error('🔥 [USER] Error during user fetch:', err);
+      setAuthError('Failed to load user data');
+      
+      // If we can't fetch user data, sign out to prevent stuck state
+      await supabase.auth.signOut();
     }
   };
 
-  const handleAuthSuccess = (authUser: any) => {
-    console.log('👍 [AUTH] Success callback triggered');
-    // Состояние будет обновлено через onAuthStateChange
+  const handleAuthSuccess = (userId: string) => {
+    console.log('👍 [AUTH] Authentication successful, user ID:', userId);
+    fetchUser(userId);
   };
 
   const handleUserUpdate = (updatedUser: User) => {
@@ -193,16 +208,35 @@ const MainApp = () => {
     setCurrentScreen("main");
   };
 
-  if (loading) {
-    return <LoadingScreen error={error ?? undefined} />;
+  // Show error screen if there's an auth error
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white flex items-center justify-center">
+        <div className="text-center p-8">
+          <h2 className="text-2xl font-bold mb-4">Ошибка загрузки</h2>
+          <p className="text-gray-400 mb-6">{authError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg"
+          >
+            Обновить страницу
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white overflow-x-hidden">
         <WebViewOptimizer />
+        <SecurityMonitor />
+        <SecurityStatus />
+        <ReferralHandler />
         
-        {!user ? (
+        {loading ? (
+          <LoadingScreen />
+        ) : !user ? (
           <AuthScreen onAuthSuccess={handleAuthSuccess} />
         ) : (
           <>

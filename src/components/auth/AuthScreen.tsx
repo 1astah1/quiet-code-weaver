@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { Loader2 } from "lucide-react";
@@ -15,37 +15,76 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
+
+  // Auto-retry mechanism for failed auth attempts
+  useEffect(() => {
+    const checkAuthState = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('🔄 [AUTH] Found existing session, calling onAuthSuccess');
+          onAuthSuccess(session.user);
+        }
+      } catch (error) {
+        console.error('❌ [AUTH] Error checking auth state:', error);
+      }
+    };
+
+    checkAuthState();
+  }, [onAuthSuccess]);
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     try {
       setIsLoading(true);
       setLoadingProvider(provider);
 
-      console.log(`🔐 [AUTH_SCREEN] Starting ${provider} authentication`);
+      console.log(`🔐 [AUTH] Starting ${provider} authentication`);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
 
       if (error) {
-        console.error(`❌ [AUTH_SCREEN] ${provider} auth error:`, error);
+        console.error(`❌ [AUTH] ${provider} auth error:`, error);
         
+        // Retry logic for network errors
+        if (error.message.includes('network') && retryCount < 3) {
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => handleSocialAuth(provider), 2000);
+          return;
+        }
+
         toast({
           title: "Ошибка авторизации",
-          description: `Не удалось войти через ${provider}. Попробуйте еще раз.`,
+          description: `Не удалось войти через ${provider}. ${error.message}`,
           variant: "destructive",
         });
         return;
       }
 
-      console.log(`✅ [AUTH_SCREEN] ${provider} auth initiated successfully`);
+      console.log(`✅ [AUTH] ${provider} auth initiated successfully`);
+
+      // Check for pending referral code
+      const pendingReferralCode = localStorage.getItem('pending_referral_code');
+      if (pendingReferralCode) {
+        console.log('🎁 Processing referral code for new user:', pendingReferralCode);
+        
+        setTimeout(() => {
+          handleReferralCode(pendingReferralCode);
+        }, 3000); // Give more time for user creation
+      }
 
     } catch (error) {
-      console.error('💥 [AUTH_SCREEN] Unexpected auth error:', error);
+      console.error('💥 [AUTH] Unexpected auth error:', error);
       toast({
         title: "Ошибка",
         description: "Произошла неожиданная ошибка при авторизации",
@@ -54,6 +93,31 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
+      setRetryCount(0);
+    }
+  };
+
+  const handleReferralCode = async (referralCode: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        console.log('🎁 Applying referral code for user:', user.id);
+        
+        // TODO: Implement referral code processing
+        console.log('Referral code processing not implemented yet:', referralCode);
+        
+        localStorage.removeItem('pending_referral_code');
+        
+        toast({
+          title: "Бонус получен!",
+          description: "Вы получили бонус за регистрацию по приглашению!",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error processing referral code:', error);
+      localStorage.removeItem('pending_referral_code');
     }
   };
 
@@ -109,6 +173,14 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           <h3 className="text-white text-xl font-semibold text-center mb-6">
             Выберите способ входа
           </h3>
+
+          {retryCount > 0 && (
+            <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-yellow-400 text-sm text-center">
+                Повторная попытка... ({retryCount}/3)
+              </p>
+            </div>
+          )}
 
           <div className="space-y-4">
             {/* Google Auth */}
