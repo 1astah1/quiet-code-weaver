@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,12 +72,21 @@ const DailyRewardsAdminForm = ({ initial = {}, onSave, onCancel, existingDays }:
         setLoading(false);
         return;
       }
+      
+      // Создаем объект с обязательными полями
+      const updateData = {
+        day_number: form.day_number,
+        reward_type: form.reward_type,
+        reward_coins: form.reward_coins || 0,
+        is_active: form.is_active ?? true
+      };
+      
       if (initial.id) {
         // update
-        await supabase.from("daily_rewards").update(form).eq("id", initial.id);
+        await supabase.from("daily_rewards").update(updateData).eq("id", initial.id);
       } else {
         // create
-        await supabase.from("daily_rewards").insert(form);
+        await supabase.from("daily_rewards").insert(updateData);
       }
       onSave();
     } catch (e: any) {

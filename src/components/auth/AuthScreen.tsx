@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useToast } from "@/components/ui/toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
@@ -22,19 +22,18 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       setIsLoading(true);
       setLoadingProvider(provider);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      console.log(`🔐 [AUTH_SCREEN] Starting ${provider} authentication`);
+
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
         }
       });
 
       if (error) {
-        console.error(`${provider} auth error:`, error);
+        console.error(`❌ [AUTH_SCREEN] ${provider} auth error:`, error);
+        
         toast({
           title: "Ошибка авторизации",
           description: `Не удалось войти через ${provider}. Попробуйте еще раз.`,
@@ -43,54 +42,18 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         return;
       }
 
-      // Проверяем реферальный код после успешной авторизации
-      const pendingReferralCode = localStorage.getItem('pending_referral_code');
-      if (pendingReferralCode) {
-        console.log('🎁 Обрабатываем реферальный код для нового пользователя:', pendingReferralCode);
-        
-        // Небольшая задержка, чтобы пользователь был создан в базе данных
-        setTimeout(() => {
-          handleReferralCode(pendingReferralCode);
-        }, 2000);
-      }
+      console.log(`✅ [AUTH_SCREEN] ${provider} auth initiated successfully`);
 
     } catch (error) {
-      console.error('Auth error:', error);
+      console.error('💥 [AUTH_SCREEN] Unexpected auth error:', error);
       toast({
         title: "Ошибка",
-        description: "Произошла ошибка при авторизации",
+        description: "Произошла неожиданная ошибка при авторизации",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
-    }
-  };
-
-  const handleReferralCode = async (referralCode: string) => {
-    try {
-      // Получаем текущего пользователя
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        console.log('🎁 Применяем реферальный код для пользователя:', user.id);
-        
-        // TODO: Implement referral code processing
-        console.log('Referral code processing not implemented yet:', referralCode);
-        
-        // Удаляем сохраненный код
-        localStorage.removeItem('pending_referral_code');
-        
-        toast({
-          title: "Бонус получен!",
-          description: "Вы получили бонус за регистрацию по приглашению!",
-          duration: 5000,
-        });
-      }
-    } catch (error) {
-      console.error('❌ Ошибка при обработке реферального кода:', error);
-      // Не показываем ошибку пользователю, так как это не критично
-      localStorage.removeItem('pending_referral_code');
     }
   };
 

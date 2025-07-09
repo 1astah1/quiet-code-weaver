@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +17,16 @@ interface DailyRewardsCalendarProps {
     coins: number;
   };
   onCoinsUpdate?: (newCoins: number) => void;
+}
+
+interface ClaimRewardResponse {
+  success: boolean;
+  error?: string;
+  reward_coins?: number;
+  reward_day?: number;
+  new_balance?: number;
+  new_streak?: number;
+  reward_type?: string;
 }
 
 const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalendarProps) => {
@@ -80,8 +91,10 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
     if (!lastClaim) return true;
     
     // Проверяем, прошло ли 24 часа с последней награды
-    const lastClaimTime = lastClaim?.claimed_at ? new Date(lastClaim.claimed_at) : undefined;
-    const hoursPassedSinceLastClaim = (now.getTime() - (lastClaimTime?.getTime() || 0)) / (1000 * 60 * 60);
+    const lastClaimTime = lastClaim?.claimed_at ? new Date(lastClaim.claimed_at) : null;
+    if (!lastClaimTime) return true;
+    
+    const hoursPassedSinceLastClaim = (now.getTime() - lastClaimTime.getTime()) / (1000 * 60 * 60);
     
     return hoursPassedSinceLastClaim >= 24;
   };
@@ -95,7 +108,10 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
 
     const updateTimer = () => {
       const now = new Date();
-      const lastClaim = new Date(userProgress.claimedRewards[0].claimed_at);
+      const lastClaimTime = userProgress.claimedRewards[0].claimed_at;
+      if (!lastClaimTime) return;
+      
+      const lastClaim = new Date(lastClaimTime);
       const nextRewardTime = new Date(lastClaim.getTime() + 24 * 60 * 60 * 1000);
       
       if (now >= nextRewardTime) {
@@ -142,24 +158,42 @@ const DailyRewardsCalendar = ({ currentUser, onCoinsUpdate }: DailyRewardsCalend
       const { error, data } = await supabase.rpc('safe_claim_daily_reward', {
         p_user_id: userProgress.userId
       });
-      if (error || !data || !data.success) {
+      
+      if (error) {
+        console.error('RPC Error:', error);
         toast({
           title: 'Ошибка',
-          description: data?.error === 'already_claimed_today' ? 'Награда уже получена сегодня' : 'Не удалось получить награду',
+          description: 'Не удалось получить награду',
           variant: 'destructive',
         });
         return;
       }
+      
+      // Cast the response properly
+      const response = data as unknown as ClaimRewardResponse;
+      
+      if (!response?.success) {
+        toast({
+          title: 'Ошибка',
+          description: response?.error === 'already_claimed_today' ? 'Награда уже получена сегодня' : 'Не удалось получить награду',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       toast({
         title: 'Награда получена!',
-        description: `Вы получили ${data.reward_coins} монет за ${data.reward_day} день`,
+        description: `Вы получили ${response.reward_coins} монет за ${response.reward_day} день`,
       });
-      if (onCoinsUpdate && data.new_balance !== undefined) {
-        onCoinsUpdate(data.new_balance);
+      
+      if (onCoinsUpdate && response.new_balance !== undefined) {
+        onCoinsUpdate(response.new_balance);
       }
+      
       queryClient.invalidateQueries({ queryKey: ['daily_progress'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
     } catch (error) {
+      console.error('Claim reward error:', error);
       toast({
         title: 'Ошибка',
         description: 'Не удалось получить награду',

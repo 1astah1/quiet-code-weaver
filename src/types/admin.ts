@@ -1,3 +1,4 @@
+
 export type TableName = 
   | "cases"
   | "skins"
@@ -9,9 +10,19 @@ export type TableName =
   | "coin_rewards"
   | "daily_rewards"
   | "faq_items"
-  | "suspicious_activities"; // ДОБАВЛЕНО: Новый тип таблицы
+  | "suspicious_activities";
 
 export type RealTableName = Exclude<TableName, 'users' | 'suspicious_activities'>;
+
+export type Screen = 
+  | "main"
+  | "shop"
+  | "inventory"
+  | "settings"
+  | "tasks"
+  | "admin"
+  | "watermelon"
+  | "quiz";
 
 export interface AdminUser {
   id: string;
