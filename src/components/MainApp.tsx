@@ -115,7 +115,6 @@ const MainApp = () => {
   const fetchUserData = async (authId: string) => {
     try {
       console.log('👤 [USER] Fetching user data for:', authId);
-      
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
@@ -129,6 +128,8 @@ const MainApp = () => {
         if (supaUserError) {
           setError('Ошибка получения пользователя из Supabase: ' + supaUserError.message);
           setLoading(false);
+          // Если не удалось получить пользователя из Supabase — выходим из сессии
+          await supabase.auth.signOut();
           return;
         }
         if (supaUser) {
@@ -149,6 +150,8 @@ const MainApp = () => {
             setError('Ошибка создания пользователя: ' + insertError.message);
             console.error('❌ [USER] Failed to create user:', insertError);
             setLoading(false);
+            // Если не удалось создать пользователя — выходим из сессии
+            await supabase.auth.signOut();
             return;
           }
           // После создания — повторно получить пользователя
@@ -158,12 +161,16 @@ const MainApp = () => {
           setError('Нет данных пользователя для создания профиля.');
           console.error('❌ [USER] No supabase user found for creation');
           setLoading(false);
+          // Если нет данных пользователя — выходим из сессии
+          await supabase.auth.signOut();
           return;
         }
       } else if (error) {
         setError('Ошибка запроса пользователя: ' + error.message);
         console.error('❌ [USER] Error:', error);
         setLoading(false);
+        // Если ошибка при запросе пользователя — выходим из сессии
+        await supabase.auth.signOut();
         return;
       }
 
@@ -177,17 +184,20 @@ const MainApp = () => {
           isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
           language_code: userData.language_code || undefined,
         };
-        
         console.log('✅ [USER] User loaded:', appUser.username);
         setUser(appUser);
       } else {
         setError('Пользователь не найден и не может быть создан.');
         setLoading(false);
+        // Если не найден пользователь — выходим из сессии
+        await supabase.auth.signOut();
       }
     } catch (error: any) {
       setError('Ошибка загрузки пользователя: ' + (error?.message || error));
       console.error('💥 [USER] Fetch error:', error);
       setLoading(false);
+      // Если критическая ошибка — выходим из сессии
+      await supabase.auth.signOut();
     }
   };
 
