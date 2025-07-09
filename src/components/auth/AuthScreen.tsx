@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useToast } from "@/components/ui/toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
@@ -15,32 +15,12 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
-
-  // Auto-retry mechanism for failed auth attempts
-  useEffect(() => {
-    const checkAuthState = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log('🔄 [AUTH] Found existing session, calling onAuthSuccess');
-          onAuthSuccess(session.user);
-        }
-      } catch (error) {
-        console.error('❌ [AUTH] Error checking auth state:', error);
-      }
-    };
-
-    checkAuthState();
-  }, [onAuthSuccess]);
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     try {
       setIsLoading(true);
       setLoadingProvider(provider);
-
-      console.log(`🔐 [AUTH] Starting ${provider} authentication`);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider,
@@ -54,59 +34,51 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       });
 
       if (error) {
-        console.error(`❌ [AUTH] ${provider} auth error:`, error);
-        
-        // Retry logic for network errors
-        if (error.message.includes('network') && retryCount < 3) {
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => handleSocialAuth(provider), 2000);
-          return;
-        }
-
+        console.error(`${provider} auth error:`, error);
         toast({
           title: "Ошибка авторизации",
-          description: `Не удалось войти через ${provider}. ${error.message}`,
+          description: `Не удалось войти через ${provider}. Попробуйте еще раз.`,
           variant: "destructive",
         });
         return;
       }
 
-      console.log(`✅ [AUTH] ${provider} auth initiated successfully`);
-
-      // Check for pending referral code
+      // Проверяем реферальный код после успешной авторизации
       const pendingReferralCode = localStorage.getItem('pending_referral_code');
       if (pendingReferralCode) {
-        console.log('🎁 Processing referral code for new user:', pendingReferralCode);
+        console.log('🎁 Обрабатываем реферальный код для нового пользователя:', pendingReferralCode);
         
+        // Небольшая задержка, чтобы пользователь был создан в базе данных
         setTimeout(() => {
           handleReferralCode(pendingReferralCode);
-        }, 3000); // Give more time for user creation
+        }, 2000);
       }
 
     } catch (error) {
-      console.error('💥 [AUTH] Unexpected auth error:', error);
+      console.error('Auth error:', error);
       toast({
         title: "Ошибка",
-        description: "Произошла неожиданная ошибка при авторизации",
+        description: "Произошла ошибка при авторизации",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
-      setRetryCount(0);
     }
   };
 
   const handleReferralCode = async (referralCode: string) => {
     try {
+      // Получаем текущего пользователя
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        console.log('🎁 Applying referral code for user:', user.id);
+        console.log('🎁 Применяем реферальный код для пользователя:', user.id);
         
         // TODO: Implement referral code processing
         console.log('Referral code processing not implemented yet:', referralCode);
         
+        // Удаляем сохраненный код
         localStorage.removeItem('pending_referral_code');
         
         toast({
@@ -116,7 +88,8 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         });
       }
     } catch (error) {
-      console.error('❌ Error processing referral code:', error);
+      console.error('❌ Ошибка при обработке реферального кода:', error);
+      // Не показываем ошибку пользователю, так как это не критично
       localStorage.removeItem('pending_referral_code');
     }
   };
@@ -173,14 +146,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           <h3 className="text-white text-xl font-semibold text-center mb-6">
             Выберите способ входа
           </h3>
-
-          {retryCount > 0 && (
-            <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <p className="text-yellow-400 text-sm text-center">
-                Повторная попытка... ({retryCount}/3)
-              </p>
-            </div>
-          )}
 
           <div className="space-y-4">
             {/* Google Auth */}

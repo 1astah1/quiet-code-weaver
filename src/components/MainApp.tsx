@@ -53,67 +53,29 @@ const MainApp = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
-  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    let loadingTimeout: NodeJS.Timeout;
-
-    // Set timeout to prevent infinite loading
-    loadingTimeout = setTimeout(() => {
-      if (mounted) {
-        console.warn('⚠️ [AUTH] Loading timeout reached, setting loading to false');
-        setLoading(false);
-        setAuthError('Authentication timeout. Please refresh the page.');
-      }
-    }, 10000); // 10 seconds timeout
-
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return;
-
-        console.log('🔄 [AUTH] Auth state change:', event, session?.user?.id);
-        
-        try {
-          if (event === 'SIGNED_IN' && session?.user?.id) {
-            console.log('✅ [AUTH] User signed in:', session.user.id);
-            await fetchUser(session.user.id);
-          } else if (event === 'SIGNED_OUT') {
-            console.log('🚪 [AUTH] User signed out');
-            setUser(null);
-            setAuthError(null);
-          } else if (event === 'INITIAL_SESSION' && session?.user?.id) {
-            console.log('🚀 [AUTH] Initial session detected');
-            await fetchUser(session.user.id);
-          } else if (event === 'INITIAL_SESSION' && !session) {
-            console.log('👻 [AUTH] No initial session');
-          }
-        } catch (error) {
-          console.error('❌ [AUTH] Error in auth state change:', error);
-          setAuthError('Authentication error occurred');
-        } finally {
-          if (mounted) {
-            setLoading(false);
-            clearTimeout(loadingTimeout);
-          }
+        if (event === 'SIGNED_IN' && session?.user?.id) {
+          console.log('✅ [AUTH] User signed in:', session.user.id);
+          await fetchUser(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('🚪 [AUTH] User signed out');
+          setUser(null);
+        } else if (event === 'INITIAL_SESSION' && session?.user?.id) {
+          console.log('🚀 [AUTH] Initial session detected');
+          await fetchUser(session.user.id);
         }
+
+        setLoading(false);
       }
     );
 
-    // Get initial session with timeout
+    // Fetch initial user data if already authenticated
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-
-        if (error) {
-          console.error('❌ [AUTH] Error getting session:', error);
-          setAuthError('Failed to get session');
-          setLoading(false);
-          return;
-        }
-
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) {
           console.log('🔥 [AUTH] Session exists, fetching user data');
           await fetchUser(session.user.id);
@@ -122,19 +84,14 @@ const MainApp = () => {
           setLoading(false);
         }
       } catch (error) {
-        console.error('💥 [AUTH] Error getting initial session:', error);
-        if (mounted) {
-          setAuthError('Failed to initialize authentication');
-          setLoading(false);
-        }
+        console.error('Error getting initial session:', error);
+        setLoading(false);
       }
     };
 
     getInitialSession();
 
     return () => {
-      mounted = false;
-      clearTimeout(loadingTimeout);
       console.log('🧹 [AUTH] Removing auth listener');
       authListener.subscription.unsubscribe();
     };
@@ -143,7 +100,6 @@ const MainApp = () => {
   const fetchUser = async (userId: string) => {
     try {
       console.log('👤 [USER] Fetching user data for ID:', userId);
-      
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
@@ -152,15 +108,6 @@ const MainApp = () => {
 
       if (error) {
         console.error('❌ [USER] Error fetching user:', error);
-        
-        // If user not found, try to create one
-        if (error.code === 'PGRST116') {
-          console.log('🔄 [USER] User not found, will be created by trigger');
-          // Give the trigger some time to create the user
-          setTimeout(() => fetchUser(userId), 2000);
-          return;
-        }
-        
         throw error;
       }
 
@@ -177,17 +124,17 @@ const MainApp = () => {
           language_code: user.language_code || undefined,
         };
         setUser(appUser);
-        setAuthError(null);
       } else {
-        console.warn('⚠️ [USER] User data is null');
-        setAuthError('User data not found');
+        console.warn('⚠️ [USER] User not found in database, ID:', userId);
+        await supabase.auth.signOut();
+        setUser(null);
       }
     } catch (err) {
       console.error('🔥 [USER] Error during user fetch:', err);
-      setAuthError('Failed to load user data');
-      
-      // If we can't fetch user data, sign out to prevent stuck state
       await supabase.auth.signOut();
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -207,24 +154,6 @@ const MainApp = () => {
   const handleBackToMain = () => {
     setCurrentScreen("main");
   };
-
-  // Show error screen if there's an auth error
-  if (authError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white flex items-center justify-center">
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-bold mb-4">Ошибка загрузки</h2>
-          <p className="text-gray-400 mb-6">{authError}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg"
-          >
-            Обновить страницу
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -267,7 +196,7 @@ const MainApp = () => {
               {currentScreen === "settings" && (
                 <SettingsScreen 
                   currentUser={user} 
-                  onUserUpdate={handleUserUpdate}
+                  onUserUpdate={setUser}
                 />
               )}
               {currentScreen === "tasks" && (
