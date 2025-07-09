@@ -1,27 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import WatermelonGameStartModal from './WatermelonGameStartModal';
 import WatermelonGameRulesModal from './WatermelonGameRulesModal';
 import WatermelonGameField from './WatermelonGameField';
 import { useWatermelonGame } from '@/hooks/useWatermelonGame';
 
-interface User {
-  id: string;
-  username: string;
-  coins: number;
-}
-
 interface WatermelonGameScreenProps {
-  currentUser: User;
-  onCoinsUpdate: (newCoins: number) => void;
-  onBack?: () => void;
+  onBack: () => void;
 }
 
-const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ 
-  currentUser, 
-  onCoinsUpdate,
-  onBack 
-}) => {
+const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({ onBack }) => {
   const { getGameStatus, startGame, endGame, restoreHeartAd, loading, error } = useWatermelonGame();
   const [gameStatus, setGameStatus] = useState<any>(null);
   const [showRules, setShowRules] = useState(false);
@@ -57,8 +44,6 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
       const result = await endGame(currentSessionId, coinsEarned);
       if (result?.success) {
         console.log(`Игра завершена! Заработано: ${coinsEarned} монет`);
-        // Update coins in parent component
-        onCoinsUpdate(currentUser.coins + coinsEarned);
         // Обновляем статус после завершения игры
         await loadGameStatus();
       }
@@ -77,18 +62,12 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
     }
   };
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    }
-  };
-
   // Показываем загрузку если данные ещё не загружены
   if (!gameStatus && loading) {
     return (
       <div style={{ padding: 32, textAlign: 'center' }}>
         <div>Загрузка...</div>
-        <button onClick={handleBack} style={{ marginTop: 24 }}>Назад</button>
+        <button onClick={onBack} style={{ marginTop: 24 }}>Назад</button>
       </div>
     );
   }
@@ -99,7 +78,7 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
       <div style={{ padding: 32, textAlign: 'center' }}>
         <div style={{ color: 'red', marginBottom: 16 }}>Ошибка: {error}</div>
         <button onClick={loadGameStatus} style={{ margin: 8 }}>Повторить</button>
-        <button onClick={handleBack} style={{ margin: 8 }}>Назад</button>
+        <button onClick={onBack} style={{ margin: 8 }}>Назад</button>
       </div>
     );
   }
@@ -120,9 +99,9 @@ const WatermelonGameScreen: React.FC<WatermelonGameScreenProps> = ({
           onRestoreLife={handleRestoreLife}
         />
       )}
-      <button onClick={handleBack} style={{ marginTop: 24 }}>Назад</button>
+      <button onClick={onBack} style={{ marginTop: 24 }}>Назад</button>
     </div>
   );
 };
 
-export default WatermelonGameScreen;
+export default WatermelonGameScreen; 

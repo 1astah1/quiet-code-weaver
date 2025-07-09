@@ -21,8 +21,7 @@ export type Screen =
   | "settings"
   | "tasks"
   | "admin"
-  | "watermelon"
-  | "quiz";
+  | "watermelon";
 
 export interface AdminUser {
   id: string;

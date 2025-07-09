@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Crown, Link, HelpCircle, Gift, Settings, User, Globe, Shield, Bell, Volume2, Vibrate, Lock, FileText, ScrollText, Users, Copy, Share } from "lucide-react";
 import PromoCodeModal from "./PromoCodeModal";
@@ -13,25 +12,21 @@ import { useToast } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "@/components/ui/use-translation";
 
-interface User {
-  id: string;
-  username: string;
-  coins: number;
-  is_admin: boolean;
-  isPremium: boolean;
-  language_code?: string;
-  sound_enabled?: boolean;
-  vibration_enabled?: boolean;
-  profile_private?: boolean;
-  referralCode?: string;
-}
-
 interface SettingsScreenProps {
-  currentUser: User;
-  onUserUpdate: (updatedUser: User) => void;
+  currentUser: {
+    id: string;
+    username: string;
+    coins: number;
+    language_code?: string;
+    sound_enabled?: boolean;
+    vibration_enabled?: boolean;
+    profile_private?: boolean;
+    referralCode?: string;
+  };
+  onCoinsUpdate: (newCoins: number) => void;
 }
 
-const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
+const SettingsScreen = ({ currentUser, onCoinsUpdate }: SettingsScreenProps) => {
   const { t } = useTranslation(currentUser.language_code);
   
   const [showPromoModal, setShowPromoModal] = useState(false);
@@ -59,9 +54,6 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
         description: t('languageSettingsSaved'),
       });
 
-      // Update user with new language code
-      onUserUpdate({ ...currentUser, language_code: languageCode });
-
       // Refresh the page to apply new language
       window.location.reload();
     } catch (error) {
@@ -82,10 +74,6 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
         .eq('id', currentUser.id);
 
       if (error) throw error;
-
-      // Update user state
-      const updatedUser = { ...currentUser, [setting]: value };
-      onUserUpdate(updatedUser);
 
       switch (setting) {
         case 'sound_enabled':
@@ -111,10 +99,6 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
         variant: "destructive",
       });
     }
-  };
-
-  const handleCoinsUpdate = (newCoins: number) => {
-    onUserUpdate({ ...currentUser, coins: newCoins });
   };
 
   const handleCopyReferralLink = async () => {
@@ -453,7 +437,7 @@ const SettingsScreen = ({ currentUser, onUserUpdate }: SettingsScreenProps) => {
         isOpen={showPromoModal}
         onClose={() => setShowPromoModal(false)}
         currentUser={currentUser}
-        onCoinsUpdate={handleCoinsUpdate}
+        onCoinsUpdate={onCoinsUpdate}
       />
       
       <FAQModal 

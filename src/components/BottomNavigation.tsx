@@ -1,37 +1,20 @@
-
 import { useTranslation } from "@/components/ui/use-translation";
 import { Home, Box, BrainCircuit, CheckSquare, Briefcase, Gamepad } from 'lucide-react';
 
-export type Screen = 
-  | "main" 
-  | "skins" 
-  | "inventory" 
-  | "settings" 
-  | "tasks" 
-  | "admin" 
-  | "watermelon"
-  | "quiz";
-
 interface BottomNavigationProps {
-  currentScreen: Screen;
-  onScreenChange: (screen: Screen) => void;
-  isAdmin?: boolean;
+  currentScreen: string;
+  onScreenChange: (screen: string) => void;
   currentLanguage?: string;
 }
 
-const BottomNavigation = ({ 
-  currentScreen, 
-  onScreenChange, 
-  isAdmin = false, 
-  currentLanguage = 'ru' 
-}: BottomNavigationProps) => {
+const BottomNavigation = ({ currentScreen, onScreenChange, currentLanguage = 'ru' }: BottomNavigationProps) => {
   const { t } = useTranslation(currentLanguage);
 
-  const navItems: { screen: Screen; label: string; icon: typeof Home }[] = [
+  const navItems = [
     { screen: 'main', label: t('main'), icon: Home },
     { screen: 'skins', label: (t as any)('shop'), icon: Box },
     { screen: 'inventory', label: t('inventory'), icon: Briefcase },
-    { screen: 'watermelon', label: t('game'), icon: Gamepad },
+    { screen: 'game', label: t('game'), icon: Gamepad },
     { screen: 'tasks', label: t('tasks'), icon: CheckSquare },
   ];
 
