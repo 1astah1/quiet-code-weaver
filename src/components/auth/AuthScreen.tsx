@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { Loader2 } from "lucide-react";
@@ -17,23 +17,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { toast } = useToast();
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkExistingSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log('🔄 [AUTH_SCREEN] Found existing session');
-          onAuthSuccess(session.user);
-        }
-      } catch (error) {
-        console.error('❌ [AUTH_SCREEN] Error checking existing session:', error);
-      }
-    };
-
-    checkExistingSession();
-  }, [onAuthSuccess]);
-
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     try {
       setIsLoading(true);
@@ -41,14 +24,10 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       console.log(`🔐 [AUTH_SCREEN] Starting ${provider} authentication`);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
         }
       });
 
@@ -65,16 +44,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
       console.log(`✅ [AUTH_SCREEN] ${provider} auth initiated successfully`);
 
-      // Check for pending referral code
-      const pendingReferralCode = localStorage.getItem('pending_referral_code');
-      if (pendingReferralCode) {
-        console.log('🎁 Processing referral code for new user:', pendingReferralCode);
-        
-        setTimeout(() => {
-          handleReferralCode(pendingReferralCode);
-        }, 3000);
-      }
-
     } catch (error) {
       console.error('💥 [AUTH_SCREEN] Unexpected auth error:', error);
       toast({
@@ -85,30 +54,6 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     } finally {
       setIsLoading(false);
       setLoadingProvider(null);
-    }
-  };
-
-  const handleReferralCode = async (referralCode: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        console.log('🎁 Applying referral code for user:', user.id);
-        
-        // TODO: Implement referral code processing
-        console.log('Referral code processing not implemented yet:', referralCode);
-        
-        localStorage.removeItem('pending_referral_code');
-        
-        toast({
-          title: "Бонус получен!",
-          description: "Вы получили бонус за регистрацию по приглашению!",
-          duration: 5000,
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error processing referral code:', error);
-      localStorage.removeItem('pending_referral_code');
     }
   };
 

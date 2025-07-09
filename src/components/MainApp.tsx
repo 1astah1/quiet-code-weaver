@@ -16,9 +16,6 @@ import AdminPanel from "./AdminPanel";
 import WatermelonGameScreen from "./game/WatermelonGameScreen";
 import QuizScreen from "./quiz/QuizScreen";
 import WebViewOptimizer from "./WebViewOptimizer";
-import SecurityMonitor from "./security/SecurityMonitor";
-import SecurityStatus from "./security/SecurityStatus";
-import ReferralHandler from "./referral/ReferralHandler";
 
 interface User {
   id: string;
@@ -43,8 +40,8 @@ export type Screen =
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes (renamed from cacheTime)
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
     },
   },
 });
@@ -53,177 +50,85 @@ const MainApp = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authInitialized, setAuthInitialized] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    let loadingTimeout: NodeJS.Timeout;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
+    console.log('🚀 [AUTH] Initializing authentication');
 
-    console.log('🚀 [AUTH] Starting authentication initialization');
-
-    // Set a more reasonable timeout
-    loadingTimeout = setTimeout(() => {
-      if (mounted && !authInitialized) {
-        console.warn('⚠️ [AUTH] Loading timeout reached');
-        setLoading(false);
-        setAuthError('Таймаут загрузки. Пожалуйста, обновите страницу.');
-      }
-    }, 15000); // 15 seconds timeout
-
-    const fetchUser = async (userId: string): Promise<boolean> => {
+    // Простая инициализация аутентификации
+    const initAuth = async () => {
       try {
-        console.log('👤 [USER] Fetching user data for ID:', userId);
+        // Проверяем текущую сессию
+        const { data: { session } } = await supabase.auth.getSession();
         
-        const { data: user, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_id', userId)
-          .single();
-
-        if (!mounted) return false;
-
-        if (error) {
-          console.error('❌ [USER] Error fetching user:', error);
-          
-          // If user not found and we haven't exceeded retry limit
-          if (error.code === 'PGRST116' && retryCount < MAX_RETRIES) {
-            console.log('🔄 [USER] User not found, retrying...', retryCount + 1);
-            retryCount++;
-            // Wait a bit longer for user creation trigger
-            setTimeout(() => {
-              if (mounted) fetchUser(userId);
-            }, 3000);
-            return false;
-          }
-          
-          throw error;
+        if (session?.user) {
+          await fetchUserData(session.user.id);
         }
-
-        if (user) {
-          console.log('✅ [USER] User data fetched successfully');
-          const appUser: User = {
-            id: user.id,
-            username: user.username,
-            email: user.email || undefined,
-            coins: user.coins || 0,
-            is_admin: user.is_admin || false,
-            isPremium: user.premium_until ? new Date(user.premium_until) > new Date() : false,
-            language_code: user.language_code || undefined,
-          };
-          setUser(appUser);
-          setAuthError(null);
-          return true;
-        }
-
-        return false;
-      } catch (err) {
-        console.error('🔥 [USER] Error during user fetch:', err);
-        if (mounted) {
-          setAuthError('Ошибка загрузки данных пользователя');
-        }
-        return false;
+      } catch (error) {
+        console.error('❌ [AUTH] Init error:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    // Set up auth state listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    // Слушаем изменения состояния аутентификации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return;
-
-        console.log('🔄 [AUTH] Auth state change:', event, session?.user?.id);
+        console.log('🔄 [AUTH] State change:', event);
         
-        try {
-          if (event === 'SIGNED_IN' && session?.user?.id) {
-            console.log('✅ [AUTH] User signed in');
-            const success = await fetchUser(session.user.id);
-            if (success && mounted) {
-              setAuthInitialized(true);
-              setLoading(false);
-            }
-          } else if (event === 'SIGNED_OUT') {
-            console.log('🚪 [AUTH] User signed out');
-            if (mounted) {
-              setUser(null);
-              setAuthError(null);
-              setAuthInitialized(true);
-              setLoading(false);
-            }
-          } else if (event === 'INITIAL_SESSION') {
-            if (session?.user?.id) {
-              console.log('🔄 [AUTH] Initial session with user');
-              const success = await fetchUser(session.user.id);
-              if (mounted) {
-                setAuthInitialized(true);
-                setLoading(false);
-              }
-            } else {
-              console.log('👻 [AUTH] No initial session');
-              if (mounted) {
-                setAuthInitialized(true);
-                setLoading(false);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ [AUTH] Error in auth state change:', error);
-          if (mounted) {
-            setAuthError('Ошибка аутентификации');
-            setAuthInitialized(true);
-            setLoading(false);
-          }
+        if (event === 'SIGNED_IN' && session?.user) {
+          await fetchUserData(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
         }
+        
+        setLoading(false);
       }
     );
 
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        console.log('🔍 [AUTH] Getting initial session');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-
-        if (error) {
-          console.error('❌ [AUTH] Error getting session:', error);
-          setAuthError('Ошибка получения сессии');
-          setAuthInitialized(true);
-          setLoading(false);
-          return;
-        }
-
-        // The onAuthStateChange will handle the session
-        if (!session) {
-          console.log('👻 [AUTH] No session found');
-          setAuthInitialized(true);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('💥 [AUTH] Error getting initial session:', error);
-        if (mounted) {
-          setAuthError('Ошибка инициализации аутентификации');
-          setAuthInitialized(true);
-          setLoading(false);
-        }
-      }
-    };
-
-    // Start the initialization process
-    getInitialSession();
+    initAuth();
 
     return () => {
-      mounted = false;
-      clearTimeout(loadingTimeout);
-      console.log('🧹 [AUTH] Cleaning up auth listener');
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
-  const handleAuthSuccess = (userId: string) => {
-    console.log('👍 [AUTH] Authentication successful, user ID:', userId);
-    // The auth state change listener will handle fetching user data
+  const fetchUserData = async (authId: string) => {
+    try {
+      console.log('👤 [USER] Fetching user data for:', authId);
+      
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
+
+      if (error) {
+        console.error('❌ [USER] Error:', error);
+        return;
+      }
+
+      if (userData) {
+        const appUser: User = {
+          id: userData.id,
+          username: userData.username,
+          email: userData.email || undefined,
+          coins: userData.coins || 0,
+          is_admin: userData.is_admin || false,
+          isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
+          language_code: userData.language_code || undefined,
+        };
+        
+        console.log('✅ [USER] User loaded:', appUser.username);
+        setUser(appUser);
+      }
+    } catch (error) {
+      console.error('💥 [USER] Fetch error:', error);
+    }
+  };
+
+  const handleAuthSuccess = (authUser: any) => {
+    console.log('👍 [AUTH] Success callback triggered');
+    // Состояние будет обновлено через onAuthStateChange
   };
 
   const handleUserUpdate = (updatedUser: User) => {
@@ -238,35 +143,16 @@ const MainApp = () => {
     setCurrentScreen("main");
   };
 
-  // Show error screen if there's an auth error
-  if (authError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white flex items-center justify-center">
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-bold mb-4">Ошибка загрузки</h2>
-          <p className="text-gray-400 mb-6">{authError}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg"
-          >
-            Обновить страницу
-          </button>
-        </div>
-      </div>
-    );
+  if (loading) {
+    return <LoadingScreen />;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white overflow-x-hidden">
         <WebViewOptimizer />
-        <SecurityMonitor />
-        <SecurityStatus />
-        <ReferralHandler />
         
-        {loading ? (
-          <LoadingScreen />
-        ) : !user ? (
+        {!user ? (
           <AuthScreen onAuthSuccess={handleAuthSuccess} />
         ) : (
           <>
