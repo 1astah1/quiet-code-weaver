@@ -54,20 +54,81 @@ const MainApp = () => {
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     let loadingTimeout: NodeJS.Timeout;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
 
-    // Set timeout to prevent infinite loading
+    console.log('🚀 [AUTH] Starting authentication initialization');
+
+    // Set a more reasonable timeout
     loadingTimeout = setTimeout(() => {
-      if (mounted) {
-        console.warn('⚠️ [AUTH] Loading timeout reached, setting loading to false');
+      if (mounted && !authInitialized) {
+        console.warn('⚠️ [AUTH] Loading timeout reached');
         setLoading(false);
-        setAuthError('Authentication timeout. Please refresh the page.');
+        setAuthError('Таймаут загрузки. Пожалуйста, обновите страницу.');
       }
-    }, 10000); // 10 seconds timeout
+    }, 15000); // 15 seconds timeout
 
+    const fetchUser = async (userId: string): Promise<boolean> => {
+      try {
+        console.log('👤 [USER] Fetching user data for ID:', userId);
+        
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', userId)
+          .single();
+
+        if (!mounted) return false;
+
+        if (error) {
+          console.error('❌ [USER] Error fetching user:', error);
+          
+          // If user not found and we haven't exceeded retry limit
+          if (error.code === 'PGRST116' && retryCount < MAX_RETRIES) {
+            console.log('🔄 [USER] User not found, retrying...', retryCount + 1);
+            retryCount++;
+            // Wait a bit longer for user creation trigger
+            setTimeout(() => {
+              if (mounted) fetchUser(userId);
+            }, 3000);
+            return false;
+          }
+          
+          throw error;
+        }
+
+        if (user) {
+          console.log('✅ [USER] User data fetched successfully');
+          const appUser: User = {
+            id: user.id,
+            username: user.username,
+            email: user.email || undefined,
+            coins: user.coins || 0,
+            is_admin: user.is_admin || false,
+            isPremium: user.premium_until ? new Date(user.premium_until) > new Date() : false,
+            language_code: user.language_code || undefined,
+          };
+          setUser(appUser);
+          setAuthError(null);
+          return true;
+        }
+
+        return false;
+      } catch (err) {
+        console.error('🔥 [USER] Error during user fetch:', err);
+        if (mounted) {
+          setAuthError('Ошибка загрузки данных пользователя');
+        }
+        return false;
+      }
+    };
+
+    // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -76,124 +137,93 @@ const MainApp = () => {
         
         try {
           if (event === 'SIGNED_IN' && session?.user?.id) {
-            console.log('✅ [AUTH] User signed in:', session.user.id);
-            await fetchUser(session.user.id);
+            console.log('✅ [AUTH] User signed in');
+            const success = await fetchUser(session.user.id);
+            if (success && mounted) {
+              setAuthInitialized(true);
+              setLoading(false);
+            }
           } else if (event === 'SIGNED_OUT') {
             console.log('🚪 [AUTH] User signed out');
-            setUser(null);
-            setAuthError(null);
-          } else if (event === 'INITIAL_SESSION' && session?.user?.id) {
-            console.log('🚀 [AUTH] Initial session detected');
-            await fetchUser(session.user.id);
-          } else if (event === 'INITIAL_SESSION' && !session) {
-            console.log('👻 [AUTH] No initial session');
+            if (mounted) {
+              setUser(null);
+              setAuthError(null);
+              setAuthInitialized(true);
+              setLoading(false);
+            }
+          } else if (event === 'INITIAL_SESSION') {
+            if (session?.user?.id) {
+              console.log('🔄 [AUTH] Initial session with user');
+              const success = await fetchUser(session.user.id);
+              if (mounted) {
+                setAuthInitialized(true);
+                setLoading(false);
+              }
+            } else {
+              console.log('👻 [AUTH] No initial session');
+              if (mounted) {
+                setAuthInitialized(true);
+                setLoading(false);
+              }
+            }
           }
         } catch (error) {
           console.error('❌ [AUTH] Error in auth state change:', error);
-          setAuthError('Authentication error occurred');
-        } finally {
           if (mounted) {
+            setAuthError('Ошибка аутентификации');
+            setAuthInitialized(true);
             setLoading(false);
-            clearTimeout(loadingTimeout);
           }
         }
       }
     );
 
-    // Get initial session with timeout
+    // Get initial session
     const getInitialSession = async () => {
       try {
+        console.log('🔍 [AUTH] Getting initial session');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
 
         if (error) {
           console.error('❌ [AUTH] Error getting session:', error);
-          setAuthError('Failed to get session');
+          setAuthError('Ошибка получения сессии');
+          setAuthInitialized(true);
           setLoading(false);
           return;
         }
 
-        if (session?.user?.id) {
-          console.log('🔥 [AUTH] Session exists, fetching user data');
-          await fetchUser(session.user.id);
-        } else {
-          console.warn('👻 [AUTH] No user in session');
+        // The onAuthStateChange will handle the session
+        if (!session) {
+          console.log('👻 [AUTH] No session found');
+          setAuthInitialized(true);
           setLoading(false);
         }
       } catch (error) {
         console.error('💥 [AUTH] Error getting initial session:', error);
         if (mounted) {
-          setAuthError('Failed to initialize authentication');
+          setAuthError('Ошибка инициализации аутентификации');
+          setAuthInitialized(true);
           setLoading(false);
         }
       }
     };
 
+    // Start the initialization process
     getInitialSession();
 
     return () => {
       mounted = false;
       clearTimeout(loadingTimeout);
-      console.log('🧹 [AUTH] Removing auth listener');
+      console.log('🧹 [AUTH] Cleaning up auth listener');
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  const fetchUser = async (userId: string) => {
-    try {
-      console.log('👤 [USER] Fetching user data for ID:', userId);
-      
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', userId)
-        .single();
-
-      if (error) {
-        console.error('❌ [USER] Error fetching user:', error);
-        
-        // If user not found, try to create one
-        if (error.code === 'PGRST116') {
-          console.log('🔄 [USER] User not found, will be created by trigger');
-          // Give the trigger some time to create the user
-          setTimeout(() => fetchUser(userId), 2000);
-          return;
-        }
-        
-        throw error;
-      }
-
-      if (user) {
-        console.log('✅ [USER] User data fetched:', user);
-        // Transform database user to app user interface
-        const appUser: User = {
-          id: user.id,
-          username: user.username,
-          email: user.email || undefined,
-          coins: user.coins || 0,
-          is_admin: user.is_admin || false,
-          isPremium: user.premium_until ? new Date(user.premium_until) > new Date() : false,
-          language_code: user.language_code || undefined,
-        };
-        setUser(appUser);
-        setAuthError(null);
-      } else {
-        console.warn('⚠️ [USER] User data is null');
-        setAuthError('User data not found');
-      }
-    } catch (err) {
-      console.error('🔥 [USER] Error during user fetch:', err);
-      setAuthError('Failed to load user data');
-      
-      // If we can't fetch user data, sign out to prevent stuck state
-      await supabase.auth.signOut();
-    }
-  };
-
   const handleAuthSuccess = (userId: string) => {
     console.log('👍 [AUTH] Authentication successful, user ID:', userId);
-    fetchUser(userId);
+    // The auth state change listener will handle fetching user data
   };
 
   const handleUserUpdate = (updatedUser: User) => {
