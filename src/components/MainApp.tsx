@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -102,8 +101,40 @@ const MainApp = () => {
         .eq('auth_id', authId)
         .single();
 
-      if (error) {
+      if (error && error.code === 'PGRST116') { // Not found
+        // Попробуем создать пользователя на основе данных из Supabase
+        console.warn('⚠️ [USER] User not found, creating new user...');
+        const { data: { user: supaUser } } = await supabase.auth.getUser();
+        if (supaUser) {
+          const { email, id } = supaUser;
+          const username = email ? email.split('@')[0] : `user_${id.slice(0, 6)}`;
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              auth_id: id,
+              username,
+              email,
+              coins: 0,
+              is_admin: false,
+              premium_until: null,
+              language_code: 'ru',
+            });
+          if (insertError) {
+            console.error('❌ [USER] Failed to create user:', insertError);
+            setLoading(false);
+            return;
+          }
+          // После создания — повторно получить пользователя
+          await fetchUserData(id);
+          return;
+        } else {
+          console.error('❌ [USER] No supabase user found for creation');
+          setLoading(false);
+          return;
+        }
+      } else if (error) {
         console.error('❌ [USER] Error:', error);
+        setLoading(false);
         return;
       }
 
@@ -120,9 +151,13 @@ const MainApp = () => {
         
         console.log('✅ [USER] User loaded:', appUser.username);
         setUser(appUser);
+      } else {
+        // Если по какой-то причине userData нет — сбросить загрузку
+        setLoading(false);
       }
     } catch (error) {
       console.error('💥 [USER] Fetch error:', error);
+      setLoading(false);
     }
   };
 
