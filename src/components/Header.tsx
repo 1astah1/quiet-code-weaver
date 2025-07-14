@@ -36,10 +36,14 @@ const Header = ({ currentUser, onMenuClick }: HeaderProps) => {
                 {currentUser.username}
               </span>
               {currentUser.isPremium && (
-                <Crown className="w-4 h-4 text-yellow-500" title="Premium пользователь" />
+                <div title="Premium пользователь">
+                  <Crown className="w-4 h-4 text-yellow-500" />
+                </div>
               )}
               {currentUser.is_admin && (
-                <Shield className="w-4 h-4 text-red-500" title="Администратор" />
+                <div title="Администратор">
+                  <Shield className="w-4 h-4 text-red-500" />
+                </div>
               )}
             </div>
             {currentUser.isPremium && (

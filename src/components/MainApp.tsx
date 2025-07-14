@@ -240,10 +240,10 @@ const MainApp = () => {
   // Глобальный фикс для NotFoundError при повторном removeChild (ошибка порталов)
   React.useEffect(() => {
     const origRemoveChild = Node.prototype.removeChild;
-    Node.prototype.removeChild = function(child) {
+    Node.prototype.removeChild = function<T extends Node>(child: T): T {
       try {
-        return origRemoveChild.call(this, child);
-      } catch (e) {
+        return origRemoveChild.call(this, child) as T;
+      } catch (e: any) {
         if (e && typeof e === 'object' && e.name === 'NotFoundError') {
           // Игнорируем ошибку двойного удаления
           return child;
