@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +43,6 @@ const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 10,
       retry: (failureCount, error) => {
-        // Не повторяем попытки для ошибок аутентификации
         if (error && typeof error === 'object' && 'code' in error) {
           const code = (error as any).code;
           if (code === 'PGRST301' || code === 'PGRST116') {
@@ -62,6 +61,19 @@ const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  
+  // Используем ref для предотвращения множественных вызовов fetchUserData
+  const fetchingUserRef = useRef(false);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Очищаем таймеры при размонтировании
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     console.log('🚀 [AUTH] Initializing authentication');
@@ -70,14 +82,12 @@ const MainApp = () => {
     
     const initAuth = async () => {
       try {
-        // Упрощенная инициализация без агрессивных signOut
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
         if (sessionError) {
           console.warn('⚠️ [AUTH] Session error (recoverable):', sessionError.message);
-          // Не критическая ошибка - просто показываем экран входа
         }
         
         if (session?.user) {
@@ -101,7 +111,6 @@ const MainApp = () => {
       }
     };
 
-    // Слушаем изменения состояния авторизации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
@@ -116,13 +125,16 @@ const MainApp = () => {
             console.log('🚪 [AUTH] User signed out');
             setUser(null);
             setError(null);
+            fetchingUserRef.current = false;
           } else if (event === 'TOKEN_REFRESHED' && session?.user) {
             console.log('🔄 [AUTH] Token refreshed for:', session.user.id);
-            // Не нужно перезагружать пользователя при обновлении токена
+            // Не перезагружаем пользователя при обновлении токена если он уже есть
+            if (!user) {
+              await fetchUserData(session.user.id);
+            }
           }
         } catch (error: any) {
           console.error('❌ [AUTH] State change error:', error);
-          // Мягкая обработка ошибок - не блокируем интерфейс
           setError('Ошибка обработки авторизации');
         }
         
@@ -136,9 +148,17 @@ const MainApp = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [user]); // Добавляем user в зависимости
 
   const fetchUserData = async (authId: string, retryCount: number = 0) => {
+    // Предотвращаем множественные одновременные вызовы
+    if (fetchingUserRef.current) {
+      console.log('🔄 [USER] Already fetching user data, skipping...');
+      return;
+    }
+
+    fetchingUserRef.current = true;
+
     try {
       console.log('👤 [USER] Fetching user data for:', authId, `(attempt ${retryCount + 1})`);
       
@@ -150,10 +170,18 @@ const MainApp = () => {
 
       if (error) {
         if (error.code === 'PGRST116' && retryCount < 2) {
-          // Пользователь не найден - попытка создать
           console.warn('⚠️ [USER] User not found, attempting to create...');
           await createUserProfile(authId);
-          return fetchUserData(authId, retryCount + 1);
+          
+          // Retry через короткую задержку
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+          }
+          retryTimeoutRef.current = setTimeout(() => {
+            fetchingUserRef.current = false;
+            fetchUserData(authId, retryCount + 1);
+          }, 1000);
+          return;
         }
         throw error;
       }
@@ -178,12 +206,18 @@ const MainApp = () => {
       
       if (retryCount < 2) {
         console.log('🔄 [USER] Retrying user fetch...');
-        setTimeout(() => {
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(() => {
+          fetchingUserRef.current = false;
           fetchUserData(authId, retryCount + 1);
-        }, 1000 * (retryCount + 1));
+        }, 2000 * (retryCount + 1));
       } else {
         setError('Не удалось загрузить данные пользователя');
       }
+    } finally {
+      fetchingUserRef.current = false;
     }
   };
 
@@ -202,7 +236,7 @@ const MainApp = () => {
           auth_id: authId,
           username,
           email: supaUser.email,
-          coins: 1000, // Стартовый баланс
+          coins: 1000,
           is_admin: false,
           premium_until: null,
           language_code: 'ru',
@@ -221,7 +255,6 @@ const MainApp = () => {
 
   const handleAuthSuccess = (authUser: any) => {
     console.log('👍 [AUTH] Success callback triggered');
-    // Состояние будет обновлено через onAuthStateChange
   };
 
   const handleUserUpdate = (updatedUser: User) => {
