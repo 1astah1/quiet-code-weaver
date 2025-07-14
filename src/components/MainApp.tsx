@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,7 +16,6 @@ import AdminPanel from "./AdminPanel";
 import WatermelonGameScreen from "./game/WatermelonGameScreen";
 import QuizScreen from "./quiz/QuizScreen";
 import WebViewOptimizer from "./WebViewOptimizer";
-import { clearAllCache } from '@/utils/clearCache';
 
 interface User {
   id: string;
@@ -42,6 +42,16 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 10,
+      retry: (failureCount, error) => {
+        // Не повторяем попытки для ошибок аутентификации
+        if (error && typeof error === 'object' && 'code' in error) {
+          const code = (error as any).code;
+          if (code === 'PGRST301' || code === 'PGRST116') {
+            return false;
+          }
+        }
+        return failureCount < 2;
+      }
     },
   },
 });
@@ -51,42 +61,71 @@ const MainApp = () => {
   const [user, setUser] = useState<User | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>("main");
   const [error, setError] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     console.log('🚀 [AUTH] Initializing authentication');
-
-    // Простая инициализация аутентификации
+    
+    let isMounted = true;
+    
     const initAuth = async () => {
       try {
-        // Проверяем текущую сессию
+        // Упрощенная инициализация без агрессивных signOut
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
         if (sessionError) {
-          setError('Ошибка получения сессии: ' + sessionError.message);
+          console.warn('⚠️ [AUTH] Session error (recoverable):', sessionError.message);
+          // Не критическая ошибка - просто показываем экран входа
         }
+        
         if (session?.user) {
+          console.log('✅ [AUTH] Found existing session:', session.user.id);
           await fetchUserData(session.user.id);
+        } else {
+          console.log('ℹ️ [AUTH] No existing session');
         }
+        
+        setAuthReady(true);
       } catch (error: any) {
-        setError('Ошибка инициализации: ' + (error?.message || error));
         console.error('❌ [AUTH] Init error:', error);
+        if (isMounted) {
+          setError('Ошибка инициализации. Попробуйте обновить страницу.');
+          setAuthReady(true);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    // Слушаем изменения состояния аутентификации
+    // Слушаем изменения состояния авторизации
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 [AUTH] State change:', event);
+        if (!isMounted) return;
+        
+        console.log('🔄 [AUTH] State change:', event, session?.user?.id);
+        
         try {
           if (event === 'SIGNED_IN' && session?.user) {
+            console.log('✅ [AUTH] User signed in:', session.user.id);
             await fetchUserData(session.user.id);
           } else if (event === 'SIGNED_OUT') {
+            console.log('🚪 [AUTH] User signed out');
             setUser(null);
+            setError(null);
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            console.log('🔄 [AUTH] Token refreshed for:', session.user.id);
+            // Не нужно перезагружать пользователя при обновлении токена
           }
-        } catch (e: any) {
-          setError('Ошибка при обработке события аутентификации: ' + (e?.message || e));
+        } catch (error: any) {
+          console.error('❌ [AUTH] State change error:', error);
+          // Мягкая обработка ошибок - не блокируем интерфейс
+          setError('Ошибка обработки авторизации');
         }
+        
         setLoading(false);
       }
     );
@@ -94,84 +133,29 @@ const MainApp = () => {
     initAuth();
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  // Автоматическая очистка кэша, если загрузка длится слишком долго
-  useEffect(() => {
-    if (loading) {
-      const timeout = setTimeout(() => {
-        if (loading) {
-          console.warn('⏳ [AUTH] Loading too long, clearing cache...');
-          clearAllCache();
-          window.location.reload();
-        }
-      }, 5000); // 5 секунд
-      return () => clearTimeout(timeout);
-    }
-  }, [loading]);
-
-  const fetchUserData = async (authId: string) => {
+  const fetchUserData = async (authId: string, retryCount: number = 0) => {
     try {
-      console.log('👤 [USER] Fetching user data for:', authId);
+      console.log('👤 [USER] Fetching user data for:', authId, `(attempt ${retryCount + 1})`);
+      
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
         .single();
 
-      if (error && error.code === 'PGRST116') { // Not found
-        // Попробуем создать пользователя на основе данных из Supabase
-        console.warn('⚠️ [USER] User not found, creating new user...');
-        const { data: { user: supaUser }, error: supaUserError } = await supabase.auth.getUser();
-        if (supaUserError) {
-          setError('Ошибка получения пользователя из Supabase: ' + supaUserError.message);
-          setLoading(false);
-          // Если не удалось получить пользователя из Supabase — выходим из сессии
-          await supabase.auth.signOut();
-          return;
+      if (error) {
+        if (error.code === 'PGRST116' && retryCount < 2) {
+          // Пользователь не найден - попытка создать
+          console.warn('⚠️ [USER] User not found, attempting to create...');
+          await createUserProfile(authId);
+          return fetchUserData(authId, retryCount + 1);
         }
-        if (supaUser) {
-          const { email, id } = supaUser;
-          const username = email ? email.split('@')[0] : `user_${id.slice(0, 6)}`;
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: id,
-              username,
-              email,
-              coins: 0,
-              is_admin: false,
-              premium_until: null,
-              language_code: 'ru',
-            });
-          if (insertError) {
-            setError('Ошибка создания пользователя: ' + insertError.message);
-            console.error('❌ [USER] Failed to create user:', insertError);
-            setLoading(false);
-            // Если не удалось создать пользователя — выходим из сессии
-            await supabase.auth.signOut();
-            return;
-          }
-          // После создания — повторно получить пользователя
-          await fetchUserData(id);
-          return;
-        } else {
-          setError('Нет данных пользователя для создания профиля.');
-          console.error('❌ [USER] No supabase user found for creation');
-          setLoading(false);
-          // Если нет данных пользователя — выходим из сессии
-          await supabase.auth.signOut();
-          return;
-        }
-      } else if (error) {
-        setError('Ошибка запроса пользователя: ' + error.message);
-        console.error('❌ [USER] Error:', error);
-        setLoading(false);
-        // Если ошибка при запросе пользователя — выходим из сессии
-        await supabase.auth.signOut();
-        return;
+        throw error;
       }
 
       if (userData) {
@@ -184,20 +168,54 @@ const MainApp = () => {
           isPremium: userData.premium_until ? new Date(userData.premium_until) > new Date() : false,
           language_code: userData.language_code || undefined,
         };
-        console.log('✅ [USER] User loaded:', appUser.username);
+        
+        console.log('✅ [USER] User loaded:', appUser.username, 'Balance:', appUser.coins);
         setUser(appUser);
-      } else {
-        setError('Пользователь не найден и не может быть создан.');
-        setLoading(false);
-        // Если не найден пользователь — выходим из сессии
-        await supabase.auth.signOut();
+        setError(null);
       }
     } catch (error: any) {
-      setError('Ошибка загрузки пользователя: ' + (error?.message || error));
       console.error('💥 [USER] Fetch error:', error);
-      setLoading(false);
-      // Если критическая ошибка — выходим из сессии
-      await supabase.auth.signOut();
+      
+      if (retryCount < 2) {
+        console.log('🔄 [USER] Retrying user fetch...');
+        setTimeout(() => {
+          fetchUserData(authId, retryCount + 1);
+        }, 1000 * (retryCount + 1));
+      } else {
+        setError('Не удалось загрузить данные пользователя');
+      }
+    }
+  };
+
+  const createUserProfile = async (authId: string) => {
+    try {
+      const { data: { user: supaUser } } = await supabase.auth.getUser();
+      if (!supaUser) throw new Error('No user data from Supabase');
+
+      const username = supaUser.email 
+        ? supaUser.email.split('@')[0] 
+        : `user_${authId.slice(0, 6)}`;
+
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          auth_id: authId,
+          username,
+          email: supaUser.email,
+          coins: 1000, // Стартовый баланс
+          is_admin: false,
+          premium_until: null,
+          language_code: 'ru',
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      console.log('✅ [USER] Created new user profile:', username);
+    } catch (error: any) {
+      console.error('❌ [USER] Failed to create user profile:', error);
+      throw error;
     }
   };
 
@@ -207,6 +225,7 @@ const MainApp = () => {
   };
 
   const handleUserUpdate = (updatedUser: User) => {
+    console.log('🔄 [USER] Updating user data:', updatedUser.username, 'Balance:', updatedUser.coins);
     setUser(updatedUser);
   };
 
@@ -237,7 +256,7 @@ const MainApp = () => {
     };
   }, []);
 
-  if (loading) {
+  if (loading || !authReady) {
     return <LoadingScreen error={error ?? undefined} />;
   }
 
@@ -258,20 +277,29 @@ const MainApp = () => {
               {currentScreen === "main" && (
                 <MainScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                   onScreenChange={setCurrentScreen}
                 />
               )}
               {currentScreen === "skins" && (
                 <SkinsScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                 />
               )}
               {currentScreen === "inventory" && (
                 <InventoryScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                 />
               )}
               {currentScreen === "settings" && (
@@ -283,7 +311,10 @@ const MainApp = () => {
               {currentScreen === "tasks" && (
                 <TasksScreen 
                   currentUser={user} 
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                 />
               )}
               {currentScreen === "admin" && user.is_admin && (
@@ -292,14 +323,20 @@ const MainApp = () => {
               {currentScreen === "watermelon" && (
                 <WatermelonGameScreen 
                   currentUser={user}
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                   onBack={handleBackToMain}
                 />
               )}
               {currentScreen === "quiz" && (
                 <QuizScreen 
                   currentUser={user}
-                  onCoinsUpdate={(newCoins: number) => setUser({...user, coins: newCoins})}
+                  onCoinsUpdate={(newCoins: number) => {
+                    console.log('💰 [BALANCE] Updating coins from', user.coins, 'to', newCoins);
+                    setUser({...user, coins: newCoins});
+                  }}
                 />
               )}
             </main>

@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import TermsOfServiceModal from "@/components/settings/TermsOfServiceModal";
 import PrivacyPolicyModal from "@/components/settings/PrivacyPolicyModal";
@@ -18,21 +18,31 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   const { toast } = useToast();
 
   const handleSocialAuth = async (provider: 'google' | 'apple' | 'facebook') => {
+    // Предотвращаем множественные клики
+    if (isLoading) {
+      console.log('⏳ [AUTH] Auth already in progress');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setLoadingProvider(provider);
 
-      console.log(`🔐 [AUTH_SCREEN] Starting ${provider} authentication`);
+      console.log(`🔐 [AUTH] Starting ${provider} authentication`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider,
         options: {
           redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
 
       if (error) {
-        console.error(`❌ [AUTH_SCREEN] ${provider} auth error:`, error);
+        console.error(`❌ [AUTH] ${provider} auth error:`, error);
         
         toast({
           title: "Ошибка авторизации",
@@ -42,10 +52,10 @@ const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         return;
       }
 
-      console.log(`✅ [AUTH_SCREEN] ${provider} auth initiated successfully`);
+      console.log(`✅ [AUTH] ${provider} auth initiated successfully`);
 
     } catch (error) {
-      console.error('💥 [AUTH_SCREEN] Unexpected auth error:', error);
+      console.error('💥 [AUTH] Unexpected auth error:', error);
       toast({
         title: "Ошибка",
         description: "Произошла неожиданная ошибка при авторизации",
