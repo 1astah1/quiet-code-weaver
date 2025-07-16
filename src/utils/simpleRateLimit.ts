@@ -16,7 +16,7 @@ class SimpleClientRateLimit {
     return SimpleClientRateLimit.instance;
   }
 
-  checkLimit(key: string, maxRequests: number = 10, windowMs: number = 60000): boolean {
+  checkLimit(key: string, maxRequests: number = 15, windowMs: number = 60000): boolean {
     const now = Date.now();
     const entry = this.limits.get(key);
     

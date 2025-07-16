@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useSecureShop } from "@/hooks/useSecureShop";
-import { enhancedValidation, SecurityMonitor } from "@/utils/securityEnhanced";
+import { useUnifiedPurchase } from "@/hooks/useUnifiedShop";
 import ShopFilters from "./ShopFilters";
 import ShopSkinCard from "./ShopSkinCard";
 import ShopEmptyState from "./ShopEmptyState";
@@ -54,7 +53,7 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     item: Skin | null;
   }>({ isOpen: false, item: null });
   
-  const { purchaseMutation, isPurchasing, isAdmin } = useSecureShop(currentUser);
+  const { purchaseMutation, isPurchasing } = useUnifiedPurchase(currentUser, onCoinsUpdate);
 
   // Скины
   const { data: skins, isLoading: isSkinsLoading, refetch } = useQuery({
@@ -72,21 +71,18 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
         throw error;
       }
       
-      // Валидация и санитизация данных скинов
+      // Простая валидация данных скинов
       const validatedSkins = (data || []).filter(skin => {
         return (
-          enhancedValidation.uuid(skin.id) &&
+          skin.id &&
           skin.name && 
           typeof skin.name === 'string' &&
           skin.name.length > 0 &&
-          enhancedValidation.skinPrice(skin.price) &&
-          enhancedValidation.checkSqlInjection(skin.name)
+          typeof skin.price === 'number' &&
+          skin.price >= 0
         );
       }).map(skin => ({
         ...skin,
-        name: enhancedValidation.sanitizeString(skin.name),
-        weapon_type: enhancedValidation.sanitizeString(skin.weapon_type || ''),
-        rarity: enhancedValidation.sanitizeString(skin.rarity || ''),
         price: Math.max(0, Math.min(1000000, Math.floor(skin.price)))
       }));
       
@@ -130,10 +126,9 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  // ИСПРАВЛЕНО: Безопасная фильтрация и сортировка
+  // Фильтрация и сортировка
   const filteredAndSortedSkins = skins?.filter(skin => {
-    // Дополнительная валидация на фронтенде
-    if (!skin || !enhancedValidation.uuid(skin.id)) return false;
+    if (!skin || !skin.id) return false;
     
     const rarityMatch = selectedRarity === "all" || skin.rarity === selectedRarity;
     const weaponMatch = selectedWeapon === "all" || skin.weapon_type === selectedWeapon;
@@ -175,42 +170,21 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
     console.log('🛒 [SHOP] Handle purchase clicked for:', skin.name);
     
     try {
-      // Дополнительные проверки безопасности
-      if (!enhancedValidation.uuid(skin.id)) {
-        throw new Error('Некорректный ID скина');
-      }
-      
       if (isPurchasing) {
         console.log('⏳ [SHOP] Purchase already in progress, ignoring click');
         return;
       }
       
-      // Проверяем rate limiting на клиенте
-      if (!SecurityMonitor.checkClientRateLimit(currentUser.id, 'purchase_click', 5)) {
-        throw new Error('Слишком много попыток покупки. Подождите немного.');
-      }
-      
       const result = await purchaseMutation.mutateAsync(skin);
-      
-      // Обновляем баланс пользователя
-      onCoinsUpdate(result.newCoins);
       
       // Показываем модальное окно успеха
       setPurchaseSuccessModal({
         isOpen: true,
-        item: result.purchasedSkin
+        item: result.skin
       });
       
     } catch (error) {
       console.error('💥 [SHOP] Purchase handling error:', error);
-      
-      // Логируем подозрительную активность при ошибках
-      await SecurityMonitor.logSuspiciousActivity(
-        currentUser.id, 
-        'purchase_click_error', 
-        { error: error instanceof Error ? error.message : 'Unknown error', skinId: skin.id },
-        'low'
-      );
     }
   };
 
@@ -259,16 +233,12 @@ const ShopTab = ({ currentUser, onCoinsUpdate, onTabChange }: ShopTabProps) => {
   };
 
   const handleRarityChange = (rarity: string) => {
-    // Санитизация выбора редкости
-    const sanitizedRarity = enhancedValidation.sanitizeString(rarity);
-    setSelectedRarity(sanitizedRarity);
+    setSelectedRarity(rarity);
     setCurrentPage(1);
   };
 
   const handleWeaponChange = (weapon: string) => {
-    // Санитизация выбора оружия
-    const sanitizedWeapon = enhancedValidation.sanitizeString(weapon);
-    setSelectedWeapon(sanitizedWeapon);
+    setSelectedWeapon(weapon);
     setCurrentPage(1);
   };
 

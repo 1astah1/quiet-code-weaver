@@ -11,8 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, SortAsc, SortDesc, DollarSign, Package, Gift, Crown, Zap, Star, Flame } from "lucide-react";
-import { useSecureInventory, useUserInventory } from '@/hooks/useSecureInventory';
-import { inventoryLimiter } from '@/utils/rateLimiter';
+import { useUnifiedSale, useUnifiedInventory } from '@/hooks/useUnifiedShop';
 import { Loader2, Coins, Download, ExternalLink } from 'lucide-react';
 import OptimizedImage from '@/components/ui/OptimizedImage';
 import WithdrawSkinModal from "./WithdrawSkinModal";
@@ -30,8 +29,8 @@ interface InventoryScreenProps {
 
 const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: InventoryScreenProps) => {
   const queryClient = useQueryClient();
-  const { data: inventory, isLoading, error, refetch } = useUserInventory(currentUser.id);
-  const { sellSkin } = useSecureInventory();
+  const { data: inventory, isLoading, error, refetch } = useUnifiedInventory(currentUser.id);
+  const { sellMutation, isSelling } = useUnifiedSale(currentUser, onCoinsUpdate);
   const { toast } = useToast();
   
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -52,6 +51,7 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: In
   const handleSellSkin = async (inventoryId: string) => {
     try {
       if (!inventory) return;
+      
       const item = inventory.find((i: any) => i.id === inventoryId);
       if (!item || item.is_sold) {
         toast({
@@ -61,43 +61,15 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: In
         });
         return;
       }
-      if (!inventoryLimiter.isAllowed(currentUser.id)) {
-        toast({
-          title: "Слишком много операций",
-          description: "Подождите немного перед следующей продажей",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (sellSkinMutation.isPending) {
+      
+      if (isSelling) {
         console.log('Sell already in progress');
         return;
       }
-      const result = await sellSkinMutation.mutateAsync({
-        inventoryId,
-        userId: currentUser.id,
-      });
-      if (result && result.newBalance !== undefined) {
-        toast({
-          title: "Успех",
-          description: "Скин успешно продан!",
-        });
-        console.log('Skin sold, updating coins to:', result.newBalance);
-        onCoinsUpdate(result.newBalance);
-        await refetch();
-      } else if (result && result.error) {
-        toast({
-          title: "Ошибка продажи",
-          description: result.error,
-          variant: "destructive",
-        });
-      }
+      
+      await sellMutation.mutateAsync(inventoryId);
+      
     } catch (error) {
-      toast({
-        title: "Критическая ошибка",
-        description: error instanceof Error ? error.message : 'Неизвестная ошибка',
-        variant: "destructive",
-      });
       console.error('Error selling skin:', error);
     }
   };
@@ -107,11 +79,6 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: In
     setWithdrawModalOpen(true);
   };
 
-  const sellSkinMutation = useMutation({
-    mutationFn: async ({ inventoryId, userId }: { inventoryId: string, userId: string }) => {
-      return await sellSkin(inventoryId, userId);
-    }
-  });
 
   // При монтировании сохраняем refetch
   useEffect(() => {
@@ -215,10 +182,10 @@ const InventoryScreen = ({ currentUser, onCoinsUpdate, setInventoryRefetch }: In
                   <div className="space-y-1">
                     <button
                       onClick={() => handleSellSkin(item.id)}
-                      disabled={sellSkinMutation.isPending}
+                      disabled={isSelling}
                       className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-1 py-1 sm:py-1.5 rounded text-[9px] sm:text-xs font-medium transition-all flex items-center justify-center space-x-0.5 sm:space-x-1"
                     >
-                      {sellSkinMutation.isPending ? (
+                      {isSelling ? (
                         <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
                       ) : (
                         <>
